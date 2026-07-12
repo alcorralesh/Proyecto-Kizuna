@@ -7,7 +7,90 @@ const ar01Tickets=[{id:'AR01-TICKET-01',title:'Billete Enoden',src:'BilleteEnode
 folders['AR-01'].files.push({id:'AR01-04',title:'Boarding pass · José Cuadrado',src:'04-Boarding-pass-Jose.png'},{id:'AR01-05',title:'JR Pass',src:'05-JR-Pass.png'},{id:'AR01-BILLETES',title:'Carpeta · Billetes de transporte',mosaic:'tickets'});
 const ar03Cities=['01-Tokyo.png','02-Tokyo_barrios.png','03-Kyoto.png','04-Osaka.png','05-Nara.png','06-Hiroshima.png','07-Miyajima.png','08-Nikko.png','09-Hakone.png','10-Kamakura.png','11-Yokohama.png','12-Kanazawa.png'];
 const ar03Temples=['001-Fushimi Inari.png','002-Kiyomizu Dera.png','003-Kinkaku ji.png','004-Todai ji.png','005-Itsukushima.png','006-Senso ji.png','007-Meiji jingu.png','008-Kotoku in.png','009-Ginkaku ji.png','010-Tenryu ji.png','011-Kasuga taisha.png','012-nikko tosho gu.png','013-Hase dera.png','014-Yasaka shrine.png','015-Arashiyama bamboo grove.png','016-Heian jingu.png'];
-const read=()=>JSON.parse(localStorage.getItem('kizuna-read')||'[]');const save=items=>localStorage.setItem('kizuna-read',JSON.stringify(items));const isFolder=id=>id.startsWith('AR-');const fileFolder=id=>Object.keys(folders).find(key=>folders[key].files.some(file=>file.id===id));
+const supabaseUrl='https://vcwqkideizdrhzpbghkj.supabase.co';
+const supabaseKey='sb_publishable_h3pjxT8UPZkYqRhLskVdlA_m-ulI4EF';
+let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null;
+const localState=()=>({read:JSON.parse(localStorage.getItem('kizuna-read')||'[]'),mailRead:Number(localStorage.getItem('kizuna-mail-read')||0),finalFileSeen:localStorage.getItem('kizuna-final-file-seen')==='true',completed:localStorage.getItem('kizuna-complete')==='true'});
+const getState=()=>remoteState||localState();
+const read=()=>getState().read||[];
+const persistRemote=async()=>{if(!supabaseClient||!currentUser||!remoteState)return;const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:currentUser.id,state:remoteState,updated_at:new Date().toISOString()});if(error)console.error('No se pudo guardar el progreso remoto.',error)};
+const patchState=changes=>{if(remoteState){remoteState={...remoteState,...changes};persistRemote();return}const state={...localState(),...changes};localStorage.setItem('kizuna-read',JSON.stringify(state.read));localStorage.setItem('kizuna-mail-read',String(state.mailRead));localStorage.setItem('kizuna-final-file-seen',String(state.finalFileSeen));localStorage.setItem('kizuna-complete',String(state.completed))};
+const save=items=>patchState({read:items});
+const getSupabase=async()=>{if(supabaseClient)return supabaseClient;if(!window.supabase){if(!supabaseScript){supabaseScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)})}await supabaseScript}supabaseClient=window.supabase.createClient(supabaseUrl,supabaseKey);return supabaseClient};
+const loadRemoteProgress=async user=>{currentUser=user;const client=await getSupabase();const {data,error}=await client.from('expedient_progress').select('state').eq('user_id',user.id).maybeSingle();if(error)throw error;if(data?.state){remoteState={read:[],mailRead:0,finalFileSeen:false,completed:false,...data.state};return}remoteState=localState();await persistRemote()};
+const isFolder=id=>id.startsWith('AR-');const fileFolder=id=>Object.keys(folders).find(key=>folders[key].files.some(file=>file.id===id));
+const nativeGetItem=Storage.prototype.getItem,nativeSetItem=Storage.prototype.setItem;
+Storage.prototype.getItem=function(key){if(this===localStorage&&remoteState&&key==='kizuna-read')return JSON.stringify(remoteState.read||[]);if(this===localStorage&&remoteState&&key==='kizuna-mail-read')return String(remoteState.mailRead||0);if(this===localStorage&&remoteState&&key==='kizuna-final-file-seen')return String(Boolean(remoteState.finalFileSeen));if(this===localStorage&&remoteState&&key==='kizuna-complete')return String(Boolean(remoteState.completed));return nativeGetItem.call(this,key)};
+Storage.prototype.setItem=function(key,value){if(this===localStorage&&remoteState&&key==='kizuna-read'){patchState({read:JSON.parse(value||'[]')});return}if(this===localStorage&&remoteState&&key==='kizuna-mail-read'){patchState({mailRead:Number(value||0)});return}if(this===localStorage&&remoteState&&key==='kizuna-final-file-seen'){patchState({finalFileSeen:value==='true'});return}if(this===localStorage&&remoteState&&key==='kizuna-complete'){if(value==='false')patchState({completed:false});return}return nativeSetItem.call(this,key,value)};
+setTimeout(()=>{
+  // Sustituye el acceso local por la identidad real de Supabase cuando el
+  // resto de la interfaz ya se ha inicializado.
+  document.querySelector('#access-form').onsubmit=async event=>{
+    event.preventDefault();
+    const email=document.querySelector('#username').value.trim();
+    const password=document.querySelector('#password').value;
+    const submit=document.querySelector('#access-form button');
+    message.textContent='Verificando autorización…';
+    submit.disabled=true;
+    try{
+      const client=await getSupabase();
+      const {data,error}=await client.auth.signInWithPassword({email,password});
+      if(error)throw error;
+      await loadRemoteProgress(data.user);
+      message.textContent='';
+      openDashboard();
+    }catch(error){message.textContent='No se han podido verificar las credenciales de acceso.';console.error(error)}finally{submit.disabled=false}
+  };
+  document.querySelector('#exit').onclick=async()=>{try{if(supabaseClient)await supabaseClient.auth.signOut()}finally{currentUser=null;remoteState=null;location.href='../index.html'}};
+  let finalSequenceActive=false,finalPopupPending=false;
+  const originalStartFinale=startFinale,originalFinalAlert=showFinalFileAlert;
+  startFinale=()=>{finalSequenceActive=true;finalPopupPending=true;return originalStartFinale()};
+  showFinalFileAlert=()=>{if(finalSequenceActive||finalPopupPending)return;return originalFinalAlert()};
+  viewer.addEventListener('close',()=>{if(!finalPopupPending)return;finalPopupPending=false;setTimeout(()=>showFinalFileAlert(),250)});
+  const openGuaranteedFinalAlert=()=>{
+    if(getState().finalAlertShown)return;
+    patchState({completed:true,finalAlertShown:true});
+    document.querySelector('#final-file-alert')?.remove();
+    const alert=document.createElement('section');
+    alert.id='final-file-alert';
+    alert.style.cssText='position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:#17211ddd;color:#f6f0e2';
+    alert.innerHTML='<div style="width:min(530px,88vw);padding:46px;background:#efe4cf;color:#202726;border:2px solid #7e1b19;box-shadow:14px 16px 0 #0005"><p style="margin:0 0 18px;color:#7e1b19;font:10px var(--mono);letter-spacing:.12em">ATENCIÓN REQUERIDA · VERIFICACIÓN FINAL</p><h2 style="font:600 47px/.92 var(--serif);margin:0">Se ha localizado<br>un <em style="color:#7e1b19">archivo.</em></h2><p style="font:14px/1.7 var(--mono);margin:28px 0">Durante la verificación final del expediente se ha detectado un registro no catalogado.</p><p style="font:11px/1.8 var(--mono)">CLASIFICACIÓN: NO CATALOGADO<br>ESTADO: PENDIENTE DE REVISIÓN</p><button id="final-file-alert-open" style="margin-top:22px;background:#7e1b19;color:#fff;border:0;padding:15px 18px;font:10px var(--mono);cursor:pointer">Consultar archivo →</button></div>';
+    document.body.appendChild(alert);
+    document.querySelector('#final-file-alert-open').onclick=()=>{alert.remove();patchState({finalFileSeen:true});openFinalLocatedFile()};
+  };
+  const originalShowFinaleMessage=showFinaleMessage;
+  showFinaleMessage=()=>{
+    originalShowFinaleMessage();
+    const continueButton=document.querySelector('#final-continue');
+    if(continueButton)continueButton.onclick=()=>{viewer.close();patchState({completed:true,finalFileSeen:false});setTimeout(()=>{render();openGuaranteedFinalAlert()},180)};
+  };
+  openDashboard=()=>{
+    const done=read(),reviewed=progressKeys.filter(id=>done.includes(id)).length;
+    const integrity=Math.round(reviewed/progressKeys.length*100);
+    const ktbReviewed=done.filter(id=>id.startsWith('KTB-'));
+    const lastDocument=ktbReviewed.at(-1)||'Sin documentos confirmados';
+    access.hidden=true;
+    loading.hidden=false;
+    const log=document.querySelector('#auth-log');
+    log.innerHTML=`<p>Comprobando expediente…</p><div style="height:8px;background:#d3c8b4"><i id="auth-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.3s ease"></i></div><p>Registros confirmados: <strong>${reviewed} de ${progressKeys.length}</strong></p><p>Última consulta: <strong>${lastDocument}</strong></p><p>Integridad documental: <strong>${integrity} %</strong></p>`;
+    setTimeout(()=>document.querySelector('#auth-progress').style.width=`${integrity}%`,80);
+    setTimeout(()=>{loading.hidden=true;dash.hidden=false;render()},2300);
+  };
+  mark.onclick=()=>{
+    const done=read(),alreadyRead=done.includes(active);
+    if(!alreadyRead){done.push(active);save(done)}
+    if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}
+    const parent=fileFolder(active);
+    if(parent){openFolder(parent);return}
+    if(active.startsWith('KTB-')){
+      if(alreadyRead){viewer.close();render();return}
+      const id=active;
+      syncKtb(id,()=>{if(id==='KTB-014'){localStorage.setItem('kizuna-complete','true');startFinale()}else{viewer.close();render()}});
+      return;
+    }
+    viewer.close();render();
+  };
+},0);
 const progressKeys=[...Array.from({length:14},(_,i)=>`KTB-${String(i+1).padStart(3,'0')}`),...Object.values(folders).flatMap(folder=>folder.files.map(file=>file.id)),'AR03-CARTA',...ar03Cities.map((_,i)=>`AR03-C-${i}`),...ar03Temples.map((_,i)=>`AR03-T-${i}`),...ar01Tickets.map(ticket=>ticket.id),'AR06-PROTOCOL'];
 const name=id=>isFolder(id)?`Carpeta ${id} · ${folderDetails[id][0]}`:`Expediente ${id}`;const gate=document.querySelector('#gate'),access=document.querySelector('#access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc');let active='';
 const imageToolsStyle=document.createElement('style');imageToolsStyle.textContent=`.image-inspector{position:relative;max-height:64vh;overflow:auto;background:#1b211f;border:1px solid #8b887d;cursor:grab;touch-action:pan-x pan-y}.image-inspector:active{cursor:grabbing}.image-inspector img{max-width:none!important;margin:0!important}.image-tools{display:flex;align-items:center;gap:6px;margin:10px 0 20px}.image-tools button{border:1px solid #7e1b19;background:#f7edda;color:#7e1b19;padding:7px 9px;font:10px var(--mono);cursor:pointer}.image-tools button:hover{background:#7e1b19;color:#fff}.image-inspector:fullscreen{max-height:none;width:100%;height:100%;padding:20px;background:#171d1b;display:flex;align-items:center;justify-content:center}.image-inspector:fullscreen img{max-height:100%;width:auto!important;height:auto}@media(max-width:700px){.image-inspector{max-height:58vh}.image-tools{flex-wrap:wrap}}`;document.head.appendChild(imageToolsStyle);
