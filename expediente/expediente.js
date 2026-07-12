@@ -130,3 +130,81 @@ function startFinale(){next.style.display='none';mark.style.display='none';docum
 function showFinaleMessage(){document.querySelector('#doc-type').textContent='KIZUNA TRAVEL BUREAU';document.querySelector('#doc-title').textContent='PROJECT JAPAN';document.querySelector('#doc-body').innerHTML=`<p><strong>Estado del expediente</strong><br>COMPLETADO</p><p>Durante las últimas semanas has recorrido un expediente que nunca debió existir.</p><p>Has leído documentos escritos antes de ser creados. Has seguido el rastro de recuerdos que todavía no habían sucedido.</p><p>Y, aun así…</p><p>Has llegado exactamente al lugar al que debías llegar.</p><p>Gracias por confiar en nosotros.</p><p>Ha sido un honor acompañarte durante esta expedición.</p><p><strong>KIZUNA TRAVEL BUREAU</strong></p><button id="final-continue">Continuar</button>`;document.querySelector('#final-continue').onclick=()=>{viewer.close();render();setTimeout(showFinalFileAlert,180)}}
 function showFinalLogo(){document.querySelector('#doc-type').textContent='';document.querySelector('#doc-title').textContent='KIZUNA';document.querySelector('#doc-body').innerHTML='<img style="display:block;width:130px;margin:0 auto 18px;border-radius:50%" src="../assets/kizuna-logo-official.png" alt="Kizuna Travel Bureau"><p style="text-align:center;font-size:20px">TRAVEL BUREAU</p><p style="text-align:center;margin-top:70px">Porque los mejores recuerdos nunca pertenecieron a un expediente. Siempre te pertenecieron a ti.</p>'}
 document.querySelector('#gate-consent').onchange=event=>document.querySelector('#gate-continue').disabled=!event.target.checked;document.querySelector('#gate-continue').onclick=()=>{gate.hidden=true;access.hidden=false;document.querySelector('#username').focus()};document.querySelector('#access-form').onsubmit=event=>{event.preventDefault();const username=document.querySelector('#username').value.trim().toLowerCase(),password=document.querySelector('#password').value;if(username!=='jose.cuadrado'||password!=='kizuna2026')message.textContent='No se han podido verificar las credenciales de acceso.';else openDashboard()};document.querySelector('#exit').onclick=()=>{location.href='../index.html'};document.querySelector('.close').onclick=()=>viewer.close();mark.onclick=()=>{const done=read();if(!done.includes(active)){done.push(active);save(done)}if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}const parent=fileFolder(active);if(parent){openFolder(parent);return}if(active.startsWith('KTB-')){const id=active;syncKtb(id,()=>{if(id==='KTB-014'){localStorage.setItem('kizuna-complete','true');startFinale()}else{viewer.close();render()}});return}viewer.close();render()};next.onclick=()=>{const index=sequence.indexOf(active);if(index<sequence.length-1&&allowed(sequence[index+1]))openDoc(sequence[index+1])};
+
+// Panel reservado para cuentas con el rol seguro app_metadata.role = admin.
+const adminPanel=document.createElement('main');
+adminPanel.id='admin-dashboard';
+adminPanel.hidden=true;
+adminPanel.className='admin-dashboard';
+adminPanel.innerHTML=`<header><div class="admin-brand"><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>Panel de administración</strong></div><button id="admin-exit">Cerrar sesión</button></header><section class="admin-content"><p class="system-line">ACCESO ADMINISTRATIVO · REGISTROS DE DESTINATARIOS</p><h1>Gestión de<br><em>expedientes.</em></h1><p class="admin-intro">Selecciona un destinatario para consultar y corregir su progreso documental.</p><div class="admin-layout"><aside><label>DESTINATARIOS<select id="admin-user-list"><option value="">Cargando registros…</option></select></label></aside><section id="admin-editor" hidden></section></div></section></main>`;
+document.body.appendChild(adminPanel);
+
+const isAdmin=user=>user?.app_metadata?.role==='admin';
+const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,...(state||{})});
+const adminExit=async()=>{try{if(supabaseClient)await supabaseClient.auth.signOut()}finally{currentUser=null;remoteState=null;adminPanel.hidden=true;location.href='../index.html'}};
+document.querySelector('#admin-exit').onclick=adminExit;
+
+const renderAdminEditor=(profile,state)=>{
+  const editor=document.querySelector('#admin-editor');
+  const current=safeState(state);
+  const reviewed=progressKeys.filter(id=>current.read.includes(id)).length;
+  const integrity=Math.round(reviewed/progressKeys.length*100);
+  editor.hidden=false;
+  editor.innerHTML=`<div class="admin-summary"><p class="system-line">DESTINATARIO SELECCIONADO</p><h2>${profile.display_name||profile.email}</h2><p>${profile.email}</p><p><strong>${reviewed}</strong> de ${progressKeys.length} registros confirmados · Integridad <strong>${integrity} %</strong></p></div><form id="admin-progress-form"><fieldset><legend>DOCUMENTOS Y REGISTROS CONFIRMADOS</legend><div class="admin-checklist">${progressKeys.map(id=>`<label><input type="checkbox" name="records" value="${id}" ${current.read.includes(id)?'checked':''}> ${id}${folders[id]?.title?` · ${folders[id].title}`:''}</label>`).join('')}</div></fieldset><p class="admin-note">Al desmarcar KTB-014 se reabre el expediente y se restaura el aviso final para una nueva revisión.</p><button>Guardar cambios</button><span id="admin-save-status" role="status"></span></form>`;
+  document.querySelector('#admin-progress-form').onsubmit=async event=>{
+    event.preventDefault();
+    const status=document.querySelector('#admin-save-status');
+    const selected=[...event.currentTarget.querySelectorAll('input[name="records"]:checked')].map(input=>input.value);
+    const closing=selected.includes('KTB-014');
+    const nextState={...current,read:selected,completed:closing?current.completed:false,finalAlertShown:closing?current.finalAlertShown:false,finalFileSeen:closing?current.finalFileSeen:false};
+    status.textContent='Guardando…';
+    const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:profile.id,state:nextState,updated_at:new Date().toISOString()});
+    if(error){status.textContent='No se pudieron guardar los cambios.';console.error(error);return}
+    status.textContent='Cambios guardados.';
+    renderAdminEditor(profile,nextState);
+  };
+};
+
+const openAdminDashboard=async()=>{
+  access.hidden=true;
+  loading.hidden=false;
+  const log=document.querySelector('#auth-log');
+  log.innerHTML='<p>Verificando permisos administrativos…</p><div style="height:8px;background:#d3c8b4"><i id="auth-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width .8s ease"></i></div><p>Localizando expedientes autorizados…</p>';
+  setTimeout(()=>document.querySelector('#auth-progress').style.width='100%',60);
+  const {data,error}=await supabaseClient.from('expedient_profiles').select('id,email,display_name').order('email');
+  loading.hidden=true;
+  if(error){access.hidden=false;message.textContent='No se ha podido cargar el directorio de expedientes.';console.error(error);return}
+  adminPanel.hidden=false;
+  const select=document.querySelector('#admin-user-list');
+  select.innerHTML='<option value="">Selecciona un destinatario</option>'+data.filter(profile=>profile.id!==currentUser.id).map(profile=>`<option value="${profile.id}">${profile.display_name||profile.email} · ${profile.email}</option>`).join('');
+  select.onchange=async()=>{
+    const profile=data.find(item=>item.id===select.value);
+    if(!profile){document.querySelector('#admin-editor').hidden=true;return}
+    const {data:progress,error:progressError}=await supabaseClient.from('expedient_progress').select('state').eq('user_id',profile.id).maybeSingle();
+    if(progressError){console.error(progressError);return}
+    renderAdminEditor(profile,progress?.state);
+  };
+};
+
+setTimeout(()=>{
+  const form=document.querySelector('#access-form');
+  const currentSubmit=form.onsubmit;
+  form.onsubmit=async event=>{
+    event.preventDefault();
+    const email=document.querySelector('#username').value.trim();
+    const password=document.querySelector('#password').value;
+    const submit=form.querySelector('button');
+    message.textContent='Verificando autorización…';
+    submit.disabled=true;
+    try{
+      const client=await getSupabase();
+      const {data,error}=await client.auth.signInWithPassword({email,password});
+      if(error)throw error;
+      currentUser=data.user;
+      if(isAdmin(data.user)){message.textContent='';await openAdminDashboard();return}
+      await loadRemoteProgress(data.user);
+      message.textContent='';
+      openDashboard();
+    }catch(error){message.textContent='No se han podido verificar las credenciales de acceso.';console.error(error)}finally{submit.disabled=false}
+  };
+},20);
