@@ -3,3 +3,66 @@
 .philosophy .philosophy-quote{font:italic 20px var(--serif);color:var(--red);margin-top:30px}.philosophy .philosophy-foot{display:flex;justify-content:space-between;gap:20px;margin-top:80px;padding-top:18px;border-top:1px solid var(--line);font:9px/1.8 var(--mono);letter-spacing:.09em;color:#7d837b}.philosophy .philosophy-foot span:last-child{color:#b3b4ae}@media(max-width:850px){.philosophy .philosophy-foot{display:block;margin-top:55px}.philosophy .philosophy-foot span{display:block;margin-top:14px}}
 .route{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:15px;border-top:1px solid var(--line);border-left:1px solid var(--line)}.route a{position:relative;min-height:125px;padding:28px 22px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink);background:#fffdf8;transition:background .2s,color .2s}.route a:before{content:'';display:block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-bottom:20px;box-shadow:18px 4px 0 -3px var(--line)}.route b{display:block;font:30px/1 var(--serif);font-weight:500}.route span{display:block;font:10px var(--mono);letter-spacing:.05em;margin-top:10px;color:#747a73}.route a:hover{background:var(--red);color:var(--cream)}.route a:hover span{color:var(--cream)}.project-meta{display:flex;justify-content:space-between;align-items:end;gap:35px;padding:31px 0;border-bottom:1px solid var(--line)}.project-stats{display:flex;flex-wrap:wrap;gap:23px}.project-stats span{font:10px var(--mono);letter-spacing:.06em}.project-stats b{font:29px var(--serif);font-weight:500;margin-right:5px;color:var(--red)}.project-meta>p{margin:0;text-align:right;font:9px/1.8 var(--mono);letter-spacing:.1em}.project-meta>p strong{font:15px var(--serif);letter-spacing:0;color:var(--ink)}.project-closing{margin:28px 0 0;text-align:center;font:italic 22px var(--serif);color:var(--red)}@media(max-width:850px){.route{grid-template-columns:repeat(2,1fr)}.project-meta{display:block}.project-meta>p{text-align:left;margin-top:25px}.project-stats{gap:15px}.project-closing{font-size:20px}}
 .experiences .sensations-title{font-size:clamp(46px,5vw,78px);max-width:760px;color:var(--cream);margin:0 0 42px}.experiences .sensations-title em{color:#dcbf80}.experiences .experience-grid{grid-template-columns:repeat(4,1fr);margin-top:0}.sensation-image{width:100%;height:135px;object-fit:cover;margin:22px 0 0;opacity:.92;border:1px solid rgba(245,240,231,.24)}.experiences .experience-grid h3{font-size:35px;margin:22px 0 15px}.experiences .experience-grid article{min-height:405px}.experiences blockquote{margin-top:68px}.sensations-foot{margin:30px 0 0;text-align:center;font:9px/1.8 var(--mono);letter-spacing:.08em;color:#bfc8bc}@media(max-width:1100px) and (min-width:851px){.experiences .experience-grid h3{font-size:29px}.sensation-image{height:110px}}
+
+/* Teléfonos: una única columna para que cada destino y sensación conserve
+   su jerarquía, legibilidad e imágenes sin quedar comprimidos. */
+@media (max-width:600px){
+  body{font-size:13px;overflow-x:hidden}
+  .site-header{height:68px;padding:6px 6vw}
+  .wordmark{gap:7px;font-size:13px;letter-spacing:.16em}
+  .wordmark img{width:45px;height:45px}
+  .wordmark small{font-size:6px}
+  .menu-toggle{font-size:19px;padding:8px}
+  .site-header.open nav{top:67px;padding:16px 6vw;gap:3px;box-shadow:0 12px 22px rgba(30,41,39,.12)}
+  .site-header.open nav a{padding:11px 4px;font-size:11px}
+  .site-header.open nav .expedient-link{margin-top:6px;padding:12px}
+  .hero{height:calc(100svh - 68px);min-height:540px}
+  .hero-image{background-position:58% center;background-image:linear-gradient(90deg,rgba(14,28,30,.78),rgba(14,28,30,.22)),url('assets/kyoto-hero.png')}
+  .hero-copy{left:7vw;right:7vw;top:48%}
+  .hero h1{font-size:clamp(43px,13vw,57px);line-height:.88}
+  .hero-copy>p:not(.eyebrow){font-size:17px;margin:20px 0 25px}
+  .eyebrow{font-size:8px;margin-bottom:17px}
+  .actions{display:grid;grid-template-columns:1fr;gap:9px}
+  .actions .button{width:100%}
+  .button{padding:14px 15px;font-size:9px}
+  .hero-caption{right:7vw;bottom:18px;font-size:8px}
+  .philosophy{padding:72px 7vw}
+  .philosophy h2,.project h2,.contact h2{font-size:clamp(42px,13vw,58px);line-height:.9}
+  .philosophy>div{gap:28px}
+  .philosophy p:not(.eyebrow),.project-intro p{font-size:12px;line-height:1.75}
+  .philosophy .philosophy-quote{font-size:18px}
+  .project{padding:34px 7vw 75px}
+  .section-top{padding-bottom:16px;gap:15px}
+  .section-top p{font-size:8px;line-height:1.5}
+  .project-intro{padding:48px 0 30px;gap:25px}
+  .text-link{font-size:9px}
+  .route{grid-template-columns:1fr;margin-top:10px}
+  .route a{min-height:0;padding:18px 16px;display:grid;grid-template-columns:24px 1fr;column-gap:12px;align-items:center}
+  .route a:before{grid-row:1 / span 2;margin:0;box-shadow:0 16px 0 -3px var(--line)}
+  .route b{font-size:27px}
+  .route span{margin:5px 0 0;font-size:9px}
+  .project-meta{padding:24px 0}
+  .project-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px}
+  .project-stats span{font-size:9px}
+  .project-stats b{font-size:25px}
+  .project-meta>p{font-size:8px}
+  .project-closing{font-size:19px;line-height:1.25}
+  .experiences{padding:66px 7vw}
+  .experiences .sensations-title{font-size:clamp(42px,12vw,54px);line-height:.88;margin-bottom:30px}
+  .experiences .experience-grid{grid-template-columns:1fr}
+  .experiences .experience-grid article{min-height:0;padding:23px}
+  .sensation-image{height:185px;margin:17px 0 0}
+  .experiences .experience-grid h3{font-size:37px;margin:20px 0 12px}
+  .experiences blockquote{font-size:25px;margin-top:45px}
+  .sensations-foot{font-size:8px;margin-top:24px}
+  .journal{padding:70px 7vw}
+  .journal-list{margin-top:35px}
+  .journal-list h3{font-size:30px;margin:20px 0 12px}
+  .journal-list p{font-size:12px}
+  .contact{padding:70px 7vw;gap:38px}
+  .contact aside{padding-top:0}
+  .contact form .button{width:100%}
+  footer{padding:28px 7vw}
+  footer p{font-size:18px;line-height:1.25}
+  footer div{flex-wrap:wrap;gap:12px}
+}
