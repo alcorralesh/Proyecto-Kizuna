@@ -56,16 +56,6 @@ const patchState=changes=>{if(remoteState){remoteState={...remoteState,...change
 const save=items=>patchState({read:items});
 const getSupabase=async()=>{if(supabaseClient)return supabaseClient;if(!window.supabase){if(!supabaseScript){supabaseScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)})}await supabaseScript}supabaseClient=window.supabase.createClient(supabaseUrl,supabaseKey);return supabaseClient};
 const loadRemoteProgress=async user=>{currentUser=user;const client=await getSupabase();const [{data,error},{data:profile,error:profileError}]=await Promise.all([client.from('expedient_progress').select('state').eq('user_id',user.id).maybeSingle(),client.from('expedient_profiles').select('display_name,email,is_active').eq('id',user.id).maybeSingle()]);if(error)throw error;if(profileError)console.warn('No se pudo leer el nombre del perfil.',profileError);if(profile?.is_active===false){await client.auth.signOut();throw new Error('Este acceso ha sido desactivado por la División de Archivos Temporales.')}currentDisplayName=profile?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Destinatario autorizado';updateRecipientName();if(data?.state){remoteState={read:[],mailRead:0,finalFileSeen:false,completed:false,comicReadPages:[],...data.state};return}remoteState=localState();await persistRemote()};
-const recordActivity=async(eventType,documentId=null,details={})=>{
-  if(!supabaseClient||!currentUser)return;
-  const {error}=await supabaseClient.from('expedient_activity_log').insert({
-    user_id:currentUser.id,
-    event_type:eventType,
-    document_id:documentId,
-    details,
-  });
-  if(error)console.error('No se pudo registrar la actividad del expediente.',error);
-};
 const recordComicPage=async page=>{
   const viewed=Array.isArray(getState().comicReadPages)?getState().comicReadPages:[];
   if(viewed.includes(page))return;
