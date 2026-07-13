@@ -358,9 +358,9 @@ const renderAdminActivity=async userId=>{
     const rows=data.map(item=>{
       const title=item.event_type==='login'?'Inicio de sesión verificado':item.event_type==='logout'?'Cierre de sesión':item.event_type==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas leídas`:item.event_type==='supplementary_file_consulted'?'Archivo final consultado':item.event_type==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado confirmado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
       const date=new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'});
-      return `<li style="display:flex;justify-content:space-between;gap:18px;padding:11px 0;border-top:1px solid #ddd1ba;font:13px var(--serif)"><strong>${title}</strong><small style="font:9px var(--mono);color:#7e1b19;white-space:nowrap">${date}</small></li>`;
+      return `<li style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:11px 0;border-top:1px solid #ddd1ba;font:13px var(--serif)"><strong>${title}</strong><small style="font:9px var(--mono);color:#7e1b19;white-space:nowrap">${date}</small></li>`;
     }).join('');
-    target.innerHTML=`<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3 style="margin:7px 0 16px;font:27px var(--serif)">Actividad reciente</h3><ol style="margin:0;padding:0;list-style:none">${rows}</ol>`;
+    target.innerHTML=`<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3 style="margin:7px 0 6px;font:27px var(--serif)">Actividad reciente</h3><p style="margin:0 0 12px;font:11px var(--mono);color:#746957">Los eventos más recientes aparecen primero. Desplázate para consultar los anteriores.</p><div style="max-height:min(420px,52vh);overflow-y:auto;overscroll-behavior:contain;padding-right:10px;scrollbar-width:thin;scrollbar-color:#8d1f1b #eee5d3"><ol style="margin:0;padding:0;list-style:none">${rows}</ol></div>`;
   }catch(error){
     console.error('No se pudo cargar el registro de actividad.',error);
     target.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3 style="margin:7px 0 16px;font:27px var(--serif)">Actividad reciente</h3><p>No se ha podido recuperar el historial de este destinatario.</p>';
