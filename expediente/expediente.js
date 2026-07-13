@@ -9,7 +9,29 @@ const ar03Cities=['01-Tokyo.png','02-Tokyo_barrios.png','03-Kyoto.png','04-Osaka
 const ar03Temples=['001-Fushimi Inari.png','002-Kiyomizu Dera.png','003-Kinkaku ji.png','004-Todai ji.png','005-Itsukushima.png','006-Senso ji.png','007-Meiji jingu.png','008-Kotoku in.png','009-Ginkaku ji.png','010-Tenryu ji.png','011-Kasuga taisha.png','012-nikko tosho gu.png','013-Hase dera.png','014-Yasaka shrine.png','015-Arashiyama bamboo grove.png','016-Heian jingu.png'];
 const supabaseUrl='https://vcwqkideizdrhzpbghkj.supabase.co';
 const supabaseKey='sb_publishable_h3pjxT8UPZkYqRhLskVdlA_m-ulI4EF';
-let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null;
+let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null,currentDisplayName='Destinatario autorizado';
+const recipientName=()=>currentDisplayName||'Destinatario autorizado';
+const updateRecipientName=()=>{
+  const fullName=recipientName().trim();
+  const parts=fullName.split(/\s+/);
+  const first=parts.shift()||fullName;
+  const last=parts.join(' ');
+  const welcome=document.querySelector('#auth-welcome-name');
+  const headFirst=document.querySelector('#case-name-first');
+  const headLast=document.querySelector('#case-name-last');
+  if(welcome)welcome.textContent=fullName;
+  if(headFirst)headFirst.textContent=first;
+  if(headLast){headLast.textContent=last;headLast.hidden=!last}
+};
+const originalUpdateCompletionHeader=updateCompletionHeader;
+updateCompletionHeader=done=>{
+  originalUpdateCompletionHeader(done);
+  const completion=document.querySelector('#completion-record');
+  if(!completion)return;
+  const recipient=[...completion.querySelectorAll('span')].find(item=>item.textContent.trim().startsWith('DESTINATARIO'));
+  const recipientValue=recipient?.querySelector('strong');
+  if(recipientValue)recipientValue.textContent=recipientName().toLocaleUpperCase('es-ES');
+};
 const localState=()=>({read:JSON.parse(localStorage.getItem('kizuna-read')||'[]'),mailRead:Number(localStorage.getItem('kizuna-mail-read')||0),finalFileSeen:localStorage.getItem('kizuna-final-file-seen')==='true',completed:localStorage.getItem('kizuna-complete')==='true'});
 const getState=()=>remoteState||localState();
 const read=()=>getState().read||[];
@@ -17,7 +39,7 @@ const persistRemote=async()=>{if(!supabaseClient||!currentUser||!remoteState)ret
 const patchState=changes=>{if(remoteState){remoteState={...remoteState,...changes};persistRemote();return}const state={...localState(),...changes};localStorage.setItem('kizuna-read',JSON.stringify(state.read));localStorage.setItem('kizuna-mail-read',String(state.mailRead));localStorage.setItem('kizuna-final-file-seen',String(state.finalFileSeen));localStorage.setItem('kizuna-complete',String(state.completed))};
 const save=items=>patchState({read:items});
 const getSupabase=async()=>{if(supabaseClient)return supabaseClient;if(!window.supabase){if(!supabaseScript){supabaseScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)})}await supabaseScript}supabaseClient=window.supabase.createClient(supabaseUrl,supabaseKey);return supabaseClient};
-const loadRemoteProgress=async user=>{currentUser=user;const client=await getSupabase();const {data,error}=await client.from('expedient_progress').select('state').eq('user_id',user.id).maybeSingle();if(error)throw error;if(data?.state){remoteState={read:[],mailRead:0,finalFileSeen:false,completed:false,...data.state};return}remoteState=localState();await persistRemote()};
+const loadRemoteProgress=async user=>{currentUser=user;const client=await getSupabase();const [{data,error},{data:profile,error:profileError}]=await Promise.all([client.from('expedient_progress').select('state').eq('user_id',user.id).maybeSingle(),client.from('expedient_profiles').select('display_name,email,is_active').eq('id',user.id).maybeSingle()]);if(error)throw error;if(profileError)console.warn('No se pudo leer el nombre del perfil.',profileError);if(profile?.is_active===false){await client.auth.signOut();throw new Error('Este acceso ha sido desactivado por la División de Archivos Temporales.')}currentDisplayName=profile?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Destinatario autorizado';updateRecipientName();if(data?.state){remoteState={read:[],mailRead:0,finalFileSeen:false,completed:false,...data.state};return}remoteState=localState();await persistRemote()};
 const isFolder=id=>id.startsWith('AR-');const fileFolder=id=>Object.keys(folders).find(key=>folders[key].files.some(file=>file.id===id));
 const nativeGetItem=Storage.prototype.getItem,nativeSetItem=Storage.prototype.setItem;
 Storage.prototype.getItem=function(key){if(this===localStorage&&remoteState&&key==='kizuna-read')return JSON.stringify(remoteState.read||[]);if(this===localStorage&&remoteState&&key==='kizuna-mail-read')return String(remoteState.mailRead||0);if(this===localStorage&&remoteState&&key==='kizuna-final-file-seen')return String(Boolean(remoteState.finalFileSeen));if(this===localStorage&&remoteState&&key==='kizuna-complete')return String(Boolean(remoteState.completed));return nativeGetItem.call(this,key)};
@@ -144,6 +166,62 @@ const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:
 const adminExit=async()=>{try{if(supabaseClient)await supabaseClient.auth.signOut()}finally{currentUser=null;remoteState=null;adminPanel.hidden=true;location.href='../index.html'}};
 document.querySelector('#admin-exit').onclick=adminExit;
 
+// El alta de destinatarios se solicita a una Edge Function. La clave de
+// administración nunca viaja al navegador ni queda incluida en esta web.
+const adminCreateButton=document.createElement('button');
+adminCreateButton.id='admin-create-user';
+adminCreateButton.type='button';
+adminCreateButton.textContent='Crear destinatario';
+document.querySelector('#admin-exit').before(adminCreateButton);
+
+// La creación queda al final de la gestión para que la cabecera se reserve
+// exclusivamente para la sesión administrativa.
+const adminCreateSection=document.createElement('section');
+adminCreateSection.className='admin-create-section';
+adminCreateSection.innerHTML='<p class="system-line">NUEVO DESTINATARIO</p><h2>Crear una nueva<br><em>expedición.</em></h2><p>Genera un acceso para un nuevo destinatario del expediente.</p>';
+adminCreateButton.remove();
+adminCreateSection.appendChild(adminCreateButton);
+document.querySelector('.admin-content').appendChild(adminCreateSection);
+
+const createUserModal=document.createElement('div');
+createUserModal.id='admin-create-user-modal';
+createUserModal.className='admin-modal';
+createUserModal.hidden=true;
+createUserModal.innerHTML=`<div class="admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="admin-create-title"><button class="admin-modal-close" type="button" aria-label="Cerrar">×</button><p class="system-line">NUEVO DESTINATARIO · ACCESO CONTROLADO</p><h2 id="admin-create-title">Crear<br><em>expediente.</em></h2><p>Introduce los datos de acceso que recibirá el nuevo destinatario.</p><form id="admin-create-user-form"><label>Nombre visible<input name="displayName" type="text" autocomplete="name" required maxlength="80" placeholder="Nombre y apellidos"></label><label>Correo electrónico<input name="email" type="email" autocomplete="email" required placeholder="nombre@correo.com"></label><label>Contraseña temporal<input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Mínimo 8 caracteres"></label><button>Crear usuario</button><span id="admin-create-user-status" role="status"></span></form></div>`;
+document.body.appendChild(createUserModal);
+
+const closeCreateUserModal=()=>{createUserModal.hidden=true;document.querySelector('#admin-create-user-form').reset();document.querySelector('#admin-create-user-status').textContent=''};
+const functionErrorMessage=async error=>{
+  try{
+    const details=await error?.context?.clone().json();
+    if(details?.error)return details.error;
+  }catch(_){/* La respuesta puede no ser JSON. */}
+  return error?.message||'No se ha podido completar la operación.';
+};
+adminCreateButton.onclick=()=>{createUserModal.hidden=false;setTimeout(()=>createUserModal.querySelector('input').focus(),0)};
+createUserModal.querySelector('.admin-modal-close').onclick=closeCreateUserModal;
+createUserModal.addEventListener('click',event=>{if(event.target===createUserModal)closeCreateUserModal()});
+createUserModal.querySelector('#admin-create-user-form').onsubmit=async event=>{
+  event.preventDefault();
+  const form=event.currentTarget;
+  const status=document.querySelector('#admin-create-user-status');
+  const button=form.querySelector('button');
+  const payload=Object.fromEntries(new FormData(form));
+  status.textContent='Creando expediente…';
+  button.disabled=true;
+  try{
+    const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:payload});
+    if(error)throw error;
+    status.textContent=`Usuario creado: ${data?.email||payload.email}`;
+    form.reset();
+    await openAdminDashboard();
+    setTimeout(closeCreateUserModal,1300);
+  }catch(error){
+    console.error(error);
+    status.textContent=await functionErrorMessage(error);
+  }finally{button.disabled=false}
+};
+
 const renderAdminEditor=(profile,state)=>{
   const editor=document.querySelector('#admin-editor');
   const current=safeState(state);
@@ -151,6 +229,39 @@ const renderAdminEditor=(profile,state)=>{
   const integrity=Math.round(reviewed/progressKeys.length*100);
   editor.hidden=false;
   editor.innerHTML=`<div class="admin-summary"><p class="system-line">DESTINATARIO SELECCIONADO</p><h2>${profile.display_name||profile.email}</h2><p>${profile.email}</p><p><strong>${reviewed}</strong> de ${progressKeys.length} registros confirmados · Integridad <strong>${integrity} %</strong></p></div><form id="admin-progress-form"><fieldset><legend>DOCUMENTOS Y REGISTROS CONFIRMADOS</legend><div class="admin-checklist">${progressKeys.map(id=>`<label><input type="checkbox" name="records" value="${id}" ${current.read.includes(id)?'checked':''}> ${id}${folders[id]?.title?` · ${folders[id].title}`:''}</label>`).join('')}</div></fieldset><p class="admin-note">Al desmarcar KTB-014 se reabre el expediente y se restaura el aviso final para una nueva revisión.</p><button>Guardar cambios</button><span id="admin-save-status" role="status"></span></form>`;
+  const isActive=profile.is_active!==false;
+  const identityForm=document.createElement('form');
+  identityForm.id='admin-identity-form';
+  identityForm.className='admin-identity-form';
+  identityForm.innerHTML=`<fieldset><legend>IDENTIDAD Y ACCESO</legend><label>Nombre y apellidos<input name="displayName" required maxlength="80" value="${profile.display_name||''}"></label><p class="admin-account-status ${isActive?'active':'inactive'}">${isActive?'● Cuenta activa':'● Cuenta desactivada'}</p><div class="admin-identity-actions"><button>Guardar nombre</button><button type="button" id="admin-toggle-user" class="${isActive?'danger':''}">${isActive?'Desactivar acceso':'Reactivar acceso'}</button></div><span id="admin-identity-status" role="status"></span></fieldset>`;
+  editor.insertBefore(identityForm,document.querySelector('#admin-progress-form'));
+  identityForm.onsubmit=async event=>{
+    event.preventDefault();
+    const name=new FormData(identityForm).get('displayName').trim();
+    const status=document.querySelector('#admin-identity-status');
+    const button=identityForm.querySelector('button');
+    status.textContent='Actualizando identidad…';button.disabled=true;
+    try{
+      const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'update-profile',userId:profile.id,displayName:name}});
+      if(error)throw error;
+      profile.display_name=data?.displayName||name;
+      status.textContent='Nombre actualizado.';
+      setTimeout(()=>renderAdminEditor(profile,current),500);
+    }catch(error){console.error(error);status.textContent=await functionErrorMessage(error)}finally{button.disabled=false}
+  };
+  document.querySelector('#admin-toggle-user').onclick=async()=>{
+    const toggle=document.querySelector('#admin-toggle-user');
+    const status=document.querySelector('#admin-identity-status');
+    const nextActive=!isActive;
+    if(!confirm(nextActive?'¿Reactivar el acceso de este destinatario?':'¿Desactivar el acceso de este destinatario? No podrá iniciar sesión hasta que lo reactives.'))return;
+    toggle.disabled=true;status.textContent=nextActive?'Reactivando acceso…':'Desactivando acceso…';
+    try{
+      const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'set-active',userId:profile.id,active:nextActive}});
+      if(error)throw error;
+      profile.is_active=data?.isActive===undefined?nextActive:data.isActive;
+      renderAdminEditor(profile,current);
+    }catch(error){console.error(error);status.textContent=await functionErrorMessage(error);toggle.disabled=false}
+  };
   document.querySelector('#admin-progress-form').onsubmit=async event=>{
     event.preventDefault();
     const status=document.querySelector('#admin-save-status');
@@ -171,7 +282,7 @@ const openAdminDashboard=async()=>{
   const log=document.querySelector('#auth-log');
   log.innerHTML='<p>Verificando permisos administrativos…</p><div style="height:8px;background:#d3c8b4"><i id="auth-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width .8s ease"></i></div><p>Localizando expedientes autorizados…</p>';
   setTimeout(()=>document.querySelector('#auth-progress').style.width='100%',60);
-  const {data,error}=await supabaseClient.from('expedient_profiles').select('id,email,display_name').order('email');
+  const {data,error}=await supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').order('email');
   loading.hidden=true;
   if(error){access.hidden=false;message.textContent='No se ha podido cargar el directorio de expedientes.';console.error(error);return}
   adminPanel.hidden=false;
