@@ -4,7 +4,7 @@
 create table if not exists public.expedient_activity_log (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
-  event_type text not null check (event_type in ('login', 'document_confirmed', 'comic_page_read', 'supplementary_file_consulted')),
+  event_type text not null check (event_type in ('login', 'logout', 'document_confirmed', 'comic_page_read', 'supplementary_file_consulted', 'expedient_reset')),
   document_id text,
   details jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
@@ -15,7 +15,7 @@ alter table public.expedient_activity_log
   drop constraint if exists expedient_activity_log_event_type_check;
 alter table public.expedient_activity_log
   add constraint expedient_activity_log_event_type_check
-  check (event_type in ('login', 'document_confirmed', 'comic_page_read', 'supplementary_file_consulted'));
+  check (event_type in ('login', 'logout', 'document_confirmed', 'comic_page_read', 'supplementary_file_consulted', 'expedient_reset'));
 
 create index if not exists expedient_activity_log_user_created_at_idx
   on public.expedient_activity_log (user_id, created_at desc);

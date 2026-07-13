@@ -74,6 +74,44 @@ Deno.serve(async (request) => {
     return response({ id: userId, isActive: active })
   }
 
+  if (action === 'reset-progress') {
+    const userId = String(payload.userId ?? '')
+    if (!userId) return response({ error: 'Destinatario no identificado.' }, 400)
+    if (userId === userData.user.id) return response({ error: 'No puedes reiniciar tu propia cuenta administrativa.' }, 400)
+
+    const cleanState = {
+      read: [],
+      mailRead: 0,
+      finalFileSeen: false,
+      finalAlertShown: false,
+      completed: false,
+      albertoMessageRead: false,
+      comicReadPages: [],
+    }
+    const { error: progressError } = await adminClient
+      .from('expedient_progress')
+      .upsert({ user_id: userId, state: cleanState })
+    if (progressError) return response({ error: progressError.message }, 400)
+
+    // El historial anterior se elimina para dejar una única evidencia del reinicio.
+    const { error: deleteLogError } = await adminClient
+      .from('expedient_activity_log')
+      .delete()
+      .eq('user_id', userId)
+    if (deleteLogError) return response({ error: deleteLogError.message }, 400)
+
+    const { error: logError } = await adminClient
+      .from('expedient_activity_log')
+      .insert({
+        user_id: userId,
+        event_type: 'expedient_reset',
+        details: { source: 'admin_panel', reset_by: userData.user.id },
+      })
+    if (logError) return response({ error: logError.message }, 400)
+
+    return response({ id: userId, state: cleanState })
+  }
+
   const normalizedEmail = String(payload.email ?? '').trim().toLowerCase()
   const normalizedName = String(payload.displayName ?? '').trim()
   if (!normalizedEmail || !normalizedEmail.includes('@')) return response({ error: 'Introduce un correo válido.' }, 400)
@@ -95,7 +133,7 @@ Deno.serve(async (request) => {
   })
   await adminClient.from('expedient_progress').upsert({
     user_id: data.user.id,
-    state: { read: [], mailRead: 0, finalFileSeen: false, finalAlertShown: false, completed: false, albertoMessageRead: false },
+    state: { read: [], mailRead: 0, finalFileSeen: false, finalAlertShown: false, completed: false, albertoMessageRead: false, comicReadPages: [] },
   })
 
   return response({ id: data.user.id, email: data.user.email })
