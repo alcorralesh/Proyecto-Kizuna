@@ -36,6 +36,22 @@ const localState=()=>({read:JSON.parse(localStorage.getItem('kizuna-read')||'[]'
 const getState=()=>remoteState||localState();
 const read=()=>getState().read||[];
 const persistRemote=async()=>{if(!supabaseClient||!currentUser||!remoteState)return;const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:currentUser.id,state:remoteState,updated_at:new Date().toISOString()});if(error)console.error('No se pudo guardar el progreso remoto.',error)};
+const recordActivity=async(eventType,documentId=null,details={})=>{
+  if(!currentUser)return;
+  try{
+    const client=await getSupabase();
+    const {error}=await client.from('expedient_activity_log').insert({
+      user_id:currentUser.id,
+      event_type:eventType,
+      document_id:documentId,
+      details
+    });
+    if(error)throw error;
+  }catch(error){
+    // El expediente continúa aunque el registro secundario no esté disponible.
+    console.warn('No se pudo registrar la actividad del expediente.',error);
+  }
+};
 const patchState=changes=>{if(remoteState){remoteState={...remoteState,...changes};persistRemote();return}const state={...localState(),...changes};localStorage.setItem('kizuna-read',JSON.stringify(state.read));localStorage.setItem('kizuna-mail-read',String(state.mailRead));localStorage.setItem('kizuna-final-file-seen',String(state.finalFileSeen));localStorage.setItem('kizuna-complete',String(state.completed));localStorage.setItem('kizuna-comic-read-pages',JSON.stringify(state.comicReadPages||[]))};
 const save=items=>patchState({read:items});
 const getSupabase=async()=>{if(supabaseClient)return supabaseClient;if(!window.supabase){if(!supabaseScript){supabaseScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)})}await supabaseScript}supabaseClient=window.supabase.createClient(supabaseUrl,supabaseKey);return supabaseClient};
@@ -270,6 +286,11 @@ const renderAdminEditor=(profile,state)=>{
   activityLog.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3 style="margin:7px 0 16px;font:27px var(--serif)">Actividad reciente</h3><p>Cargando actividad del expediente…</p>';
   editor.appendChild(activityLog);
   const isActive=profile.is_active!==false;
+  const activityLog=document.createElement('section');
+  activityLog.id='admin-activity-log';
+  activityLog.style.cssText='margin-top:36px;padding-top:22px;border-top:1px solid #c6bda9';
+  activityLog.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3 style="margin:7px 0 16px;font:27px var(--serif)">Actividad reciente</h3><p>Cargando actividad del expediente…</p>';
+  editor.appendChild(activityLog);
   const identityForm=document.createElement('form');
   identityForm.id='admin-identity-form';
   identityForm.className='admin-identity-form';
@@ -404,3 +425,47 @@ setTimeout(()=>{
     }catch(error){message.textContent='No se han podido verificar las credenciales de acceso.';console.error(error)}finally{submit.disabled=false}
   };
 },20);
+
+// El registro ilustrado conserva una única evidencia por cada página vista.
+// Así, volver atrás o releer una página no infla el historial de actividad.
+function openComicViewer(page){
+  const availablePages=Array.from({length:11},(_,i)=>`KTB-${String(i+4).padStart(3,'0')}`)
+    .filter(id=>read().includes(id)).length;
+  if(!availablePages){openAcInfo();return}
+  page=Math.min(Math.max(1,page),availablePages);
+
+  const pagesRead=[...(getState().comicReadPages||[])]
+    .map(Number)
+    .filter(Number.isInteger);
+  if(!pagesRead.includes(page)){
+    const updatedPages=[...pagesRead,page].sort((a,b)=>a-b);
+    patchState({comicReadPages:updatedPages});
+    recordActivity('comic_page_read','AC-01',{
+      page,
+      read:updatedPages.length,
+      total:11,
+      progress:`${updatedPages.length}/11`
+    });
+  }
+
+  active='AC-01';
+  next.style.display='none';
+  mark.style.display='none';
+  const paper=document.querySelector('.paper');
+  const body=document.querySelector('#doc-body');
+  paper.style.width='min(1120px,calc(100% - 34px))';
+  paper.style.maxWidth='1120px';
+  paper.style.padding='42px';
+  body.style.maxWidth='900px';
+  body.style.margin='0 auto';
+  document.querySelector('#doc-type').textContent='KIZUNA · DIVISIÓN DE ARCHIVOS TEMPORALES';
+  document.querySelector('#doc-title').textContent='ARCHIVO COMPLEMENTARIO AC-01';
+  body.innerHTML=`<p style="margin-bottom:20px;color:#7e1b19;font-size:12px">El contenido de este archivo no ha podido situarse con precisión dentro de la línea temporal del expediente.</p><img src="../assets/documents/AC-01/Pagina-${page}.png" alt="Página ${page} del registro ilustrado" style="display:block;width:100%;height:auto;border:1px solid #8b887d"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px"><button id="comic-prev" ${page===1?'disabled':''}>← Página anterior</button><strong style="font:12px var(--mono)">PÁGINA ${page} / ${availablePages}<br><span style="font-size:9px;color:#7e1b19">${availablePages} DE 11 RECUPERADAS</span></strong><button id="comic-next" ${page===availablePages?'disabled':''}>Página siguiente →</button></div><button id="comic-back" style="margin-top:18px;background:#7e1b19;color:#fff;border:0;padding:14px 18px;font:11px var(--mono);cursor:pointer">Regresar al expediente</button>`;
+  document.querySelector('#comic-prev').onclick=()=>openComicViewer(page-1);
+  document.querySelector('#comic-next').onclick=()=>openComicViewer(page+1);
+  document.querySelector('#comic-back').onclick=()=>{
+    paper.style.width='';paper.style.maxWidth='';paper.style.padding='';
+    body.style.maxWidth='';body.style.margin='';viewer.close();
+  };
+  if(!viewer.open)viewer.showModal();
+}
