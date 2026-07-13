@@ -276,11 +276,6 @@ const renderAdminEditor=(profile,state)=>{
   activityLog.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3 style="margin:7px 0 16px;font:27px var(--serif)">Actividad reciente</h3><p>Cargando actividad del expediente…</p>';
   editor.appendChild(activityLog);
   const isActive=profile.is_active!==false;
-  const activityLog=document.createElement('section');
-  activityLog.id='admin-activity-log';
-  activityLog.style.cssText='margin-top:36px;padding-top:22px;border-top:1px solid #c6bda9';
-  activityLog.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3 style="margin:7px 0 16px;font:27px var(--serif)">Actividad reciente</h3><p>Cargando actividad del expediente…</p>';
-  editor.appendChild(activityLog);
   const identityForm=document.createElement('form');
   identityForm.id='admin-identity-form';
   identityForm.className='admin-identity-form';
