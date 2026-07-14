@@ -48,3 +48,18 @@
 @media(max-width:750px){#access.access-screen{padding:12px 5vw;gap:7px}#access>.division-brand{font-size:14px}#access>.division-brand img{width:44px;height:44px}#access>.access-card{margin-top:9px;padding:27px 27px}#access>.access-card h1{font-size:48px}#access>.access-card .access-subtitle{margin:14px 0 18px}#access>.access-card .security-level{margin-top:15px!important;padding-top:11px}}
 @media(max-width:420px){#access.access-screen{padding:8px 4vw;gap:5px}#access>.division-brand{gap:8px;font-size:12px}#access>.division-brand img{width:38px;height:38px}#access>.division-brand small{font-size:6px}#access>.access-card{margin-top:5px;padding:21px 20px}#access>.access-card .system-line{margin-bottom:11px;font-size:7px}#access>.access-card h1{font-size:41px}#access>.access-card .access-subtitle{margin:12px 0 15px;font-size:10px}#access>.access-card form label+label{margin-top:9px}#access>.access-card .security-level{margin-top:12px!important;padding-top:9px}}
 @media(max-height:700px){#access.access-screen{padding-top:8px;padding-bottom:8px;gap:5px}#access>.division-brand img{width:40px;height:40px}#access>.access-card{margin-top:4px;padding-top:21px;padding-bottom:21px}#access>.access-card h1{font-size:44px}#access>.access-card .access-subtitle{margin:11px 0 14px}#access>.access-card form label+label{margin-top:8px}#access>.access-card .security-level{margin-top:11px!important;padding-top:8px}}
+
+/* Comprobación automática: misma composición compacta que las credenciales. */
+#auth-loading.access-screen{min-height:100svh;padding:18px 5vw;display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px}
+#auth-loading>.division-brand{font-size:17px}
+#auth-loading>.division-brand img{width:50px;height:50px}
+#auth-loading>.division-brand small{font-size:7px;margin-top:3px}
+#auth-loading>.access-card{align-self:start;margin:18px auto 0;padding:36px 46px}
+#auth-loading>.access-card .system-line{margin-bottom:16px}
+#auth-loading>.access-card h1{font-size:58px}
+#auth-loading #auth-log{margin-top:19px}
+#auth-loading #auth-log p{margin:10px 0;font:12px/1.5 var(--mono)}
+#auth-loading>.access-card .auth-welcome{margin:20px 0 0;font:11px/1.55 var(--mono)}
+@media(max-width:750px){#auth-loading.access-screen{padding:12px 5vw;gap:7px}#auth-loading>.division-brand{font-size:14px}#auth-loading>.division-brand img{width:44px;height:44px}#auth-loading>.access-card{margin-top:9px;padding:27px}#auth-loading>.access-card h1{font-size:48px}#auth-loading #auth-log{margin-top:15px}#auth-loading #auth-log p{margin:8px 0;font-size:11px}#auth-loading>.access-card .auth-welcome{margin-top:15px}}
+@media(max-width:420px){#auth-loading.access-screen{padding:8px 4vw;gap:5px}#auth-loading>.division-brand{gap:8px;font-size:12px}#auth-loading>.division-brand img{width:38px;height:38px}#auth-loading>.division-brand small{font-size:6px}#auth-loading>.access-card{margin-top:5px;padding:21px 20px}#auth-loading>.access-card .system-line{margin-bottom:11px;font-size:7px}#auth-loading>.access-card h1{font-size:41px}#auth-loading #auth-log{margin-top:12px}#auth-loading #auth-log p{margin:7px 0;font-size:10px}#auth-loading>.access-card .auth-welcome{margin-top:12px;font-size:10px}}
+@media(max-height:700px){#auth-loading.access-screen{padding-top:8px;padding-bottom:8px;gap:5px}#auth-loading>.division-brand img{width:40px;height:40px}#auth-loading>.access-card{margin-top:4px;padding-top:21px;padding-bottom:21px}#auth-loading>.access-card h1{font-size:44px}#auth-loading #auth-log{margin-top:11px}#auth-loading #auth-log p{margin:6px 0}#auth-loading>.access-card .auth-welcome{margin-top:11px}}
