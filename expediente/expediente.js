@@ -297,7 +297,15 @@ adminPanel.className='admin-dashboard';
 adminPanel.innerHTML=`<aside class="admin-rail"><div class="admin-brand"><img src="../assets/kizuna-logo-official.png" alt="Kizuna"><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>Administración</strong></div></div><nav class="admin-sidebar" aria-label="Secciones de administración"><button type="button" class="active" data-admin-view="users"><span>01</span>Usuarios</button><button type="button" data-admin-view="mailbox"><span>02</span>Buzón <b id="admin-mailbox-badge" hidden>0</b></button><button type="button" data-admin-view="media"><span>03</span>Media</button><button type="button" data-admin-view="blog"><span>04</span>Blog</button></nav><button id="admin-exit">Cerrar sesión <span>→</span></button></aside><section class="admin-content"><div class="admin-views"><section id="admin-users-view" class="admin-view"><p class="system-line">ACCESO ADMINISTRATIVO · REGISTROS DE DESTINATARIOS</p><h1>Gestión de<br><em>expedientes.</em></h1><p class="admin-intro">Crea nuevos accesos o consulta y corrige los expedientes existentes.</p><div class="admin-user-tabs" role="tablist" aria-label="Gestión de usuarios"><button type="button" class="active" role="tab" aria-selected="true" aria-controls="admin-user-create-tab" data-user-tab="create"><span>01</span>Crear nuevo usuario</button><button type="button" role="tab" aria-selected="false" aria-controls="admin-user-manage-tab" data-user-tab="manage"><span>02</span>Consultar y editar usuarios</button></div><section id="admin-user-create-tab" class="admin-user-tab-panel" role="tabpanel"></section><section id="admin-user-manage-tab" class="admin-user-tab-panel" role="tabpanel" hidden><p class="admin-user-panel-intro">Selecciona un destinatario para consultar y corregir su progreso documental, identidad y actividad.</p><div class="admin-layout"><aside><label>DESTINATARIOS<select id="admin-user-list"><option value="">Cargando registros…</option></select></label></aside><section id="admin-editor" hidden></section></div></section></section><section id="admin-mailbox-view" class="admin-view" hidden><div class="admin-mailbox-heading"><div><p class="system-line">MENSAJES · FORMULARIO PÚBLICO</p><h1>Buzón de<br><em>mensajes.</em></h1><p id="admin-mailbox-summary" class="admin-intro">Cargando mensajes…</p></div><button id="admin-mailbox-refresh" type="button">↻ Actualizar</button></div><div id="admin-mailbox-list" class="admin-mailbox-list"></div></section><section id="admin-media-view" class="admin-view" hidden><p class="system-line">MEDIA · SUPABASE STORAGE</p><h1>Biblioteca de<br><em>imágenes.</em></h1><p class="admin-intro">Importa la carpeta assets completa o sustituye una imagen conservando su ruta pública.</p><div class="admin-media-actions"><label class="admin-media-upload">Importar carpeta assets<input id="admin-media-folder" type="file" accept="image/*" webkitdirectory multiple></label><button id="admin-media-refresh" type="button">Actualizar biblioteca</button></div><p id="admin-media-status" role="status">Preparado para conectar con el bucket kizuna-assets.</p><div id="admin-media-grid" class="admin-media-grid"></div></section><section id="admin-blog-view" class="admin-view" hidden><p class="system-line">CUADERNO DE VIAJE · CONTENIDO PÚBLICO</p><h1>Gestión del<br><em>blog.</em></h1><p class="admin-intro">Crea, edita, ordena y publica los artículos que aparecen en la web.</p><div class="admin-blog-layout"><form id="admin-blog-form"><input type="hidden" name="id"><input type="hidden" name="slug"><p class="system-line" id="admin-blog-form-title">NUEVO ARTÍCULO</p><label>Título<input name="title" required maxlength="180"></label><label>Categoría<input name="category" required maxlength="60" placeholder="GUÍA, CULTURA, SABORES…"></label><label>Resumen<textarea name="excerpt" required maxlength="500" rows="3"></textarea></label><label>Texto completo<textarea name="content" required maxlength="20000" rows="12"></textarea></label><div class="admin-blog-options"><label>Orden<input name="sort_order" type="number" value="0" step="1"></label><label class="admin-blog-published"><input name="is_published" type="checkbox" checked> Publicado</label></div><div class="admin-blog-form-actions"><button>Guardar artículo</button><button id="admin-blog-cancel" type="button" hidden>Cancelar edición</button></div><span id="admin-blog-status" role="status"></span></form><section><div class="admin-blog-list-heading"><p class="system-line">ARTÍCULOS EXISTENTES</p><button id="admin-blog-refresh" type="button">↻ Actualizar</button></div><div id="admin-blog-list"></div></section></div></section></div></section>`;
 document.body.appendChild(adminPanel);
 
-const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view')};
+const adminEventsNav=document.createElement('button');
+adminEventsNav.type='button';adminEventsNav.dataset.adminView='events';adminEventsNav.innerHTML='<span>05</span>Eventos';
+document.querySelector('.admin-sidebar').appendChild(adminEventsNav);
+const adminEventsView=document.createElement('section');
+adminEventsView.id='admin-events-view';adminEventsView.className='admin-view';adminEventsView.hidden=true;
+adminEventsView.innerHTML=`<p class="system-line">AGENDA KIZUNA · EVENTOS EN JAPÓN</p><h1>Gestión de<br><em>eventos.</em></h1><p class="admin-intro">Crea encuentros, controla su aforo y consulta cuántas personas se han apuntado.</p><div class="admin-events-layout"><form id="admin-event-form"><input type="hidden" name="id"><p class="system-line" id="admin-event-form-title">NUEVO EVENTO</p><label>Título<input name="title" required maxlength="180"></label><label>Descripción<textarea name="description" required maxlength="1000" rows="4"></textarea></label><label>Lugar<input name="location" required maxlength="180"></label><div class="admin-event-fields"><label>Fecha y hora en Japón<input name="starts_at" type="datetime-local" required></label><label>Plazas totales<input name="capacity" type="number" min="1" max="10000" required value="20"></label><label>Orden<input name="sort_order" type="number" step="1" value="0"></label></div><label class="admin-event-published"><input name="is_published" type="checkbox" checked> Publicado en la web</label><div class="admin-event-form-actions"><button>Guardar evento</button><button id="admin-event-cancel" type="button" hidden>Cancelar edición</button></div><span id="admin-event-status" role="status"></span></form><section><div class="admin-event-list-heading"><p class="system-line">EVENTOS EXISTENTES</p><button id="admin-event-refresh" type="button">↻ Actualizar</button></div><div id="admin-event-list"></div></section></div>`;
+document.querySelector('.admin-views').appendChild(adminEventsView);
+
+const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView};
 const adminUserPanels={create:document.querySelector('#admin-user-create-tab'),manage:document.querySelector('#admin-user-manage-tab')};
 document.querySelectorAll('.admin-user-tabs button').forEach(button=>button.onclick=()=>{
   document.querySelectorAll('.admin-user-tabs button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active))});
@@ -309,6 +317,7 @@ document.querySelectorAll('.admin-sidebar button').forEach(button=>button.onclic
   if(button.dataset.adminView==='mailbox')loadAdminMessages();
   if(button.dataset.adminView==='media')loadMediaLibrary();
   if(button.dataset.adminView==='blog')loadAdminArticles();
+  if(button.dataset.adminView==='events')loadAdminEvents();
 });
 
 const mailboxBadge=document.querySelector('#admin-mailbox-badge');
@@ -528,6 +537,58 @@ adminBlogForm.onsubmit=async event=>{
 };
 document.querySelector('#admin-blog-cancel').onclick=resetAdminBlogForm;
 document.querySelector('#admin-blog-refresh').onclick=loadAdminArticles;
+
+const adminEventForm=document.querySelector('#admin-event-form');
+const adminEventList=document.querySelector('#admin-event-list');
+const adminEventStatus=document.querySelector('#admin-event-status');
+let adminEvents=[];
+const toJapanDateInput=value=>new Intl.DateTimeFormat('sv-SE',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Tokyo'}).format(new Date(value)).replace(' ','T');
+const resetAdminEventForm=()=>{
+  adminEventForm.reset();adminEventForm.elements.id.value='';adminEventForm.elements.capacity.min='1';adminEventForm.elements.capacity.value='20';adminEventForm.elements.sort_order.value='0';adminEventForm.elements.is_published.checked=true;
+  document.querySelector('#admin-event-form-title').textContent='NUEVO EVENTO';document.querySelector('#admin-event-cancel').hidden=true;adminEventStatus.textContent='';
+};
+const editAdminEvent=event=>{
+  adminEventForm.elements.id.value=event.id;adminEventForm.elements.title.value=event.title;adminEventForm.elements.description.value=event.description;adminEventForm.elements.location.value=event.location;adminEventForm.elements.starts_at.value=toJapanDateInput(event.starts_at);adminEventForm.elements.capacity.value=event.capacity;adminEventForm.elements.sort_order.value=event.sort_order;adminEventForm.elements.is_published.checked=event.is_published;
+  adminEventForm.elements.capacity.min=String(Math.max(1,event.registered_count));document.querySelector('#admin-event-form-title').textContent=`EDITANDO EVENTO · ${event.registered_count} INSCRITOS`;document.querySelector('#admin-event-cancel').hidden=false;adminEventForm.scrollIntoView({behavior:'smooth',block:'start'});
+};
+const deleteAdminEvent=async event=>{
+  if(!confirm(`¿Eliminar definitivamente «${event.title}» y sus ${event.registered_count} inscripciones?`))return;
+  const {error}=await supabaseClient.from('events').delete().eq('id',event.id);
+  if(error){alert('No se ha podido eliminar el evento.');console.error(error);return}
+  if(adminEventForm.elements.id.value===event.id)resetAdminEventForm();await loadAdminEvents();
+};
+const createAdminEventCard=event=>{
+  const card=document.createElement('article');card.className=`admin-event-card ${event.is_published?'is-published':'is-draft'}`;
+  const meta=document.createElement('p');meta.className='admin-event-card-meta';meta.textContent=`${event.is_published?'PUBLICADO':'BORRADOR'} · ORDEN ${event.sort_order}`;
+  const title=document.createElement('h2');title.textContent=event.title;
+  const date=document.createElement('p');date.className='admin-event-card-date';date.textContent=new Intl.DateTimeFormat('es-ES',{dateStyle:'long',timeStyle:'short',timeZone:'Asia/Tokyo'}).format(new Date(event.starts_at))+' · hora de Japón';
+  const place=document.createElement('p');place.textContent=event.location;
+  const occupancy=document.createElement('strong');occupancy.className='admin-event-occupancy';occupancy.textContent=`${event.registered_count} personas apuntadas · ${Math.max(0,event.capacity-event.registered_count)} plazas libres de ${event.capacity}`;
+  const actions=document.createElement('div');actions.className='admin-event-card-actions';
+  const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.onclick=()=>editAdminEvent(event);
+  const remove=document.createElement('button');remove.type='button';remove.className='danger';remove.textContent='Eliminar';remove.onclick=()=>deleteAdminEvent(event);
+  actions.append(edit,remove);card.append(meta,title,date,place,occupancy,actions);return card;
+};
+const loadAdminEvents=async()=>{
+  if(!supabaseClient||adminViews.events.hidden)return;
+  adminEventList.innerHTML='<p class="admin-event-empty">Cargando eventos…</p>';
+  const {data,error}=await supabaseClient.from('events').select('id,title,description,location,starts_at,capacity,registered_count,is_published,sort_order').order('sort_order',{ascending:true}).order('starts_at',{ascending:true});
+  if(error){adminEventList.innerHTML='<p class="admin-event-empty">No se pueden recuperar los eventos. Ejecuta primero supabase-events.sql.</p>';console.error(error);return}
+  adminEvents=data||[];adminEventList.replaceChildren(...adminEvents.map(createAdminEventCard));if(!adminEvents.length)adminEventList.innerHTML='<p class="admin-event-empty">Todavía no hay eventos. Crea el primero desde el formulario.</p>';
+};
+adminEventForm.onsubmit=async submitEvent=>{
+  submitEvent.preventDefault();
+  const button=adminEventForm.querySelector('.admin-event-form-actions button'),values=Object.fromEntries(new FormData(adminEventForm)),id=values.id;
+  const payload={title:values.title.trim(),description:values.description.trim(),location:values.location.trim(),starts_at:new Date(`${values.starts_at}:00+09:00`).toISOString(),capacity:Number(values.capacity),sort_order:Number(values.sort_order)||0,is_published:adminEventForm.elements.is_published.checked,updated_at:new Date().toISOString()};
+  adminEventStatus.textContent=id?'Guardando cambios…':'Creando evento…';button.disabled=true;
+  try{
+    const result=id?await supabaseClient.from('events').update(payload).eq('id',id):await supabaseClient.from('events').insert(payload);if(result.error)throw result.error;
+    resetAdminEventForm();await loadAdminEvents();adminEventStatus.textContent='Evento guardado correctamente.';setTimeout(()=>adminEventStatus.textContent='',1800);
+  }catch(error){console.error(error);adminEventStatus.textContent=`No se ha podido guardar: ${error.message}`}
+  finally{button.disabled=false}
+};
+document.querySelector('#admin-event-cancel').onclick=()=>{adminEventForm.elements.capacity.min='1';resetAdminEventForm()};
+document.querySelector('#admin-event-refresh').onclick=loadAdminEvents;
 
 const isAdmin=user=>user?.app_metadata?.role==='admin';
 const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,...(state||{})});
