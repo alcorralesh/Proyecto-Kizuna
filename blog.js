@@ -18,6 +18,7 @@
     client=window.supabase.createClient(supabaseUrl,supabaseKey);
     return client;
   };
+  window.getKizunaBlogSupabase=getClient;
   const popup=document.createElement('dialog');
   popup.className='blog-reader';
   popup.innerHTML='<article><button type="button" class="blog-reader-close" aria-label="Cerrar artículo">×</button><p class="blog-reader-category"></p><h2></h2><div class="blog-reader-content"></div></article>';

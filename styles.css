@@ -93,3 +93,46 @@
 .blog-empty{grid-column:1/-1;max-width:none!important;font:12px var(--mono)!important}
 @media(max-width:850px){.blog-archive-head{grid-template-columns:1fr;padding:0 0 45px;gap:25px}.journal-archive .journal-list{grid-template-columns:1fr;row-gap:0}.journal-archive .journal-list article{border-left:0}.blog-reader article{padding:52px 40px}.blog-reader-content p{font-size:13px}}
 @media(max-width:600px){.journal-list .journal-read{margin-top:10px}.blog-reader{width:calc(100% - 20px);max-height:94vh}.blog-reader article{padding:48px 24px 34px}.blog-reader h2{margin-bottom:25px}.journal-archive{padding-top:50px}.blog-page .site-header>.text-link{font-size:8px}}
+
+/* Agenda pública de eventos en Japón. */
+.public-events{padding:70px 5vw 95px;background:#142b25;color:#f5f0e7}
+.public-events .section-top{border-color:rgba(245,240,231,.2)}
+.public-events-intro{display:grid;grid-template-columns:1.25fr .55fr;gap:60px;align-items:end;padding:62px 5vw 48px}
+.public-events-intro h2{font-size:clamp(50px,5vw,76px)}
+.public-events-intro h2 em{color:#d9b769}
+.public-events-intro>p{max-width:390px;margin:0;font:13px/1.8 var(--sans);color:#d7ddd8}
+.public-events-list{border-top:1px solid rgba(245,240,231,.2)}
+.public-event-card{display:grid;grid-template-columns:95px minmax(280px,1.1fr) minmax(240px,.8fr) 205px;gap:28px;align-items:center;padding:31px 18px;border-bottom:1px solid rgba(245,240,231,.2)}
+.public-event-card>time{display:flex;flex-direction:column;align-items:center;padding-right:20px;border-right:1px solid rgba(245,240,231,.25);color:#d9b769}
+.public-event-card>time strong{font:600 52px/.8 var(--serif)}
+.public-event-card>time span{margin-top:10px;font:600 9px var(--mono);letter-spacing:.12em}
+.public-event-copy h3{margin:0 0 8px;font:600 29px/1 var(--serif)}
+.public-event-copy p{margin:0 0 9px;color:#c9d1cc;font:12px/1.55 var(--sans)}
+.public-event-copy>strong{font:600 10px var(--mono);color:#fff}
+.public-event-place{margin:0;color:#d1d8d3;font:11px/1.7 var(--sans)}
+.public-event-place span{color:#9fb0a7;font-size:10px}
+.public-event-actions{display:grid;gap:9px}
+.public-event-actions button{min-height:44px;padding:10px 13px;border:1px solid rgba(245,240,231,.45);background:transparent;color:#f5f0e7;font:600 10px var(--sans);cursor:pointer}
+.public-event-actions .event-register{background:#f5f0e7;color:#142b25;border-color:#f5f0e7}
+.public-event-actions button:hover:not(:disabled){border-color:#d9b769;color:#d9b769}
+.public-event-actions .event-register:hover:not(:disabled){background:#d9b769;color:#142b25}
+.public-event-actions button:disabled{opacity:.45;cursor:not-allowed}
+.events-empty{padding:35px 0;font:11px var(--mono)}
+.event-signup{width:min(650px,calc(100% - 34px));max-height:92vh;padding:0;border:0;background:transparent;color:var(--ink)}
+.event-signup::backdrop{background:rgba(12,28,24,.88);backdrop-filter:blur(5px)}
+.event-signup>article{position:relative;padding:50px;background:#f8f3e9;border:1px solid #c9beaa;box-shadow:15px 16px 0 rgba(0,0,0,.2)}
+.event-signup-close{position:absolute;right:20px;top:16px;border:0;background:transparent;color:var(--ink);font:30px/1 var(--serif);cursor:pointer}
+.event-signup-label{margin:0 0 20px;color:var(--red);font:9px var(--mono);letter-spacing:.17em}
+.event-signup h2{margin:0;font-size:47px;line-height:.9}
+.event-signup-help{margin:21px 0 27px;color:#737970;font:12px/1.6 var(--sans)}
+.event-signup form>div{display:grid;grid-template-columns:1fr 1fr;gap:17px}
+.event-signup form label{display:block;margin:0 0 17px;font:600 9px var(--mono);letter-spacing:.08em}
+.event-signup input:not([type="checkbox"]){display:block;width:100%;margin-top:8px;padding:12px;border:1px solid var(--line);background:#fffdf8;font:13px var(--sans)}
+.event-signup .event-consent{display:flex;align-items:flex-start;gap:10px;font:10px/1.5 var(--sans);letter-spacing:0}
+.event-signup .event-consent input{margin-top:2px;accent-color:var(--red)}
+.event-signup form>button{width:100%;padding:15px;border:0;background:var(--ink);color:#fff;font:600 11px var(--sans);cursor:pointer}
+.event-signup form>button:disabled{opacity:.55}
+.event-signup-status{min-height:18px;margin:11px 0 0;color:var(--red);font:10px/1.5 var(--mono)}
+@media(max-width:1050px){.public-event-card{grid-template-columns:75px 1fr 190px}.public-event-place{grid-column:2}.public-event-actions{grid-column:3;grid-row:1/3}.public-event-card>time strong{font-size:45px}}
+@media(max-width:750px){.public-events{padding:58px 7vw 70px}.public-events-intro{grid-template-columns:1fr;padding:45px 0 35px;gap:22px}.public-event-card{grid-template-columns:65px 1fr;gap:18px;padding:25px 0}.public-event-copy h3{font-size:27px}.public-event-place{grid-column:2}.public-event-actions{grid-column:1/-1;grid-row:auto;grid-template-columns:1fr 1fr}.public-event-card>time{padding-right:13px}.public-event-card>time strong{font-size:40px}.event-signup>article{padding:45px 28px}.event-signup h2{font-size:40px}}
+@media(max-width:480px){.public-event-actions{grid-template-columns:1fr}.event-signup{width:calc(100% - 18px)}.event-signup>article{padding:42px 20px 28px}.event-signup form>div{grid-template-columns:1fr;gap:0}.event-signup h2{font-size:36px}}
