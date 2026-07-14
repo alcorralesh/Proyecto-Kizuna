@@ -179,6 +179,7 @@ const enhanceDocumentImages=()=>{
     frame.after(tools);
 
     const fitButton=tools.querySelector('[data-action="fit"]'),fullButton=tools.querySelector('[data-action="full"]');
+    const useTouchFullscreen=(navigator.maxTouchPoints||0)>0||window.matchMedia?.('(pointer: coarse)').matches;
     const enterFallbackFullscreen=()=>{previousBodyOverflow=document.body.style.overflow;document.body.style.overflow='hidden';frame.classList.add('is-fallback-fullscreen');fullButton.textContent='Salir de pantalla completa';frame.focus()};
     const exitFallbackFullscreen=()=>{frame.classList.remove('is-fallback-fullscreen');document.body.style.overflow=previousBodyOverflow;fullButton.textContent='Pantalla completa'};
     const exitFullscreen=async()=>{if(frame.classList.contains('is-fallback-fullscreen'))exitFallbackFullscreen();else if(document.fullscreenElement)await document.exitFullscreen()};
@@ -199,9 +200,10 @@ const enhanceDocumentImages=()=>{
     };
     const distance=points=>Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);
     const center=points=>({x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2});
+    const canDrag=()=>scale>1.01||frame.classList.contains('is-fallback-fullscreen')||document.fullscreenElement===frame;
     const restartDrag=()=>{
       const remaining=[...pointers.values()][0];
-      dragging=Boolean(remaining&&scale>1.01);
+      dragging=Boolean(remaining&&canDrag());
       if(remaining){remaining.startX=remaining.x;remaining.startY=remaining.y;remaining.scrollX=frame.scrollLeft;remaining.scrollY=frame.scrollTop}
     };
 
@@ -212,7 +214,7 @@ const enhanceDocumentImages=()=>{
       if(action==='out')setScale(scale-.25);
       if(action==='fit'){scale=1;update();frame.scrollTo({left:0,top:0,behavior:'smooth'})}
       if(action==='full'){
-        try{if(document.fullscreenElement||frame.classList.contains('is-fallback-fullscreen'))await exitFullscreen();else if(frame.requestFullscreen)await frame.requestFullscreen();else enterFallbackFullscreen()}
+        try{if(document.fullscreenElement||frame.classList.contains('is-fallback-fullscreen'))await exitFullscreen();else if(useTouchFullscreen)enterFallbackFullscreen();else if(frame.requestFullscreen)await frame.requestFullscreen();else enterFallbackFullscreen()}
         catch(error){console.warn('Se utilizará el modo de pantalla completa compatible.',error);enterFallbackFullscreen()}
       }
     };
@@ -223,7 +225,7 @@ const enhanceDocumentImages=()=>{
       pointers.set(event.pointerId,point);
       frame.setPointerCapture?.(event.pointerId);
       if(pointers.size===2){const points=[...pointers.values()];pinchStart={distance:Math.max(1,distance(points)),scale};dragging=false}
-      else if(scale>1.01)dragging=true;
+      else if(canDrag())dragging=true;
     });
     frame.addEventListener('pointermove',event=>{
       const point=pointers.get(event.pointerId);
@@ -233,7 +235,7 @@ const enhanceDocumentImages=()=>{
         event.preventDefault();
         const points=[...pointers.values()].slice(0,2),focus=center(points);
         setScale(pinchStart.scale*distance(points)/pinchStart.distance,focus.x,focus.y);
-      }else if(dragging&&scale>1.01){
+      }else if(dragging){
         event.preventDefault();
         frame.scrollLeft=point.scrollX-(event.clientX-point.startX);
         frame.scrollTop=point.scrollY-(event.clientY-point.startY);
