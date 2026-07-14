@@ -157,8 +157,98 @@ setTimeout(()=>{
 },0);
 const progressKeys=[...Array.from({length:14},(_,i)=>`KTB-${String(i+1).padStart(3,'0')}`),...Object.values(folders).flatMap(folder=>folder.files.map(file=>file.id)),'AR03-CARTA',...ar03Cities.map((_,i)=>`AR03-C-${i}`),...ar03Temples.map((_,i)=>`AR03-T-${i}`),...ar01Tickets.map(ticket=>ticket.id),'AR06-PROTOCOL'];
 const name=id=>isFolder(id)?`Carpeta ${id} · ${folderDetails[id][0]}`:`Expediente ${id}`;const gate=document.querySelector('#gate'),access=document.querySelector('#access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc');let active='';
-const imageToolsStyle=document.createElement('style');imageToolsStyle.textContent=`.image-inspector{position:relative;max-height:64vh;overflow:auto;background:#1b211f;border:1px solid #8b887d;cursor:grab;touch-action:pan-x pan-y}.image-inspector:active{cursor:grabbing}.image-inspector img{max-width:none!important;margin:0!important}.image-tools{display:flex;align-items:center;gap:6px;margin:10px 0 20px}.image-tools button{border:1px solid #7e1b19;background:#f7edda;color:#7e1b19;padding:7px 9px;font:10px var(--mono);cursor:pointer}.image-tools button:hover{background:#7e1b19;color:#fff}.image-inspector:fullscreen{max-height:none;width:100%;height:100%;padding:20px;background:#171d1b;display:flex;align-items:center;justify-content:center}.image-inspector:fullscreen img{max-height:100%;width:auto!important;height:auto}@media(max-width:700px){.image-inspector{max-height:58vh}.image-tools{flex-wrap:wrap}}`;document.head.appendChild(imageToolsStyle);
-const enhanceDocumentImages=()=>{document.querySelectorAll('#doc-body > img:not([data-inspected])').forEach(img=>{img.dataset.inspected='true';let scale=1;const frame=document.createElement('div'),tools=document.createElement('div');frame.className='image-inspector';tools.className='image-tools';img.replaceWith(frame);frame.appendChild(img);img.style.width='100%';img.style.height='auto';img.style.display='block';tools.innerHTML='<button type="button" data-action="out">−</button><button type="button" data-action="fit">Ajustar · 100 %</button><button type="button" data-action="in">+</button><button type="button" data-action="full">Pantalla completa</button><span style="margin-left:auto;font:9px var(--mono);color:#7e1b19">Arrastra para recorrer</span>';frame.after(tools);const update=()=>{img.style.width=`${scale*100}%`;tools.querySelector('[data-action="fit"]').textContent=`Ajustar · ${Math.round(scale*100)} %`};tools.onclick=event=>{const action=event.target.dataset.action;if(!action)return;if(action==='in'){scale=Math.min(3,scale+.25);update()}if(action==='out'){scale=Math.max(1,scale-.25);update()}if(action==='fit'){scale=1;update();frame.scrollTo({left:0,top:0,behavior:'smooth'})}if(action==='full'){if(document.fullscreenElement)document.exitFullscreen();else frame.requestFullscreen?.()}};let dragging=false,startX=0,startY=0,scrollX=0,scrollY=0;frame.addEventListener('pointerdown',event=>{if(scale===1)return;dragging=true;startX=event.clientX;startY=event.clientY;scrollX=frame.scrollLeft;scrollY=frame.scrollTop;frame.setPointerCapture(event.pointerId)});frame.addEventListener('pointermove',event=>{if(!dragging)return;frame.scrollLeft=scrollX-(event.clientX-startX);frame.scrollTop=scrollY-(event.clientY-startY)});frame.addEventListener('pointerup',()=>dragging=false);frame.addEventListener('pointercancel',()=>dragging=false);frame.addEventListener('wheel',event=>{if(!event.ctrlKey)return;event.preventDefault();scale=Math.min(3,Math.max(1,scale+(event.deltaY<0?.15:-.15)));update()},{passive:false})})};
+const imageToolsStyle=document.createElement('style');imageToolsStyle.textContent=`.image-inspector{position:relative;max-height:64vh;overflow:auto;background:#1b211f;border:1px solid #8b887d;cursor:grab;touch-action:pan-y pinch-zoom;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;outline:none}.image-inspector:active{cursor:grabbing}.image-inspector img{display:block;max-width:none!important;max-height:none!important;margin:0!important;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;transform-origin:0 0}.image-tools{display:flex;align-items:center;gap:7px;margin:10px 0 20px}.image-tools button{min-width:44px;min-height:44px;border:1px solid #7e1b19;background:#f7edda;color:#7e1b19;padding:9px 12px;font:10px var(--mono);cursor:pointer}.image-tools button:hover,.image-tools button:focus-visible{background:#7e1b19;color:#fff}.image-tools .image-gesture-hint{margin-left:auto;font:9px/1.5 var(--mono);color:#7e1b19;text-align:right}.image-fullscreen-exit{display:none;position:fixed;right:max(14px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));z-index:20002;min-width:48px;min-height:48px;border:1px solid #fff;background:#171d1ddd;color:#fff;padding:10px 14px;font:10px var(--mono);cursor:pointer}.image-inspector:fullscreen,.image-inspector.is-fallback-fullscreen{box-sizing:border-box;max-height:none;width:100%;height:100%;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:#171d1b;overflow:auto;display:block;touch-action:none}.image-inspector.is-fallback-fullscreen{position:fixed;inset:0;z-index:20000}.image-inspector:fullscreen .image-fullscreen-exit,.image-inspector.is-fallback-fullscreen .image-fullscreen-exit{display:block}.image-inspector:fullscreen img,.image-inspector.is-fallback-fullscreen img{height:auto!important}.image-inspector.is-zoomed{touch-action:none}@media(max-width:700px){.image-inspector{max-height:62vh}.image-tools{flex-wrap:wrap}.image-tools button{flex:1}.image-tools button[data-action="full"]{flex-basis:100%}.image-tools .image-gesture-hint{width:100%;margin:3px 0 0;text-align:center}}`;document.head.appendChild(imageToolsStyle);
+const enhanceDocumentImages=()=>{
+  document.querySelectorAll('#doc-body > img:not([data-inspected])').forEach(img=>{
+    img.dataset.inspected='true';
+    let scale=1,dragging=false,pinchStart=null,previousBodyOverflow='';
+    const pointers=new Map(),frame=document.createElement('div'),tools=document.createElement('div'),exitFullButton=document.createElement('button');
+    frame.className='image-inspector';
+    frame.tabIndex=0;
+    tools.className='image-tools';
+    exitFullButton.type='button';
+    exitFullButton.className='image-fullscreen-exit';
+    exitFullButton.textContent='Salir';
+    img.replaceWith(frame);
+    frame.appendChild(img);
+    frame.appendChild(exitFullButton);
+    img.style.width='100%';
+    img.style.height='auto';
+    img.draggable=false;
+    tools.innerHTML='<button type="button" data-action="out" aria-label="Reducir zoom">−</button><button type="button" data-action="fit">Ajustar · 100 %</button><button type="button" data-action="in" aria-label="Aumentar zoom">+</button><button type="button" data-action="full">Pantalla completa</button><span class="image-gesture-hint">Pellizca para ampliar · Arrastra para recorrer</span>';
+    frame.after(tools);
+
+    const fitButton=tools.querySelector('[data-action="fit"]'),fullButton=tools.querySelector('[data-action="full"]');
+    const enterFallbackFullscreen=()=>{previousBodyOverflow=document.body.style.overflow;document.body.style.overflow='hidden';frame.classList.add('is-fallback-fullscreen');fullButton.textContent='Salir de pantalla completa';frame.focus()};
+    const exitFallbackFullscreen=()=>{frame.classList.remove('is-fallback-fullscreen');document.body.style.overflow=previousBodyOverflow;fullButton.textContent='Pantalla completa'};
+    const exitFullscreen=async()=>{if(frame.classList.contains('is-fallback-fullscreen'))exitFallbackFullscreen();else if(document.fullscreenElement)await document.exitFullscreen()};
+    const clamp=value=>Math.min(5,Math.max(1,value));
+    const update=()=>{
+      img.style.width=`${scale*100}%`;
+      fitButton.textContent=`Ajustar · ${Math.round(scale*100)} %`;
+      frame.classList.toggle('is-zoomed',scale>1.01);
+    };
+    const setScale=(nextScale,clientX,clientY)=>{
+      nextScale=clamp(nextScale);
+      if(Math.abs(nextScale-scale)<.001)return;
+      const rect=frame.getBoundingClientRect(),viewX=(clientX??rect.left+frame.clientWidth/2)-rect.left,viewY=(clientY??rect.top+frame.clientHeight/2)-rect.top,contentX=frame.scrollLeft+viewX,contentY=frame.scrollTop+viewY,ratio=nextScale/scale;
+      scale=nextScale;
+      update();
+      frame.scrollLeft=contentX*ratio-viewX;
+      frame.scrollTop=contentY*ratio-viewY;
+    };
+    const distance=points=>Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);
+    const center=points=>({x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2});
+    const restartDrag=()=>{
+      const remaining=[...pointers.values()][0];
+      dragging=Boolean(remaining&&scale>1.01);
+      if(remaining){remaining.startX=remaining.x;remaining.startY=remaining.y;remaining.scrollX=frame.scrollLeft;remaining.scrollY=frame.scrollTop}
+    };
+
+    tools.onclick=async event=>{
+      const action=event.target.dataset.action;
+      if(!action)return;
+      if(action==='in')setScale(scale+.25);
+      if(action==='out')setScale(scale-.25);
+      if(action==='fit'){scale=1;update();frame.scrollTo({left:0,top:0,behavior:'smooth'})}
+      if(action==='full'){
+        try{if(document.fullscreenElement||frame.classList.contains('is-fallback-fullscreen'))await exitFullscreen();else if(frame.requestFullscreen)await frame.requestFullscreen();else enterFallbackFullscreen()}
+        catch(error){console.warn('Se utilizará el modo de pantalla completa compatible.',error);enterFallbackFullscreen()}
+      }
+    };
+    exitFullButton.onclick=exitFullscreen;
+
+    frame.addEventListener('pointerdown',event=>{
+      const point={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,scrollX:frame.scrollLeft,scrollY:frame.scrollTop};
+      pointers.set(event.pointerId,point);
+      frame.setPointerCapture?.(event.pointerId);
+      if(pointers.size===2){const points=[...pointers.values()];pinchStart={distance:Math.max(1,distance(points)),scale};dragging=false}
+      else if(scale>1.01)dragging=true;
+    });
+    frame.addEventListener('pointermove',event=>{
+      const point=pointers.get(event.pointerId);
+      if(!point)return;
+      point.x=event.clientX;point.y=event.clientY;
+      if(pointers.size>=2&&pinchStart){
+        event.preventDefault();
+        const points=[...pointers.values()].slice(0,2),focus=center(points);
+        setScale(pinchStart.scale*distance(points)/pinchStart.distance,focus.x,focus.y);
+      }else if(dragging&&scale>1.01){
+        event.preventDefault();
+        frame.scrollLeft=point.scrollX-(event.clientX-point.startX);
+        frame.scrollTop=point.scrollY-(event.clientY-point.startY);
+      }
+    });
+    const releasePointer=event=>{pointers.delete(event.pointerId);pinchStart=null;restartDrag()};
+    frame.addEventListener('pointerup',releasePointer);
+    frame.addEventListener('pointercancel',releasePointer);
+    frame.addEventListener('dblclick',event=>{event.preventDefault();setScale(scale>1.01?1:2.5,event.clientX,event.clientY)});
+    frame.addEventListener('wheel',event=>{if(!event.ctrlKey)return;event.preventDefault();setScale(scale+(event.deltaY<0?.2:-.2),event.clientX,event.clientY)},{passive:false});
+    frame.addEventListener('fullscreenchange',()=>{pointers.clear();pinchStart=null;dragging=false;fullButton.textContent=document.fullscreenElement===frame?'Salir de pantalla completa':'Pantalla completa'});
+    frame.addEventListener('keydown',event=>{if(event.key==='Escape'&&frame.classList.contains('is-fallback-fullscreen')){event.preventDefault();exitFallbackFullscreen()}});
+    update();
+  });
+};
 const documentImageObserver=new MutationObserver(()=>enhanceDocumentImages());documentImageObserver.observe(document.querySelector('#doc-body'),{childList:true});document.addEventListener('keydown',event=>{if(!viewer.open)return;if(event.key==='ArrowLeft'){const previous=document.querySelector('#comic-prev');if(previous&&!previous.disabled){event.preventDefault();previous.click()}}if(event.key==='ArrowRight'){const nextPage=document.querySelector('#comic-next');if(nextPage&&!nextPage.disabled){event.preventDefault();nextPage.click()}}});
 const allowed=id=>{const index=sequence.indexOf(id);return index===0||read().includes(sequence[index-1])};const roman=value=>{const table=[[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];let result='';for(const [number,symbol] of table){while(value>=number){result+=symbol;value-=number}}return result};
 const mailboxButton=document.createElement('button'),mailbox=document.createElement('aside');mailboxButton.id='mailbox-toggle';mailboxButton.type='button';mailboxButton.textContent='Buzón';mailboxButton.style.cssText='border:1px solid #7e1b19;background:#f6f0e2;color:#7e1b19;padding:10px;font:9px var(--mono);cursor:pointer';mailbox.id='mailbox';mailbox.style.cssText='display:none;position:fixed;right:5vw;top:82px;z-index:30;width:min(450px,calc(100vw - 32px));max-height:72vh;overflow:auto;background:#f6f0e2;color:#202726;border:1px solid #8b887d;box-shadow:12px 14px 30px #0004;padding:22px';document.querySelector('.header-actions')?.prepend(mailboxButton);dash.appendChild(mailbox);
