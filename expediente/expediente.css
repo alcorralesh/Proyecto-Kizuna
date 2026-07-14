@@ -63,3 +63,20 @@
 @media(max-width:750px){#auth-loading.access-screen{padding:12px 5vw;gap:7px}#auth-loading>.division-brand{font-size:14px}#auth-loading>.division-brand img{width:44px;height:44px}#auth-loading>.access-card{margin-top:9px;padding:27px}#auth-loading>.access-card h1{font-size:48px}#auth-loading #auth-log{margin-top:15px}#auth-loading #auth-log p{margin:8px 0;font-size:11px}#auth-loading>.access-card .auth-welcome{margin-top:15px}}
 @media(max-width:420px){#auth-loading.access-screen{padding:8px 4vw;gap:5px}#auth-loading>.division-brand{gap:8px;font-size:12px}#auth-loading>.division-brand img{width:38px;height:38px}#auth-loading>.division-brand small{font-size:6px}#auth-loading>.access-card{margin-top:5px;padding:21px 20px}#auth-loading>.access-card .system-line{margin-bottom:11px;font-size:7px}#auth-loading>.access-card h1{font-size:41px}#auth-loading #auth-log{margin-top:12px}#auth-loading #auth-log p{margin:7px 0;font-size:10px}#auth-loading>.access-card .auth-welcome{margin-top:12px;font-size:10px}}
 @media(max-height:700px){#auth-loading.access-screen{padding-top:8px;padding-bottom:8px;gap:5px}#auth-loading>.division-brand img{width:40px;height:40px}#auth-loading>.access-card{margin-top:4px;padding-top:21px;padding-bottom:21px}#auth-loading>.access-card h1{font-size:44px}#auth-loading #auth-log{margin-top:11px}#auth-loading #auth-log p{margin:6px 0}#auth-loading>.access-card .auth-welcome{margin-top:11px}}
+
+/* Usuarios: navegación visual entre alta y consulta sin alterar sus formularios. */
+#admin-users-view>.admin-intro{margin-bottom:28px}
+.admin-user-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-width:820px;margin:0 0 28px;border:1px solid #b9ae9b;background:#f6f0e2}
+.admin-dashboard .admin-user-tabs button{display:flex;align-items:center;gap:13px;justify-content:flex-start;min-height:58px;padding:15px 18px;border:0;border-right:1px solid #b9ae9b;background:transparent;color:#202726;text-align:left;font:10px/1.35 var(--mono);letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
+.admin-dashboard .admin-user-tabs button:last-child{border-right:0}
+.admin-dashboard .admin-user-tabs button span{color:#7e1b19;font-size:8px}
+.admin-dashboard .admin-user-tabs button:hover{background:#e7dcc8}
+.admin-dashboard .admin-user-tabs button.active{background:#7e1b19;color:#fff}
+.admin-dashboard .admin-user-tabs button.active span{color:#fff}
+.admin-user-tab-panel[hidden]{display:none!important}
+.admin-user-tab-panel{max-width:100%}
+#admin-user-create-tab .admin-create-section{margin:0;min-height:260px;padding:38px}
+#admin-user-create-tab .admin-create-section h2{font-size:46px}
+#admin-user-manage-tab .admin-user-panel-intro{max-width:690px;margin:0 0 22px;color:#605a50;font:11px/1.7 var(--mono)}
+#admin-user-manage-tab .admin-layout{margin-top:0}
+@media(max-width:750px){#admin-users-view>.admin-intro{margin-bottom:21px}.admin-user-tabs{grid-template-columns:1fr;margin-bottom:20px}.admin-dashboard .admin-user-tabs button{min-height:50px;padding:12px 14px;border-right:0;border-bottom:1px solid #b9ae9b;font-size:9px}.admin-dashboard .admin-user-tabs button:last-child{border-bottom:0}#admin-user-create-tab .admin-create-section{min-height:0;padding:26px}#admin-user-create-tab .admin-create-section h2{font-size:38px}#admin-user-manage-tab .admin-user-panel-intro{font-size:10px}}
