@@ -460,31 +460,13 @@ const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:
 const adminExit=async()=>{try{if(mailboxChannel&&supabaseClient){await supabaseClient.removeChannel(mailboxChannel);mailboxChannel=null}if(supabaseClient)await supabaseClient.auth.signOut()}finally{currentUser=null;remoteState=null;adminPanel.hidden=true;location.href='../index.html'}};
 document.querySelector('#admin-exit').onclick=adminExit;
 
-// El alta de destinatarios se solicita a una Edge Function. La clave de
-// administración nunca viaja al navegador ni queda incluida en esta web.
-const adminCreateButton=document.createElement('button');
-adminCreateButton.id='admin-create-user';
-adminCreateButton.type='button';
-adminCreateButton.textContent='Crear destinatario';
-document.querySelector('#admin-exit').before(adminCreateButton);
-
-// La creación queda al final de la gestión para que la cabecera se reserve
-// exclusivamente para la sesión administrativa.
+// El alta se muestra directamente en su pestaña y continúa solicitándose a
+// la Edge Function, por lo que la clave de administración nunca viaja al navegador.
 const adminCreateSection=document.createElement('section');
-adminCreateSection.className='admin-create-section';
-adminCreateSection.innerHTML='<p class="system-line">NUEVO DESTINATARIO</p><h2>Crear una nueva<br><em>expedición.</em></h2><p>Genera un acceso para un nuevo destinatario del expediente.</p>';
-adminCreateButton.remove();
-adminCreateSection.appendChild(adminCreateButton);
+adminCreateSection.className='admin-create-section admin-create-inline';
+adminCreateSection.innerHTML=`<p class="system-line">NUEVO DESTINATARIO · ACCESO CONTROLADO</p><h2>Crear una nueva<br><em>expedición.</em></h2><p>Introduce los datos de acceso que recibirá el nuevo destinatario.</p><form id="admin-create-user-form"><label>Nombre visible<input name="displayName" type="text" autocomplete="name" required maxlength="80" placeholder="Nombre y apellidos"></label><label>Correo electrónico<input name="email" type="email" autocomplete="email" required placeholder="nombre@correo.com"></label><label>Contraseña temporal<input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Mínimo 8 caracteres"></label><button>Crear usuario</button><span id="admin-create-user-status" role="status"></span></form>`;
 document.querySelector('#admin-user-create-tab').appendChild(adminCreateSection);
 
-const createUserModal=document.createElement('div');
-createUserModal.id='admin-create-user-modal';
-createUserModal.className='admin-modal';
-createUserModal.hidden=true;
-createUserModal.innerHTML=`<div class="admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="admin-create-title"><button class="admin-modal-close" type="button" aria-label="Cerrar">×</button><p class="system-line">NUEVO DESTINATARIO · ACCESO CONTROLADO</p><h2 id="admin-create-title">Crear<br><em>expediente.</em></h2><p>Introduce los datos de acceso que recibirá el nuevo destinatario.</p><form id="admin-create-user-form"><label>Nombre visible<input name="displayName" type="text" autocomplete="name" required maxlength="80" placeholder="Nombre y apellidos"></label><label>Correo electrónico<input name="email" type="email" autocomplete="email" required placeholder="nombre@correo.com"></label><label>Contraseña temporal<input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Mínimo 8 caracteres"></label><button>Crear usuario</button><span id="admin-create-user-status" role="status"></span></form></div>`;
-document.body.appendChild(createUserModal);
-
-const closeCreateUserModal=()=>{createUserModal.hidden=true;document.querySelector('#admin-create-user-form').reset();document.querySelector('#admin-create-user-status').textContent=''};
 const functionErrorMessage=async error=>{
   try{
     const details=await error?.context?.clone().json();
@@ -492,10 +474,7 @@ const functionErrorMessage=async error=>{
   }catch(_){/* La respuesta puede no ser JSON. */}
   return error?.message||'No se ha podido completar la operación.';
 };
-adminCreateButton.onclick=()=>{createUserModal.hidden=false;setTimeout(()=>createUserModal.querySelector('input').focus(),0)};
-createUserModal.querySelector('.admin-modal-close').onclick=closeCreateUserModal;
-createUserModal.addEventListener('click',event=>{if(event.target===createUserModal)closeCreateUserModal()});
-createUserModal.querySelector('#admin-create-user-form').onsubmit=async event=>{
+document.querySelector('#admin-create-user-form').onsubmit=async event=>{
   event.preventDefault();
   const form=event.currentTarget;
   const status=document.querySelector('#admin-create-user-status');
@@ -509,7 +488,7 @@ createUserModal.querySelector('#admin-create-user-form').onsubmit=async event=>{
     status.textContent=`Usuario creado: ${data?.email||payload.email}`;
     form.reset();
     await openAdminDashboard();
-    setTimeout(closeCreateUserModal,1300);
+    setTimeout(()=>status.textContent='',1800);
   }catch(error){
     console.error(error);
     status.textContent=await functionErrorMessage(error);

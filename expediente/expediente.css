@@ -80,3 +80,16 @@
 #admin-user-manage-tab .admin-user-panel-intro{max-width:690px;margin:0 0 22px;color:#605a50;font:11px/1.7 var(--mono)}
 #admin-user-manage-tab .admin-layout{margin-top:0}
 @media(max-width:750px){#admin-users-view>.admin-intro{margin-bottom:21px}.admin-user-tabs{grid-template-columns:1fr;margin-bottom:20px}.admin-dashboard .admin-user-tabs button{min-height:50px;padding:12px 14px;border-right:0;border-bottom:1px solid #b9ae9b;font-size:9px}.admin-dashboard .admin-user-tabs button:last-child{border-bottom:0}#admin-user-create-tab .admin-create-section{min-height:0;padding:26px}#admin-user-create-tab .admin-create-section h2{font-size:38px}#admin-user-manage-tab .admin-user-panel-intro{font-size:10px}}
+
+.admin-create-inline{display:grid;grid-template-columns:minmax(260px,.75fr) minmax(360px,1.25fr);grid-template-rows:auto auto 1fr;column-gap:55px;align-items:start}
+.admin-create-inline>.system-line,.admin-create-inline>h2,.admin-create-inline>p{grid-column:1}
+.admin-create-inline>h2{grid-row:2}
+.admin-create-inline>p:not(.system-line){grid-row:3;margin:18px 0 0!important}
+.admin-create-inline>form{grid-column:2;grid-row:1/4;padding:3px 0 0}
+.admin-create-inline form label{display:block;margin:0 0 18px;color:#7e1b19;font:9px var(--mono);letter-spacing:.09em;text-transform:uppercase}
+.admin-create-inline form input{display:block;width:100%;margin-top:8px;padding:10px 0;background:transparent;border:0;border-bottom:1px solid #9f9078;color:#202726;font:16px var(--type);outline:0}
+.admin-create-inline form input:focus{border-bottom-color:#7e1b19;box-shadow:0 2px 0 #7e1b19}
+.admin-create-inline form button{margin-top:3px}
+.admin-create-inline form span{display:block;min-height:20px;margin-top:13px;color:#356a41;font:10px/1.5 var(--mono)}
+@media(max-width:1000px){.admin-create-inline{grid-template-columns:1fr;grid-template-rows:auto;row-gap:0}.admin-create-inline>.system-line,.admin-create-inline>h2,.admin-create-inline>p,.admin-create-inline>form{grid-column:1;grid-row:auto}.admin-create-inline>form{max-width:620px;margin-top:28px}}
+@media(max-width:750px){.admin-create-inline>form{margin-top:22px}.admin-create-inline form label{margin-bottom:15px}.admin-create-inline form input{font-size:15px}}
