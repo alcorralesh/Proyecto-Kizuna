@@ -294,10 +294,10 @@ const adminPanel=document.createElement('main');
 adminPanel.id='admin-dashboard';
 adminPanel.hidden=true;
 adminPanel.className='admin-dashboard';
-adminPanel.innerHTML=`<aside class="admin-rail"><div class="admin-brand"><img src="../assets/kizuna-logo-official.png" alt="Kizuna"><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>Administración</strong></div></div><nav class="admin-sidebar" aria-label="Secciones de administración"><button type="button" class="active" data-admin-view="users"><span>01</span>Usuarios</button><button type="button" data-admin-view="mailbox"><span>02</span>Buzón <b id="admin-mailbox-badge" hidden>0</b></button><button type="button" data-admin-view="media"><span>03</span>Media</button></nav><button id="admin-exit">Cerrar sesión <span>→</span></button></aside><section class="admin-content"><div class="admin-views"><section id="admin-users-view" class="admin-view"><p class="system-line">ACCESO ADMINISTRATIVO · REGISTROS DE DESTINATARIOS</p><h1>Gestión de<br><em>expedientes.</em></h1><p class="admin-intro">Crea nuevos accesos o consulta y corrige los expedientes existentes.</p><div class="admin-user-tabs" role="tablist" aria-label="Gestión de usuarios"><button type="button" class="active" role="tab" aria-selected="true" aria-controls="admin-user-create-tab" data-user-tab="create"><span>01</span>Crear nuevo usuario</button><button type="button" role="tab" aria-selected="false" aria-controls="admin-user-manage-tab" data-user-tab="manage"><span>02</span>Consultar y editar usuarios</button></div><section id="admin-user-create-tab" class="admin-user-tab-panel" role="tabpanel"></section><section id="admin-user-manage-tab" class="admin-user-tab-panel" role="tabpanel" hidden><p class="admin-user-panel-intro">Selecciona un destinatario para consultar y corregir su progreso documental, identidad y actividad.</p><div class="admin-layout"><aside><label>DESTINATARIOS<select id="admin-user-list"><option value="">Cargando registros…</option></select></label></aside><section id="admin-editor" hidden></section></div></section></section><section id="admin-mailbox-view" class="admin-view" hidden><div class="admin-mailbox-heading"><div><p class="system-line">MENSAJES · FORMULARIO PÚBLICO</p><h1>Buzón de<br><em>mensajes.</em></h1><p id="admin-mailbox-summary" class="admin-intro">Cargando mensajes…</p></div><button id="admin-mailbox-refresh" type="button">↻ Actualizar</button></div><div id="admin-mailbox-list" class="admin-mailbox-list"></div></section><section id="admin-media-view" class="admin-view" hidden><p class="system-line">MEDIA · SUPABASE STORAGE</p><h1>Biblioteca de<br><em>imágenes.</em></h1><p class="admin-intro">Importa la carpeta assets completa o sustituye una imagen conservando su ruta pública.</p><div class="admin-media-actions"><label class="admin-media-upload">Importar carpeta assets<input id="admin-media-folder" type="file" accept="image/*" webkitdirectory multiple></label><button id="admin-media-refresh" type="button">Actualizar biblioteca</button></div><p id="admin-media-status" role="status">Preparado para conectar con el bucket kizuna-assets.</p><div id="admin-media-grid" class="admin-media-grid"></div></section></div></section>`;
+adminPanel.innerHTML=`<aside class="admin-rail"><div class="admin-brand"><img src="../assets/kizuna-logo-official.png" alt="Kizuna"><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>Administración</strong></div></div><nav class="admin-sidebar" aria-label="Secciones de administración"><button type="button" class="active" data-admin-view="users"><span>01</span>Usuarios</button><button type="button" data-admin-view="mailbox"><span>02</span>Buzón <b id="admin-mailbox-badge" hidden>0</b></button><button type="button" data-admin-view="media"><span>03</span>Media</button><button type="button" data-admin-view="blog"><span>04</span>Blog</button></nav><button id="admin-exit">Cerrar sesión <span>→</span></button></aside><section class="admin-content"><div class="admin-views"><section id="admin-users-view" class="admin-view"><p class="system-line">ACCESO ADMINISTRATIVO · REGISTROS DE DESTINATARIOS</p><h1>Gestión de<br><em>expedientes.</em></h1><p class="admin-intro">Crea nuevos accesos o consulta y corrige los expedientes existentes.</p><div class="admin-user-tabs" role="tablist" aria-label="Gestión de usuarios"><button type="button" class="active" role="tab" aria-selected="true" aria-controls="admin-user-create-tab" data-user-tab="create"><span>01</span>Crear nuevo usuario</button><button type="button" role="tab" aria-selected="false" aria-controls="admin-user-manage-tab" data-user-tab="manage"><span>02</span>Consultar y editar usuarios</button></div><section id="admin-user-create-tab" class="admin-user-tab-panel" role="tabpanel"></section><section id="admin-user-manage-tab" class="admin-user-tab-panel" role="tabpanel" hidden><p class="admin-user-panel-intro">Selecciona un destinatario para consultar y corregir su progreso documental, identidad y actividad.</p><div class="admin-layout"><aside><label>DESTINATARIOS<select id="admin-user-list"><option value="">Cargando registros…</option></select></label></aside><section id="admin-editor" hidden></section></div></section></section><section id="admin-mailbox-view" class="admin-view" hidden><div class="admin-mailbox-heading"><div><p class="system-line">MENSAJES · FORMULARIO PÚBLICO</p><h1>Buzón de<br><em>mensajes.</em></h1><p id="admin-mailbox-summary" class="admin-intro">Cargando mensajes…</p></div><button id="admin-mailbox-refresh" type="button">↻ Actualizar</button></div><div id="admin-mailbox-list" class="admin-mailbox-list"></div></section><section id="admin-media-view" class="admin-view" hidden><p class="system-line">MEDIA · SUPABASE STORAGE</p><h1>Biblioteca de<br><em>imágenes.</em></h1><p class="admin-intro">Importa la carpeta assets completa o sustituye una imagen conservando su ruta pública.</p><div class="admin-media-actions"><label class="admin-media-upload">Importar carpeta assets<input id="admin-media-folder" type="file" accept="image/*" webkitdirectory multiple></label><button id="admin-media-refresh" type="button">Actualizar biblioteca</button></div><p id="admin-media-status" role="status">Preparado para conectar con el bucket kizuna-assets.</p><div id="admin-media-grid" class="admin-media-grid"></div></section><section id="admin-blog-view" class="admin-view" hidden><p class="system-line">CUADERNO DE VIAJE · CONTENIDO PÚBLICO</p><h1>Gestión del<br><em>blog.</em></h1><p class="admin-intro">Crea, edita, ordena y publica los artículos que aparecen en la web.</p><div class="admin-blog-layout"><form id="admin-blog-form"><input type="hidden" name="id"><input type="hidden" name="slug"><p class="system-line" id="admin-blog-form-title">NUEVO ARTÍCULO</p><label>Título<input name="title" required maxlength="180"></label><label>Categoría<input name="category" required maxlength="60" placeholder="GUÍA, CULTURA, SABORES…"></label><label>Resumen<textarea name="excerpt" required maxlength="500" rows="3"></textarea></label><label>Texto completo<textarea name="content" required maxlength="20000" rows="12"></textarea></label><div class="admin-blog-options"><label>Orden<input name="sort_order" type="number" value="0" step="1"></label><label class="admin-blog-published"><input name="is_published" type="checkbox" checked> Publicado</label></div><div class="admin-blog-form-actions"><button>Guardar artículo</button><button id="admin-blog-cancel" type="button" hidden>Cancelar edición</button></div><span id="admin-blog-status" role="status"></span></form><section><div class="admin-blog-list-heading"><p class="system-line">ARTÍCULOS EXISTENTES</p><button id="admin-blog-refresh" type="button">↻ Actualizar</button></div><div id="admin-blog-list"></div></section></div></section></div></section>`;
 document.body.appendChild(adminPanel);
 
-const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view')};
+const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view')};
 const adminUserPanels={create:document.querySelector('#admin-user-create-tab'),manage:document.querySelector('#admin-user-manage-tab')};
 document.querySelectorAll('.admin-user-tabs button').forEach(button=>button.onclick=()=>{
   document.querySelectorAll('.admin-user-tabs button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active))});
@@ -308,6 +308,7 @@ document.querySelectorAll('.admin-sidebar button').forEach(button=>button.onclic
   Object.entries(adminViews).forEach(([name,view])=>view.hidden=name!==button.dataset.adminView);
   if(button.dataset.adminView==='mailbox')loadAdminMessages();
   if(button.dataset.adminView==='media')loadMediaLibrary();
+  if(button.dataset.adminView==='blog')loadAdminArticles();
 });
 
 const mailboxBadge=document.querySelector('#admin-mailbox-badge');
@@ -454,6 +455,79 @@ document.querySelector('#admin-media-folder').onchange=async event=>{
   }catch(error){mediaStatus.textContent=`Importación detenida tras ${uploaded} archivos: ${error.message}`}
   finally{event.target.value=''}
 };
+
+const adminBlogForm=document.querySelector('#admin-blog-form');
+const adminBlogList=document.querySelector('#admin-blog-list');
+const adminBlogStatus=document.querySelector('#admin-blog-status');
+let adminArticles=[];
+const articleSlug=value=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,140);
+const resetAdminBlogForm=()=>{
+  adminBlogForm.reset();
+  adminBlogForm.elements.id.value='';
+  adminBlogForm.elements.slug.value='';
+  adminBlogForm.elements.sort_order.value='0';
+  adminBlogForm.elements.is_published.checked=true;
+  document.querySelector('#admin-blog-form-title').textContent='NUEVO ARTÍCULO';
+  document.querySelector('#admin-blog-cancel').hidden=true;
+  adminBlogStatus.textContent='';
+};
+const editAdminArticle=article=>{
+  adminBlogForm.elements.id.value=article.id;
+  adminBlogForm.elements.slug.value=article.slug;
+  adminBlogForm.elements.title.value=article.title;
+  adminBlogForm.elements.category.value=article.category;
+  adminBlogForm.elements.excerpt.value=article.excerpt;
+  adminBlogForm.elements.content.value=article.content;
+  adminBlogForm.elements.sort_order.value=article.sort_order;
+  adminBlogForm.elements.is_published.checked=article.is_published;
+  document.querySelector('#admin-blog-form-title').textContent='EDITANDO ARTÍCULO';
+  document.querySelector('#admin-blog-cancel').hidden=false;
+  adminBlogForm.scrollIntoView({behavior:'smooth',block:'start'});
+};
+const deleteAdminArticle=async article=>{
+  if(!confirm(`¿Eliminar definitivamente «${article.title}»?`))return;
+  const {error}=await supabaseClient.from('blog_articles').delete().eq('id',article.id);
+  if(error){alert('No se ha podido eliminar el artículo.');console.error(error);return}
+  if(adminBlogForm.elements.id.value===article.id)resetAdminBlogForm();
+  await loadAdminArticles();
+};
+const createAdminArticleCard=article=>{
+  const card=document.createElement('article');
+  card.className=`admin-blog-card ${article.is_published?'is-published':'is-draft'}`;
+  const meta=document.createElement('p');meta.className='admin-blog-card-meta';meta.textContent=`${article.category} · ORDEN ${article.sort_order} · ${article.is_published?'PUBLICADO':'BORRADOR'}`;
+  const title=document.createElement('h2');title.textContent=article.title;
+  const excerpt=document.createElement('p');excerpt.textContent=article.excerpt;
+  const actions=document.createElement('div');actions.className='admin-blog-card-actions';
+  const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.onclick=()=>editAdminArticle(article);
+  const remove=document.createElement('button');remove.type='button';remove.className='danger';remove.textContent='Eliminar';remove.onclick=()=>deleteAdminArticle(article);
+  actions.append(edit,remove);card.append(meta,title,excerpt,actions);return card;
+};
+const loadAdminArticles=async()=>{
+  if(!supabaseClient||adminViews.blog.hidden)return;
+  adminBlogList.innerHTML='<p class="admin-blog-empty">Cargando artículos…</p>';
+  const {data,error}=await supabaseClient.from('blog_articles').select('id,slug,category,title,excerpt,content,is_published,sort_order,published_at').order('sort_order',{ascending:true}).order('published_at',{ascending:false});
+  if(error){adminBlogList.innerHTML='<p class="admin-blog-empty">No se pueden recuperar los artículos. Ejecuta primero supabase-blog.sql.</p>';console.error(error);return}
+  adminArticles=data||[];
+  adminBlogList.replaceChildren(...adminArticles.map(createAdminArticleCard));
+  if(!adminArticles.length)adminBlogList.innerHTML='<p class="admin-blog-empty">Todavía no hay artículos. Crea el primero desde el formulario.</p>';
+};
+adminBlogForm.onsubmit=async event=>{
+  event.preventDefault();
+  const button=adminBlogForm.querySelector('.admin-blog-form-actions button');
+  const values=Object.fromEntries(new FormData(adminBlogForm));
+  const id=values.id;
+  const payload={title:values.title.trim(),category:values.category.trim().toUpperCase(),excerpt:values.excerpt.trim(),content:values.content.trim(),sort_order:Number(values.sort_order)||0,is_published:adminBlogForm.elements.is_published.checked,updated_at:new Date().toISOString()};
+  payload.slug=values.slug||`${articleSlug(payload.title)}-${Date.now().toString(36)}`;
+  adminBlogStatus.textContent=id?'Guardando cambios…':'Creando artículo…';button.disabled=true;
+  try{
+    const result=id?await supabaseClient.from('blog_articles').update(payload).eq('id',id):await supabaseClient.from('blog_articles').insert(payload);
+    if(result.error)throw result.error;
+    resetAdminBlogForm();await loadAdminArticles();adminBlogStatus.textContent='Artículo guardado correctamente.';setTimeout(()=>adminBlogStatus.textContent='',1800);
+  }catch(error){console.error(error);adminBlogStatus.textContent=`No se ha podido guardar: ${error.message}`}
+  finally{button.disabled=false}
+};
+document.querySelector('#admin-blog-cancel').onclick=resetAdminBlogForm;
+document.querySelector('#admin-blog-refresh').onclick=loadAdminArticles;
 
 const isAdmin=user=>user?.app_metadata?.role==='admin';
 const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,...(state||{})});

@@ -66,3 +66,30 @@
   footer p{font-size:18px;line-height:1.25}
   footer div{flex-wrap:wrap;gap:12px}
 }
+
+/* Cuaderno de viaje público y lector de artículos. */
+.journal-list article{display:flex;flex-direction:column}
+.journal-list .journal-read{width:max-content;margin-top:auto;padding:9px 0 4px;border:0;border-bottom:1px solid currentColor;background:transparent;color:var(--ink);font:10px var(--mono);letter-spacing:.06em;cursor:pointer}
+.journal-list .journal-read b{margin-left:15px;font:17px var(--serif)}
+.journal-list .journal-read:hover{color:var(--red)}
+.blog-reader{width:min(760px,calc(100% - 34px));max-height:88vh;padding:0;border:0;background:transparent;color:var(--ink)}
+.blog-reader::backdrop{background:rgba(20,32,29,.82);backdrop-filter:blur(5px)}
+.blog-reader article{position:relative;padding:65px 72px;background:#f8f3e9;border:1px solid #c9beaa;box-shadow:15px 16px 0 rgba(0,0,0,.2)}
+.blog-reader-close{position:absolute;top:18px;right:21px;border:0;background:transparent;color:var(--red);font:31px/1 var(--serif);cursor:pointer}
+.blog-reader-category{margin:0 0 20px;color:var(--red);font:9px var(--mono);letter-spacing:.15em}
+.blog-reader h2{font-size:clamp(42px,6vw,66px);line-height:.9;margin:0 35px 34px 0}
+.blog-reader-content{padding-top:25px;border-top:1px solid var(--line)}
+.blog-reader-content p{max-width:590px;margin:0 0 21px;font:14px/1.8 var(--sans)}
+.blog-page{min-height:100vh}
+.blog-page .site-header>.text-link{margin-left:auto}
+.journal-archive{min-height:calc(100vh - 180px);padding-top:80px}
+.blog-archive-head{display:grid;grid-template-columns:1.4fr .6fr;align-items:end;gap:60px;padding:0 6vw 65px;border-bottom:1px solid var(--line)}
+.blog-archive-head .eyebrow{grid-column:1/-1;margin-bottom:0}
+.blog-archive-head h1{font:600 clamp(56px,7vw,94px)/.84 var(--serif);letter-spacing:-.055em;margin:0}
+.blog-archive-head h1 em{color:var(--red);font-style:italic}
+.blog-archive-head>p:last-child{max-width:380px;margin:0;font:13px/1.8 var(--sans)}
+.journal-archive .journal-list{grid-template-columns:repeat(3,1fr);row-gap:55px}
+.journal-archive .journal-list article:nth-child(3n+1){border-left:0;padding-left:0}
+.blog-empty{grid-column:1/-1;max-width:none!important;font:12px var(--mono)!important}
+@media(max-width:850px){.blog-archive-head{grid-template-columns:1fr;padding:0 0 45px;gap:25px}.journal-archive .journal-list{grid-template-columns:1fr;row-gap:0}.journal-archive .journal-list article{border-left:0}.blog-reader article{padding:52px 40px}.blog-reader-content p{font-size:13px}}
+@media(max-width:600px){.journal-list .journal-read{margin-top:10px}.blog-reader{width:calc(100% - 20px);max-height:94vh}.blog-reader article{padding:48px 24px 34px}.blog-reader h2{margin-bottom:25px}.journal-archive{padding-top:50px}.blog-page .site-header>.text-link{font-size:8px}}
