@@ -199,18 +199,107 @@ const adminPanel=document.createElement('main');
 adminPanel.id='admin-dashboard';
 adminPanel.hidden=true;
 adminPanel.className='admin-dashboard';
-adminPanel.innerHTML=`<aside class="admin-rail"><div class="admin-brand"><img src="../assets/kizuna-logo-official.png" alt="Kizuna"><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>Administración</strong></div></div><nav class="admin-sidebar" aria-label="Secciones de administración"><button type="button" class="active" data-admin-view="users"><span>01</span>Usuarios</button><button type="button" data-admin-view="mailbox"><span>02</span>Buzón</button><button type="button" data-admin-view="media"><span>03</span>Media</button></nav><button id="admin-exit">Cerrar sesión <span>→</span></button></aside><section class="admin-content"><div class="admin-views"><section id="admin-users-view" class="admin-view"><p class="system-line">ACCESO ADMINISTRATIVO · REGISTROS DE DESTINATARIOS</p><h1>Gestión de<br><em>expedientes.</em></h1><p class="admin-intro">Selecciona un destinatario para consultar y corregir su progreso documental.</p><div class="admin-layout"><aside><label>DESTINATARIOS<select id="admin-user-list"><option value="">Cargando registros…</option></select></label></aside><section id="admin-editor" hidden></section></div></section><section id="admin-mailbox-view" class="admin-view admin-placeholder" hidden><p class="system-line">BUZÓN</p><h1>Próximamente.</h1></section><section id="admin-media-view" class="admin-view admin-placeholder" hidden><p class="system-line">MEDIA</p><h1>Próximamente.</h1></section></div></section>`;
+adminPanel.innerHTML=`<aside class="admin-rail"><div class="admin-brand"><img src="../assets/kizuna-logo-official.png" alt="Kizuna"><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>Administración</strong></div></div><nav class="admin-sidebar" aria-label="Secciones de administración"><button type="button" class="active" data-admin-view="users"><span>01</span>Usuarios</button><button type="button" data-admin-view="mailbox"><span>02</span>Buzón <b id="admin-mailbox-badge" hidden>0</b></button><button type="button" data-admin-view="media"><span>03</span>Media</button></nav><button id="admin-exit">Cerrar sesión <span>→</span></button></aside><section class="admin-content"><div class="admin-views"><section id="admin-users-view" class="admin-view"><p class="system-line">ACCESO ADMINISTRATIVO · REGISTROS DE DESTINATARIOS</p><h1>Gestión de<br><em>expedientes.</em></h1><p class="admin-intro">Selecciona un destinatario para consultar y corregir su progreso documental.</p><div class="admin-layout"><aside><label>DESTINATARIOS<select id="admin-user-list"><option value="">Cargando registros…</option></select></label></aside><section id="admin-editor" hidden></section></div></section><section id="admin-mailbox-view" class="admin-view" hidden><div class="admin-mailbox-heading"><div><p class="system-line">MENSAJES · FORMULARIO PÚBLICO</p><h1>Buzón de<br><em>mensajes.</em></h1><p id="admin-mailbox-summary" class="admin-intro">Cargando mensajes…</p></div><button id="admin-mailbox-refresh" type="button">↻ Actualizar</button></div><div id="admin-mailbox-list" class="admin-mailbox-list"></div></section><section id="admin-media-view" class="admin-view admin-placeholder" hidden><p class="system-line">MEDIA</p><h1>Próximamente.</h1></section></div></section>`;
 document.body.appendChild(adminPanel);
 
 const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view')};
 document.querySelectorAll('.admin-sidebar button').forEach(button=>button.onclick=()=>{
   document.querySelectorAll('.admin-sidebar button').forEach(item=>item.classList.toggle('active',item===button));
   Object.entries(adminViews).forEach(([name,view])=>view.hidden=name!==button.dataset.adminView);
+  if(button.dataset.adminView==='mailbox')loadAdminMessages();
 });
+
+const mailboxBadge=document.querySelector('#admin-mailbox-badge');
+const mailboxSummary=document.querySelector('#admin-mailbox-summary');
+const mailboxList=document.querySelector('#admin-mailbox-list');
+let mailboxChannel=null;
+
+const refreshMailboxBadge=async()=>{
+  if(!supabaseClient)return;
+  const {count,error}=await supabaseClient.from('contact_messages').select('id',{count:'exact',head:true}).eq('is_read',false);
+  if(error){console.error('No se pudo actualizar el indicador del buzón.',error);return}
+  mailboxBadge.textContent=String(count||0);
+  mailboxBadge.hidden=!count;
+};
+
+const updateContactMessage=async(id,changes)=>{
+  const {error}=await supabaseClient.from('contact_messages').update({...changes,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error)throw error;
+  await loadAdminMessages();
+};
+
+const deleteContactMessage=async message=>{
+  if(!confirm(`¿Eliminar definitivamente el mensaje de ${message.name}?`))return;
+  const {error}=await supabaseClient.from('contact_messages').delete().eq('id',message.id);
+  if(error){console.error(error);alert('No se ha podido eliminar el mensaje.');return}
+  await loadAdminMessages();
+};
+
+const createMailboxCard=message=>{
+  const card=document.createElement('article');
+  card.className=`admin-mailbox-card ${message.is_read?'is-read':'is-unread'}`;
+  const meta=document.createElement('div');
+  meta.className='admin-mailbox-meta';
+  const state=document.createElement('span');
+  state.textContent=message.is_read?'LEÍDO':'NUEVO';
+  const date=document.createElement('time');
+  date.dateTime=message.created_at;
+  date.textContent=new Date(message.created_at).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'});
+  meta.append(state,date);
+  const name=document.createElement('h2');
+  name.textContent=message.name;
+  const email=document.createElement('a');
+  email.href=`mailto:${message.email}`;
+  email.textContent=message.email;
+  const text=document.createElement('p');
+  text.className='admin-mailbox-text';
+  text.textContent=message.message;
+  const actions=document.createElement('div');
+  actions.className='admin-mailbox-actions';
+  const reply=document.createElement('a');
+  reply.className='primary';
+  reply.href=`mailto:${message.email}?subject=${encodeURIComponent('Respuesta de KIZUNA Travel Bureau')}`;
+  reply.textContent='Responder por correo';
+  const toggle=document.createElement('button');
+  toggle.type='button';
+  toggle.textContent=message.is_read?'Marcar como no leído':'Marcar como leído';
+  toggle.onclick=async()=>{toggle.disabled=true;try{await updateContactMessage(message.id,{is_read:!message.is_read})}catch(error){console.error(error);toggle.disabled=false}};
+  const remove=document.createElement('button');
+  remove.type='button';
+  remove.className='danger';
+  remove.textContent='Eliminar';
+  remove.onclick=()=>deleteContactMessage(message);
+  actions.append(reply,toggle,remove);
+  card.append(meta,name,email,text,actions);
+  return card;
+};
+
+const loadAdminMessages=async()=>{
+  if(!supabaseClient||adminViews.mailbox.hidden)return refreshMailboxBadge();
+  mailboxSummary.textContent='Actualizando buzón…';
+  const {data,error}=await supabaseClient.from('contact_messages').select('id,name,email,message,is_read,created_at').order('created_at',{ascending:false});
+  if(error){mailboxSummary.textContent='No se han podido recuperar los mensajes. Ejecuta primero supabase-contact-messages.sql.';console.error(error);return}
+  const unread=data.filter(item=>!item.is_read).length;
+  mailboxSummary.textContent=`${data.length} mensaje${data.length===1?'':'s'} · ${unread} sin leer`;
+  mailboxList.replaceChildren(...data.map(createMailboxCard));
+  if(!data.length){const empty=document.createElement('p');empty.className='admin-mailbox-empty';empty.textContent='Todavía no se ha recibido ningún mensaje.';mailboxList.appendChild(empty)}
+  mailboxBadge.textContent=String(unread);
+  mailboxBadge.hidden=!unread;
+};
+
+const connectMailboxRealtime=()=>{
+  if(mailboxChannel||!supabaseClient)return;
+  mailboxChannel=supabaseClient.channel('admin-contact-messages').on('postgres_changes',{event:'*',schema:'public',table:'contact_messages'},()=>{
+    if(adminViews.mailbox.hidden)refreshMailboxBadge();
+    else loadAdminMessages();
+  }).subscribe();
+};
+
+document.querySelector('#admin-mailbox-refresh').onclick=loadAdminMessages;
 
 const isAdmin=user=>user?.app_metadata?.role==='admin';
 const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,...(state||{})});
-const adminExit=async()=>{try{if(supabaseClient)await supabaseClient.auth.signOut()}finally{currentUser=null;remoteState=null;adminPanel.hidden=true;location.href='../index.html'}};
+const adminExit=async()=>{try{if(mailboxChannel&&supabaseClient){await supabaseClient.removeChannel(mailboxChannel);mailboxChannel=null}if(supabaseClient)await supabaseClient.auth.signOut()}finally{currentUser=null;remoteState=null;adminPanel.hidden=true;location.href='../index.html'}};
 document.querySelector('#admin-exit').onclick=adminExit;
 
 // El alta de destinatarios se solicita a una Edge Function. La clave de
@@ -383,6 +472,8 @@ const openAdminDashboard=async()=>{
   loading.hidden=true;
   if(error){access.hidden=false;message.textContent='No se ha podido cargar el directorio de expedientes.';console.error(error);return}
   adminPanel.hidden=false;
+  refreshMailboxBadge();
+  connectMailboxRealtime();
   const select=document.querySelector('#admin-user-list');
   select.innerHTML='<option value="">Selecciona un destinatario</option>'+data.filter(profile=>profile.id!==currentUser.id).map(profile=>`<option value="${profile.id}">${profile.display_name||profile.email} · ${profile.email}</option>`).join('');
   select.onchange=async()=>{
