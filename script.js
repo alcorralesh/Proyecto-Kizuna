@@ -1,3 +1,4 @@
+if(!window.kizunaStorage){const storageAssetsScript=document.createElement('script');storageAssetsScript.src='storage-assets.js';document.head.appendChild(storageAssetsScript)}
 const header=document.querySelector('.site-header');document.querySelector('.menu-toggle').addEventListener('click',()=>header.classList.toggle('open'));if(localStorage.getItem('kizuna-complete'))document.querySelector('footer p').textContent='Gracias por haber preservado este recuerdo.';
 let publicSupabaseClient=null,publicProgressState=null,publicUser=null;
 let publicSupabasePromise=null;

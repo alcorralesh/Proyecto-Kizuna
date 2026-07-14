@@ -1,3 +1,4 @@
+if(!window.kizunaStorage){const storageAssetsScript=document.createElement('script');storageAssetsScript.src='../storage-assets.js';document.head.appendChild(storageAssetsScript)}
 const sequence=['KTB-001','KTB-002','KTB-003','KTB-004','KTB-005','KTB-006','AR-01','KTB-007','AR-02','KTB-008','AR-03','KTB-009','AR-04','KTB-010','AR-05','KTB-011','AR-06','KTB-012','KTB-013','KTB-014'];
 const documentImages=new Set(['KTB-001','KTB-002','KTB-003','KTB-004','KTB-005','KTB-006','KTB-007','KTB-008','KTB-009','KTB-010','KTB-011','KTB-012','KTB-013','KTB-014']);
 const nestedKtb=new Set(['KTB-007','KTB-008','KTB-009','KTB-010','KTB-011','KTB-012']);
@@ -199,7 +200,10 @@ const adminPanel=document.createElement('main');
 adminPanel.id='admin-dashboard';
 adminPanel.hidden=true;
 adminPanel.className='admin-dashboard';
-adminPanel.innerHTML=`<aside class="admin-rail"><div class="admin-brand"><img src="../assets/kizuna-logo-official.png" alt="Kizuna"><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>Administración</strong></div></div><nav class="admin-sidebar" aria-label="Secciones de administración"><button type="button" class="active" data-admin-view="users"><span>01</span>Usuarios</button><button type="button" data-admin-view="mailbox"><span>02</span>Buzón <b id="admin-mailbox-badge" hidden>0</b></button><button type="button" data-admin-view="media"><span>03</span>Media</button></nav><button id="admin-exit">Cerrar sesión <span>→</span></button></aside><section class="admin-content"><div class="admin-views"><section id="admin-users-view" class="admin-view"><p class="system-line">ACCESO ADMINISTRATIVO · REGISTROS DE DESTINATARIOS</p><h1>Gestión de<br><em>expedientes.</em></h1><p class="admin-intro">Selecciona un destinatario para consultar y corregir su progreso documental.</p><div class="admin-layout"><aside><label>DESTINATARIOS<select id="admin-user-list"><option value="">Cargando registros…</option></select></label></aside><section id="admin-editor" hidden></section></div></section><section id="admin-mailbox-view" class="admin-view" hidden><div class="admin-mailbox-heading"><div><p class="system-line">MENSAJES · FORMULARIO PÚBLICO</p><h1>Buzón de<br><em>mensajes.</em></h1><p id="admin-mailbox-summary" class="admin-intro">Cargando mensajes…</p></div><button id="admin-mailbox-refresh" type="button">↻ Actualizar</button></div><div id="admin-mailbox-list" class="admin-mailbox-list"></div></section><section id="admin-media-view" class="admin-view admin-placeholder" hidden><p class="system-line">MEDIA</p><h1>Próximamente.</h1></section></div></section>`;
+adminPanel.id='admin-dashboard';
+adminPanel.hidden=true;
+adminPanel.className='admin-dashboard';
+adminPanel.innerHTML=`<aside class="admin-rail"><div class="admin-brand"><img src="../assets/kizuna-logo-official.png" alt="Kizuna"><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>Administración</strong></div></div><nav class="admin-sidebar" aria-label="Secciones de administración"><button type="button" class="active" data-admin-view="users"><span>01</span>Usuarios</button><button type="button" data-admin-view="mailbox"><span>02</span>Buzón <b id="admin-mailbox-badge" hidden>0</b></button><button type="button" data-admin-view="media"><span>03</span>Media</button></nav><button id="admin-exit">Cerrar sesión <span>→</span></button></aside><section class="admin-content"><div class="admin-views"><section id="admin-users-view" class="admin-view"><p class="system-line">ACCESO ADMINISTRATIVO · REGISTROS DE DESTINATARIOS</p><h1>Gestión de<br><em>expedientes.</em></h1><p class="admin-intro">Selecciona un destinatario para consultar y corregir su progreso documental.</p><div class="admin-layout"><aside><label>DESTINATARIOS<select id="admin-user-list"><option value="">Cargando registros…</option></select></label></aside><section id="admin-editor" hidden></section></div></section><section id="admin-mailbox-view" class="admin-view" hidden><div class="admin-mailbox-heading"><div><p class="system-line">MENSAJES · FORMULARIO PÚBLICO</p><h1>Buzón de<br><em>mensajes.</em></h1><p id="admin-mailbox-summary" class="admin-intro">Cargando mensajes…</p></div><button id="admin-mailbox-refresh" type="button">↻ Actualizar</button></div><div id="admin-mailbox-list" class="admin-mailbox-list"></div></section><section id="admin-media-view" class="admin-view" hidden><p class="system-line">MEDIA · SUPABASE STORAGE</p><h1>Biblioteca de<br><em>imágenes.</em></h1><p class="admin-intro">Importa la carpeta assets completa o sustituye una imagen conservando su ruta pública.</p><div class="admin-media-actions"><label class="admin-media-upload">Importar carpeta assets<input id="admin-media-folder" type="file" accept="image/*" webkitdirectory multiple></label><button id="admin-media-refresh" type="button">Actualizar biblioteca</button></div><p id="admin-media-status" role="status">Preparado para conectar con el bucket kizuna-assets.</p><div id="admin-media-grid" class="admin-media-grid"></div></section></div></section>`;
 document.body.appendChild(adminPanel);
 
 const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view')};
@@ -296,6 +300,92 @@ const connectMailboxRealtime=()=>{
 };
 
 document.querySelector('#admin-mailbox-refresh').onclick=loadAdminMessages;
+
+  if(button.dataset.adminView==='media')loadMediaLibrary();
+});
+
+const mediaBucket='kizuna-assets';
+const mediaStatus=document.querySelector('#admin-media-status');
+const mediaGrid=document.querySelector('#admin-media-grid');
+
+const listMediaFiles=async(prefix='')=>{
+  const {data,error}=await supabaseClient.storage.from(mediaBucket).list(prefix,{limit:1000,sortBy:{column:'name',order:'asc'}});
+  if(error)throw error;
+  const files=[];
+  for(const item of data||[]){
+    const path=prefix?`${prefix}/${item.name}`:item.name;
+    if(item.id)files.push({...item,path});
+    else files.push(...await listMediaFiles(path));
+  }
+  return files;
+};
+
+const uploadMediaFile=async(file,path)=>{
+  const {error}=await supabaseClient.storage.from(mediaBucket).upload(path,file,{upsert:true,cacheControl:'60',contentType:file.type||'image/png'});
+  if(error)throw error;
+};
+
+const replaceMediaFile=(path)=>{
+  const input=document.createElement('input');
+  input.type='file';
+  input.accept='image/*';
+  input.hidden=true;
+  input.onchange=async()=>{
+    const file=input.files?.[0];
+    if(!file){input.remove();return}
+    mediaStatus.textContent=`Sustituyendo ${path}…`;
+    try{await uploadMediaFile(file,path);mediaStatus.textContent=`Imagen actualizada: ${path}`;await loadMediaLibrary()}
+    catch(error){mediaStatus.textContent=`No se pudo actualizar ${path}: ${error.message}`}
+    finally{input.remove()}
+  };
+  document.body.appendChild(input);
+  input.click();
+};
+
+const loadMediaLibrary=async()=>{
+  if(!supabaseClient||adminViews.media.hidden)return;
+  mediaStatus.textContent='Consultando biblioteca…';
+  mediaGrid.innerHTML='';
+  try{
+    const files=await listMediaFiles();
+    mediaStatus.textContent=files.length?`${files.length} imágenes disponibles en Supabase Storage.`:'El bucket está vacío. Importa la carpeta assets para completar la migración.';
+    files.forEach(file=>{
+      const card=document.createElement('article');
+      const image=document.createElement('img');
+      const path=document.createElement('p');
+      const button=document.createElement('button');
+      const {data}=supabaseClient.storage.from(mediaBucket).getPublicUrl(file.path);
+      image.src=`${data.publicUrl}?v=${encodeURIComponent(file.updated_at||Date.now())}`;
+      image.alt=file.name;
+      path.textContent=file.path;
+      button.type='button';
+      button.textContent='Reemplazar imagen';
+      button.onclick=()=>replaceMediaFile(file.path);
+      card.append(image,path,button);
+      mediaGrid.appendChild(card);
+    });
+  }catch(error){mediaStatus.textContent=`No se pudo abrir la biblioteca. Ejecuta primero supabase-storage-setup.sql. ${error.message}`}
+};
+
+document.querySelector('#admin-media-refresh').onclick=loadMediaLibrary;
+document.querySelector('#admin-media-folder').onchange=async event=>{
+  const files=[...event.target.files].filter(file=>file.type.startsWith('image/'));
+  if(!files.length)return;
+  let uploaded=0;
+  try{
+    for(const file of files){
+      const parts=(file.webkitRelativePath||file.name).replace(/\\/g,'/').split('/');
+      if(parts[0].toLowerCase()==='assets')parts.shift();
+      const path=parts.join('/');
+      mediaStatus.textContent=`Subiendo ${uploaded+1} de ${files.length}: ${path}`;
+      await uploadMediaFile(file,path);
+      uploaded++;
+    }
+    mediaStatus.textContent=`Importación completada: ${uploaded} imágenes subidas.`;
+    await loadMediaLibrary();
+  }catch(error){mediaStatus.textContent=`Importación detenida tras ${uploaded} archivos: ${error.message}`}
+  finally{event.target.value=''}
+};
 
 const isAdmin=user=>user?.app_metadata?.role==='admin';
 const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,...(state||{})});
