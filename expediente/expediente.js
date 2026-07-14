@@ -199,8 +199,14 @@ const adminPanel=document.createElement('main');
 adminPanel.id='admin-dashboard';
 adminPanel.hidden=true;
 adminPanel.className='admin-dashboard';
-adminPanel.innerHTML=`<header><div class="admin-brand"><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>Panel de administración</strong></div><button id="admin-exit">Cerrar sesión</button></header><section class="admin-content"><p class="system-line">ACCESO ADMINISTRATIVO · REGISTROS DE DESTINATARIOS</p><h1>Gestión de<br><em>expedientes.</em></h1><p class="admin-intro">Selecciona un destinatario para consultar y corregir su progreso documental.</p><div class="admin-layout"><aside><label>DESTINATARIOS<select id="admin-user-list"><option value="">Cargando registros…</option></select></label></aside><section id="admin-editor" hidden></section></div></section></main>`;
+adminPanel.innerHTML=`<aside class="admin-rail"><div class="admin-brand"><img src="../assets/kizuna-logo-official.png" alt="Kizuna"><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>Administración</strong></div></div><nav class="admin-sidebar" aria-label="Secciones de administración"><button type="button" class="active" data-admin-view="users"><span>01</span>Usuarios</button><button type="button" data-admin-view="mailbox"><span>02</span>Buzón</button><button type="button" data-admin-view="media"><span>03</span>Media</button></nav><button id="admin-exit">Cerrar sesión <span>→</span></button></aside><section class="admin-content"><div class="admin-views"><section id="admin-users-view" class="admin-view"><p class="system-line">ACCESO ADMINISTRATIVO · REGISTROS DE DESTINATARIOS</p><h1>Gestión de<br><em>expedientes.</em></h1><p class="admin-intro">Selecciona un destinatario para consultar y corregir su progreso documental.</p><div class="admin-layout"><aside><label>DESTINATARIOS<select id="admin-user-list"><option value="">Cargando registros…</option></select></label></aside><section id="admin-editor" hidden></section></div></section><section id="admin-mailbox-view" class="admin-view admin-placeholder" hidden><p class="system-line">BUZÓN</p><h1>Próximamente.</h1></section><section id="admin-media-view" class="admin-view admin-placeholder" hidden><p class="system-line">MEDIA</p><h1>Próximamente.</h1></section></div></section>`;
 document.body.appendChild(adminPanel);
+
+const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view')};
+document.querySelectorAll('.admin-sidebar button').forEach(button=>button.onclick=()=>{
+  document.querySelectorAll('.admin-sidebar button').forEach(item=>item.classList.toggle('active',item===button));
+  Object.entries(adminViews).forEach(([name,view])=>view.hidden=name!==button.dataset.adminView);
+});
 
 const isAdmin=user=>user?.app_metadata?.role==='admin';
 const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,...(state||{})});
@@ -222,7 +228,7 @@ adminCreateSection.className='admin-create-section';
 adminCreateSection.innerHTML='<p class="system-line">NUEVO DESTINATARIO</p><h2>Crear una nueva<br><em>expedición.</em></h2><p>Genera un acceso para un nuevo destinatario del expediente.</p>';
 adminCreateButton.remove();
 adminCreateSection.appendChild(adminCreateButton);
-document.querySelector('.admin-content').appendChild(adminCreateSection);
+document.querySelector('#admin-users-view').appendChild(adminCreateSection);
 
 const createUserModal=document.createElement('div');
 createUserModal.id='admin-create-user-modal';
