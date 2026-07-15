@@ -1014,11 +1014,15 @@ setTimeout(()=>{
       const client=await getSupabase();
       const {data:{session}}=await client.auth.getSession();
       if(!session||isAdmin(session.user))return;
-      message.textContent='Restaurando sesión activa…';
       currentUser=session.user;
       await loadRemoteProgress(session.user);
       message.textContent='';
-      openDashboard();
+      access.hidden=true;
+      adminAccess.hidden=true;
+      loading.hidden=true;
+      gate.hidden=true;
+      dash.hidden=false;
+      render();
     }catch(error){console.warn('No se pudo restaurar la sesión del expediente.',error);message.textContent=''}
   };
   void restoreRecipientSession();
