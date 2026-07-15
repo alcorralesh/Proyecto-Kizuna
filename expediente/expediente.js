@@ -449,6 +449,14 @@ adminEventsView.innerHTML=`<p class="system-line">AGENDA KIZUNA · EVENTOS EN JA
 document.querySelector('.admin-views').appendChild(adminEventsView);
 
 const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView};
+const adminViewTitles={users:['USUARIOS','Gestión de expedientes'],mailbox:['BUZÓN','Mensajes recibidos'],media:['MEDIA','Biblioteca de imágenes'],blog:['BLOG','Gestión de artículos'],events:['EVENTOS','Gestión de eventos']};
+Object.entries(adminViews).forEach(([name,view])=>{
+  const [section,title]=adminViewTitles[name];
+  const bar=document.createElement('header');
+  bar.className='admin-section-bar';
+  bar.innerHTML=`<span>${section}</span><strong>${title}</strong>`;
+  view.prepend(bar);
+});
 const adminUserPanels={create:document.querySelector('#admin-user-create-tab'),manage:document.querySelector('#admin-user-manage-tab')};
 document.querySelectorAll('.admin-user-tabs button').forEach(button=>button.onclick=()=>{
   document.querySelectorAll('.admin-user-tabs button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active))});
@@ -773,7 +781,7 @@ document.querySelector('#admin-create-user-form').onsubmit=async event=>{
   }finally{button.disabled=false}
 };
 
-const renderAdminEditor=(profile,state)=>{
+const renderAdminEditorLegacy=(profile,state)=>{
   const editor=document.querySelector('#admin-editor');
   const current=safeState(state);
   const reviewed=progressKeys.filter(id=>current.read.includes(id)).length;
@@ -854,7 +862,7 @@ const renderAdminEditor=(profile,state)=>{
   renderAdminActivity(profile.id);
 };
 
-const renderAdminActivity=async userId=>{
+const renderAdminActivityLegacy=async userId=>{
   const target=document.querySelector('#admin-activity-log');
   if(!target)return;
   try{
@@ -877,6 +885,72 @@ const renderAdminActivity=async userId=>{
   }
 };
 
+const adminEditorEscape=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+const adminRecordTitle=id=>{
+  if(id.startsWith('KTB-'))return `Expediente ${id}`;
+  for(const folder of Object.values(folders)){const file=folder.files.find(item=>item.id===id);if(file)return file.title}
+  const ticket=ar01Tickets.find(item=>item.id===id);if(ticket)return ticket.title;
+  if(id==='AR03-CARTA')return 'Carta de introducción geográfica';
+  if(id.startsWith('AR03-C-'))return `Guía de ciudad ${Number(id.split('-').at(-1))+1}`;
+  if(id.startsWith('AR03-T-'))return `Registro cultural ${Number(id.split('-').at(-1))+1}`;
+  if(id==='AR06-PROTOCOL')return 'Protocolo de recuperación';
+  return id;
+};
+
+const renderAdminEditor=(profile,state)=>{
+  const editor=document.querySelector('#admin-editor'),current=safeState(state);
+  const selected=new Set(current.read),reviewed=progressKeys.filter(id=>selected.has(id)).length,total=progressKeys.length;
+  const integrity=Math.round(reviewed/total*100),isActive=profile.is_active!==false;
+  const ktbRead=progressKeys.filter(id=>id.startsWith('KTB-')&&selected.has(id)).length;
+  const accessLevel=roman(Math.max(1,Math.min(8,ktbRead-5||1)));
+  const displayName=adminEditorEscape(profile.display_name||profile.email),email=adminEditorEscape(profile.email);
+  const documents=progressKeys.map(id=>{
+    const read=selected.has(id),title=adminEditorEscape(adminRecordTitle(id));
+    return `<label class="admin-document-row" data-status="${read?'read':'pending'}" data-search="${adminEditorEscape(`${id} ${title}`.toLowerCase())}" data-document-id="${id}"><span class="admin-document-code">${id}</span><span class="admin-document-title">${title}</span><span class="admin-document-state ${read?'is-read':''}">${read?'LEÍDO':'PENDIENTE'}</span><time class="admin-document-date">${read?'Registrado':'—'}</time><input type="checkbox" name="records" value="${id}" ${read?'checked':''}><i aria-hidden="true"></i></label>`;
+  }).join('');
+  editor.hidden=false;editor.className='admin-user-workspace';
+  editor.innerHTML=`<header class="admin-user-profile"><div><p class="system-line">DESTINATARIO SELECCIONADO</p><h2>${displayName}</h2><p>${email}</p></div><dl><div><dt>Expediente</dt><dd>KTB-EXP-2026-JP-00184</dd><span class="admin-user-badge ${isActive?'active':'inactive'}">${isActive?'CUENTA ACTIVA':'CUENTA DESACTIVADA'}</span></div><div><dt>Documentos</dt><dd>${reviewed} de ${total}</dd></div><div><dt>Progreso</dt><dd>${integrity} %</dd></div><div><dt>Última actividad</dt><dd id="admin-last-activity">Consultando…</dd></div></dl></header><nav class="admin-editor-tabs" role="tablist"><button type="button" data-editor-tab="summary">Resumen</button><button type="button" class="active" data-editor-tab="documents">Documentos</button><button type="button" data-editor-tab="activity">Actividad</button><button type="button" data-editor-tab="settings">Ajustes</button></nav><div class="admin-user-body"><div class="admin-user-main"><section class="admin-editor-panel" data-editor-panel="summary" hidden><p class="system-line">RESUMEN DEL EXPEDIENTE</p><h3>Estado general</h3><div class="admin-overview-grid"><article><strong>${reviewed}</strong><span>Registros confirmados</span></article><article><strong>${total-reviewed}</strong><span>Registros pendientes</span></article><article><strong>${accessLevel}</strong><span>Nivel de acceso</span></article><article><strong>${integrity} %</strong><span>Integridad documental</span></article></div></section><section class="admin-editor-panel" data-editor-panel="documents"><div class="admin-document-toolbar"><div class="admin-document-filters"><button type="button" class="active" data-record-filter="all">Todos</button><button type="button" data-record-filter="read">Leídos</button><button type="button" data-record-filter="pending">Pendientes</button></div><label><span>Buscar documento</span><input id="admin-document-search" type="search" placeholder="Buscar documento"></label></div><form id="admin-progress-form"><div class="admin-document-grid">${documents}</div><p class="admin-note">Al desmarcar KTB-014 se reabre el expediente y se restaura el aviso final para una nueva revisión.</p></form><details class="admin-identity-details"><summary>Identidad y acceso</summary><form id="admin-identity-form"><label>Nombre y apellidos<input name="displayName" required maxlength="80" value="${displayName}"></label><div><span>Estado de la cuenta</span><button type="button" id="admin-toggle-user" class="admin-account-toggle ${isActive?'active':''}" aria-pressed="${isActive}"><i></i>${isActive?'Cuenta activa':'Cuenta desactivada'}</button></div><button>Guardar identidad</button><span id="admin-identity-status" role="status"></span></form></details></section><section class="admin-editor-panel" data-editor-panel="activity" hidden><div id="admin-activity-log"><p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Cargando actividad…</p></div></section><section class="admin-editor-panel" data-editor-panel="settings" hidden><p class="system-line">AJUSTES DEL DESTINATARIO</p><h3>Acceso y seguridad</h3><p>Gestiona la identidad, el acceso y las acciones permanentes de este expediente.</p><button type="button" class="admin-open-identity">Editar identidad y acceso</button></section></div><aside class="admin-user-side"><section class="admin-progress-card"><p class="system-line">PROGRESO DEL EXPEDIENTE</p><strong>${integrity} %</strong><div><i style="width:${integrity}%"></i></div><dl><div><dt>${reviewed}</dt><dd>Documentos leídos</dd></div><div><dt>${total-reviewed}</dt><dd>Documentos pendientes</dd></div></dl><p>NIVEL DE ACCESO ACTUAL<br><b>${accessLevel}</b></p><button type="button" id="admin-save-progress">Guardar cambios</button><span id="admin-save-status" role="status"></span></section><section class="admin-activity-preview"><p class="system-line">ACTIVIDAD RECIENTE</p><div id="admin-activity-preview"><p>Cargando actividad…</p></div><button type="button" id="admin-view-all-activity">Ver actividad completa →</button></section><section class="admin-danger-zone"><p class="system-line">ZONA DE SEGURIDAD</p><p>Estas acciones afectan al acceso o al progreso guardado.</p><button type="button" id="admin-reset-progress">Limpiar expediente</button><button type="button" id="admin-side-toggle-user">${isActive?'Desactivar acceso':'Reactivar acceso'}</button><span id="admin-reset-status" role="status"></span></section></aside></div>`;
+
+  const documentsPanel=editor.querySelector('[data-editor-panel="documents"]'),settingsPanel=editor.querySelector('[data-editor-panel="settings"]');
+  const identityDetails=editor.querySelector('.admin-identity-details'),dangerZone=editor.querySelector('.admin-danger-zone');
+  identityDetails.open=true;settingsPanel.append(identityDetails,dangerZone);
+  const saveActions=document.createElement('div');saveActions.className='admin-document-save';
+  saveActions.append(editor.querySelector('#admin-save-progress'),editor.querySelector('#admin-save-status'));
+  documentsPanel.querySelector('#admin-progress-form').append(saveActions);
+  editor.querySelector('.admin-user-side').remove();
+  [...editor.querySelectorAll('.admin-user-profile dl>div')].slice(1).forEach(item=>item.remove());
+
+  const activateTab=name=>{editor.querySelectorAll('[data-editor-tab]').forEach(button=>button.classList.toggle('active',button.dataset.editorTab===name));editor.querySelectorAll('[data-editor-panel]').forEach(panel=>panel.hidden=panel.dataset.editorPanel!==name)};
+  editor.querySelectorAll('[data-editor-tab]').forEach(button=>button.onclick=()=>activateTab(button.dataset.editorTab));
+  const viewAllActivity=document.querySelector('#admin-view-all-activity');if(viewAllActivity)viewAllActivity.onclick=()=>activateTab('activity');
+  document.querySelector('.admin-open-identity').onclick=()=>{activateTab('settings');const details=document.querySelector('.admin-identity-details');details.open=true;details.scrollIntoView({behavior:'smooth',block:'center'})};
+  let recordFilter='all';
+  const filterRecords=()=>{const query=document.querySelector('#admin-document-search').value.trim().toLowerCase();editor.querySelectorAll('.admin-document-row').forEach(row=>row.hidden=(recordFilter!=='all'&&row.dataset.status!==recordFilter)||!row.dataset.search.includes(query))};
+  editor.querySelectorAll('[data-record-filter]').forEach(button=>button.onclick=()=>{recordFilter=button.dataset.recordFilter;editor.querySelectorAll('[data-record-filter]').forEach(item=>item.classList.toggle('active',item===button));filterRecords()});
+  document.querySelector('#admin-document-search').oninput=filterRecords;
+  editor.querySelectorAll('.admin-document-row input').forEach(input=>input.onchange=()=>{const row=input.closest('.admin-document-row');row.dataset.status=input.checked?'read':'pending';row.querySelector('.admin-document-state').textContent=input.checked?'LEÍDO':'PENDIENTE';row.querySelector('.admin-document-state').classList.toggle('is-read',input.checked);row.querySelector('.admin-document-date').textContent=input.checked?'Sin guardar':'—';filterRecords()});
+
+  const saveProgress=async()=>{const status=document.querySelector('#admin-save-status'),button=document.querySelector('#admin-save-progress');const records=[...editor.querySelectorAll('input[name="records"]:checked')].map(input=>input.value),closing=records.includes('KTB-014');const nextState={...current,read:records,completed:closing?current.completed:false,finalAlertShown:closing?current.finalAlertShown:false,finalFileSeen:closing?current.finalFileSeen:false};status.textContent='Guardando…';button.disabled=true;const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:profile.id,state:nextState,updated_at:new Date().toISOString()});if(error){status.textContent='No se pudieron guardar los cambios.';console.error(error);button.disabled=false;return}renderAdminEditor(profile,nextState)};
+  document.querySelector('#admin-save-progress').onclick=saveProgress;
+  const identityForm=document.querySelector('#admin-identity-form');
+  identityForm.onsubmit=async event=>{event.preventDefault();const status=document.querySelector('#admin-identity-status'),button=identityForm.querySelector('button:not([type="button"])'),newName=new FormData(identityForm).get('displayName').trim();status.textContent='Actualizando identidad…';button.disabled=true;try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'update-profile',userId:profile.id,displayName:newName}});if(error)throw error;profile.display_name=data?.displayName||newName;renderAdminEditor(profile,current)}catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}};
+  const toggleAccess=async()=>{const nextActive=!isActive;if(!confirm(nextActive?'¿Reactivar el acceso de este destinatario?':'¿Desactivar el acceso de este destinatario? No podrá iniciar sesión hasta que lo reactives.'))return;const buttons=[document.querySelector('#admin-toggle-user'),document.querySelector('#admin-side-toggle-user')];buttons.forEach(button=>button.disabled=true);try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'set-active',userId:profile.id,active:nextActive}});if(error)throw error;profile.is_active=data?.isActive===undefined?nextActive:data.isActive;renderAdminEditor(profile,current)}catch(error){console.error(error);buttons.forEach(button=>button.disabled=false);document.querySelector('#admin-identity-status').textContent=await functionErrorMessage(error)}};
+  document.querySelector('#admin-toggle-user').onclick=toggleAccess;document.querySelector('#admin-side-toggle-user').onclick=toggleAccess;
+  document.querySelector('#admin-reset-progress').onclick=async()=>{const button=document.querySelector('#admin-reset-progress'),status=document.querySelector('#admin-reset-status');if(!confirm(`¿Limpiar por completo el expediente de ${profile.display_name||profile.email}? Esta acción no se puede deshacer.`))return;button.disabled=true;status.textContent='Limpiando expediente…';try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'reset-progress',userId:profile.id}});if(error)throw error;renderAdminEditor(profile,data?.state||safeState())}catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}};
+  renderAdminActivity(profile.id);
+};
+
+const renderAdminActivity=async userId=>{
+  const full=document.querySelector('#admin-activity-log'),preview=document.querySelector('#admin-activity-preview'),last=document.querySelector('#admin-last-activity');if(!full)return;
+  try{const {data,error}=await supabaseClient.from('expedient_activity_log').select('event_type,document_id,details,created_at').eq('user_id',userId).order('created_at',{ascending:false});if(error)throw error;const items=data||[];if(last)last.textContent=items[0]?new Date(items[0].created_at).toLocaleDateString('es-ES'):'Sin actividad';
+    const activityTitle=item=>item.event_type==='login'?'Inicio de sesión verificado':item.event_type==='logout'?'Cierre de sesión':item.event_type==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas`:item.event_type==='supplementary_file_consulted'?'Archivo final consultado':item.event_type==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
+    const row=item=>`<li><time>${new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})}</time><strong>${adminEditorEscape(activityTitle(item))}</strong></li>`;
+    if(!items.length){full.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Aún no hay actividad registrada para este destinatario.</p>';if(preview)preview.innerHTML='<p>Sin actividad registrada.</p>';return}
+    full.innerHTML=`<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p class="admin-activity-count">${items.length} registros</p><ol class="admin-activity-list">${items.map(row).join('')}</ol>`;if(preview)preview.innerHTML=`<ol class="admin-activity-list compact">${items.slice(0,3).map(row).join('')}</ol>`;
+    const dates=new Map();items.filter(item=>item.document_id).forEach(item=>{if(!dates.has(item.document_id))dates.set(item.document_id,new Date(item.created_at).toLocaleDateString('es-ES'))});dates.forEach((date,id)=>{const target=document.querySelector(`.admin-document-row[data-document-id="${id}"] .admin-document-date`);if(target)target.textContent=date});
+  }catch(error){console.error(error);if(last)last.textContent='No disponible';full.innerHTML='<p>No se ha podido recuperar la actividad.</p>';if(preview)preview.innerHTML='<p>Actividad no disponible.</p>'}
+};
+
 const openAdminDashboard=async()=>{
   access.hidden=true;
   adminAccess.hidden=true;
@@ -897,6 +971,7 @@ const openAdminDashboard=async()=>{
   refreshMailboxBadge();
   connectMailboxRealtime();
   const select=document.querySelector('#admin-user-list');
+  if(select.closest('label')?.firstChild)select.closest('label').firstChild.nodeValue='BUSCAR DESTINATARIO';
   select.innerHTML='<option value="">Selecciona un destinatario</option>'+data.filter(profile=>profile.id!==currentUser.id).map(profile=>`<option value="${profile.id}">${profile.display_name||profile.email} · ${profile.email}</option>`).join('');
   select.onchange=async()=>{
     const profile=data.find(item=>item.id===select.value);
