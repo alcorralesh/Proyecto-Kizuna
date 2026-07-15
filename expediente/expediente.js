@@ -33,7 +33,7 @@ updateCompletionHeader=done=>{
   const recipientValue=recipient?.querySelector('strong');
   if(recipientValue)recipientValue.textContent=recipientName().toLocaleUpperCase('es-ES');
 };
-const localState=()=>({read:JSON.parse(localStorage.getItem('kizuna-read')||'[]'),mailRead:Number(localStorage.getItem('kizuna-mail-read')||0),finalFileSeen:localStorage.getItem('kizuna-final-file-seen')==='true',completed:localStorage.getItem('kizuna-complete')==='true',comicReadPages:JSON.parse(localStorage.getItem('kizuna-comic-read-pages')||'[]'),legalAccepted:localStorage.getItem('kizuna-legal-accepted')==='true',loadingSeen:localStorage.getItem('kizuna-loading-seen')==='true'});
+const localState=()=>({read:JSON.parse(localStorage.getItem('kizuna-read')||'[]'),mailRead:Number(localStorage.getItem('kizuna-mail-read')||0),finalFileSeen:localStorage.getItem('kizuna-final-file-seen')==='true',completed:localStorage.getItem('kizuna-complete')==='true',comicReadPages:JSON.parse(localStorage.getItem('kizuna-comic-read-pages')||'[]'),legalAccepted:localStorage.getItem('kizuna-legal-accepted')==='true',legalAcceptedAt:localStorage.getItem('kizuna-legal-accepted-at')||null,legalVersion:Number(localStorage.getItem('kizuna-legal-version')||1),loadingSeen:localStorage.getItem('kizuna-loading-seen')==='true'});
 const getState=()=>remoteState||localState();
 const read=()=>getState().read||[];
 const persistRemote=async()=>{if(!supabaseClient||!currentUser||!remoteState)return;const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:currentUser.id,state:remoteState,updated_at:new Date().toISOString()});if(error)console.error('No se pudo guardar el progreso remoto.',error)};
@@ -53,10 +53,10 @@ const recordActivity=async(eventType,documentId=null,details={})=>{
     console.warn('No se pudo registrar la actividad del expediente.',error);
   }
 };
-const patchState=changes=>{if(remoteState){remoteState={...remoteState,...changes};persistRemote();return}const state={...localState(),...changes};localStorage.setItem('kizuna-read',JSON.stringify(state.read));localStorage.setItem('kizuna-mail-read',String(state.mailRead));localStorage.setItem('kizuna-final-file-seen',String(state.finalFileSeen));localStorage.setItem('kizuna-complete',String(state.completed));localStorage.setItem('kizuna-comic-read-pages',JSON.stringify(state.comicReadPages||[]));localStorage.setItem('kizuna-legal-accepted',String(Boolean(state.legalAccepted)));localStorage.setItem('kizuna-loading-seen',String(Boolean(state.loadingSeen)))};
+const patchState=changes=>{if(remoteState){remoteState={...remoteState,...changes};return persistRemote()}const state={...localState(),...changes};localStorage.setItem('kizuna-read',JSON.stringify(state.read));localStorage.setItem('kizuna-mail-read',String(state.mailRead));localStorage.setItem('kizuna-final-file-seen',String(state.finalFileSeen));localStorage.setItem('kizuna-complete',String(state.completed));localStorage.setItem('kizuna-comic-read-pages',JSON.stringify(state.comicReadPages||[]));localStorage.setItem('kizuna-legal-accepted',String(Boolean(state.legalAccepted)));if(state.legalAcceptedAt)localStorage.setItem('kizuna-legal-accepted-at',state.legalAcceptedAt);else localStorage.removeItem('kizuna-legal-accepted-at');localStorage.setItem('kizuna-legal-version',String(state.legalVersion||1));localStorage.setItem('kizuna-loading-seen',String(Boolean(state.loadingSeen)));return Promise.resolve()};
 const save=items=>patchState({read:items});
 const getSupabase=async()=>{if(supabaseClient)return supabaseClient;if(!window.supabase){if(!supabaseScript){supabaseScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)})}await supabaseScript}supabaseClient=window.supabase.createClient(supabaseUrl,supabaseKey);return supabaseClient};
-const loadRemoteProgress=async user=>{currentUser=user;const client=await getSupabase();const [{data,error},{data:profile,error:profileError}]=await Promise.all([client.from('expedient_progress').select('state').eq('user_id',user.id).maybeSingle(),client.from('expedient_profiles').select('display_name,email,is_active').eq('id',user.id).maybeSingle()]);if(error)throw error;if(profileError)console.warn('No se pudo leer el nombre del perfil.',profileError);if(profile?.is_active===false){await client.auth.signOut();throw new Error('Este acceso ha sido desactivado por la División de Archivos Temporales.')}currentDisplayName=profile?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Destinatario autorizado';updateRecipientName();if(data?.state){remoteState={read:[],mailRead:0,finalFileSeen:false,completed:false,comicReadPages:[],legalAccepted:false,loadingSeen:false,...data.state};return}remoteState=localState();await persistRemote()};
+const loadRemoteProgress=async user=>{currentUser=user;const client=await getSupabase();const [{data,error},{data:profile,error:profileError}]=await Promise.all([client.from('expedient_progress').select('state').eq('user_id',user.id).maybeSingle(),client.from('expedient_profiles').select('display_name,email,is_active').eq('id',user.id).maybeSingle()]);if(error)throw error;if(profileError)console.warn('No se pudo leer el nombre del perfil.',profileError);if(profile?.is_active===false){await client.auth.signOut();throw new Error('Este acceso ha sido desactivado por la División de Archivos Temporales.')}currentDisplayName=profile?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Destinatario autorizado';updateRecipientName();if(data?.state){remoteState={read:[],mailRead:0,finalFileSeen:false,completed:false,comicReadPages:[],legalAccepted:false,legalAcceptedAt:null,legalVersion:1,loadingSeen:false,...data.state};return}remoteState=localState();await persistRemote()};
 const recordComicPage=async page=>{
   const viewed=Array.isArray(getState().comicReadPages)?getState().comicReadPages:[];
   if(viewed.includes(page))return;
@@ -180,7 +180,8 @@ setTimeout(()=>{
     };
     const advance=()=>{
       loading.hidden=true;
-      dash.hidden=true;gate.hidden=false;
+      if(getState().legalAccepted){gate.hidden=true;dash.hidden=false;render()}
+      else{dash.hidden=true;gate.hidden=false}
     };
     continueButton.onclick=advance;
     skip.hidden=!state.loadingSeen;
@@ -433,6 +434,12 @@ function startFinale(){next.style.display='none';mark.style.display='none';docum
 function showFinaleMessage(){document.querySelector('#doc-type').textContent='KIZUNA TRAVEL BUREAU';document.querySelector('#doc-title').textContent='PROJECT JAPAN';document.querySelector('#doc-body').innerHTML=`<p><strong>Estado del expediente</strong><br>COMPLETADO</p><p>Durante las últimas semanas has recorrido un expediente que nunca debió existir.</p><p>Has leído documentos escritos antes de ser creados. Has seguido el rastro de recuerdos que todavía no habían sucedido.</p><p>Y, aun así…</p><p>Has llegado exactamente al lugar al que debías llegar.</p><p>Gracias por confiar en nosotros.</p><p>Ha sido un honor acompañarte durante esta expedición.</p><p><strong>KIZUNA TRAVEL BUREAU</strong></p><button id="final-continue">Continuar</button>`;document.querySelector('#final-continue').onclick=()=>{viewer.close();render();setTimeout(showFinalFileAlert,180)}}
 function showFinalLogo(){document.querySelector('#doc-type').textContent='';document.querySelector('#doc-title').textContent='KIZUNA';document.querySelector('#doc-body').innerHTML='<img style="display:block;width:130px;margin:0 auto 18px;border-radius:50%" src="../assets/kizuna-logo-official.png" alt="Kizuna Travel Bureau"><p style="text-align:center;font-size:20px">TRAVEL BUREAU</p><p style="text-align:center;margin-top:70px">Porque los mejores recuerdos nunca pertenecieron a un expediente. Siempre te pertenecieron a ti.</p>'}
 document.querySelector('#gate-consent').onchange=event=>document.querySelector('#gate-continue').disabled=!event.target.checked;document.querySelector('#gate-continue').onclick=()=>{patchState({legalAccepted:true});gate.hidden=true;dash.hidden=false;render()};document.querySelector('#access-form').onsubmit=event=>{event.preventDefault();const username=document.querySelector('#username').value.trim().toLowerCase(),password=document.querySelector('#password').value;if(username!=='jose.cuadrado'||password!=='kizuna2026')message.textContent='No se han podido verificar las credenciales de acceso.';else openDashboard()};document.querySelector('#exit').onclick=()=>{location.href='../index.html'};document.querySelector('.close').onclick=()=>viewer.close();mark.onclick=()=>{const done=read();if(!done.includes(active)){done.push(active);save(done)}if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}const parent=fileFolder(active);if(parent){openFolder(parent);return}if(active.startsWith('KTB-')){const id=active;syncKtb(id,()=>{if(id==='KTB-014'){localStorage.setItem('kizuna-complete','true');startFinale()}else{viewer.close();render()}});return}viewer.close();render()};next.onclick=()=>{const index=sequence.indexOf(active);if(index<sequence.length-1&&allowed(sequence[index+1]))openDoc(sequence[index+1])};
+
+document.querySelector('#gate-continue').onclick=async()=>{
+  await patchState({legalAccepted:true,legalAcceptedAt:new Date().toISOString(),legalVersion:Number(getState().legalVersion||1)});
+  await recordActivity('legal_terms_accepted',null,{version:Number(getState().legalVersion||1)});
+  gate.hidden=true;dash.hidden=false;render();
+};
 
 // Panel reservado para cuentas con el rol seguro app_metadata.role = admin.
 const adminPanel=document.createElement('main');
@@ -819,7 +826,7 @@ document.querySelector('#admin-shop-refresh').onclick=loadAdminProducts;
 [adminShopSearch,adminShopCategory,adminShopVisibility].forEach(control=>control.addEventListener(control.tagName==='INPUT'?'input':'change',renderAdminProductList));
 
 const isAdmin=user=>user?.app_metadata?.role==='admin';
-const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,...(state||{})});
+const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,...(state||{})});
 const adminExit=async()=>{try{if(mailboxChannel&&supabaseClient){await supabaseClient.removeChannel(mailboxChannel);mailboxChannel=null}if(supabaseClient)await supabaseClient.auth.signOut()}finally{currentUser=null;remoteState=null;adminPanel.hidden=true;location.href='../index.html'}};
 document.querySelector('#admin-exit').onclick=adminExit;
 
@@ -951,7 +958,7 @@ const renderAdminActivityLegacy=async userId=>{
     if(error)throw error;
     if(!data?.length){target.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3 style="margin:7px 0 16px;font:27px var(--serif)">Actividad reciente</h3><p>Aún no hay actividad registrada para este destinatario.</p>';return}
     const rows=data.map(item=>{
-      const title=item.event_type==='login'?'Inicio de sesión verificado':item.event_type==='logout'?'Cierre de sesión':item.event_type==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas leídas`:item.event_type==='supplementary_file_consulted'?'Archivo final consultado':item.event_type==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado confirmado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
+      const title=item.event_type==='login'?'Inicio de sesión verificado':item.event_type==='logout'?'Cierre de sesión':item.event_type==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:item.event_type==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:item.event_type==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas leídas`:item.event_type==='supplementary_file_consulted'?'Archivo final consultado':item.event_type==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado confirmado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
       const date=new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'});
       return `<li style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:11px 0;border-top:1px solid #ddd1ba;font:13px var(--serif)"><strong>${title}</strong><small style="font:9px var(--mono);color:#7e1b19;white-space:nowrap">${date}</small></li>`;
     }).join('');
@@ -991,6 +998,12 @@ const renderAdminEditor=(profile,state)=>{
   const documentsPanel=editor.querySelector('[data-editor-panel="documents"]'),settingsPanel=editor.querySelector('[data-editor-panel="settings"]');
   const identityDetails=editor.querySelector('.admin-identity-details'),dangerZone=editor.querySelector('.admin-danger-zone');
   identityDetails.open=true;settingsPanel.append(identityDetails,dangerZone);
+  const legalAccepted=Boolean(current.legalAccepted),legalVersion=Number(current.legalVersion||1);
+  const legalAcceptedDate=current.legalAcceptedAt&&!Number.isNaN(Date.parse(current.legalAcceptedAt))?new Date(current.legalAcceptedAt).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):null;
+  const legalSettings=document.createElement('section');
+  legalSettings.className='admin-message-settings admin-legal-settings';
+  legalSettings.innerHTML=`<p class="system-line">BASES LEGALES · VERSIÓN ${legalVersion}</p><h4>Condiciones de acceso</h4><p class="admin-legal-state ${legalAccepted?'accepted':'pending'}"><strong>${legalAccepted?'ACEPTADAS':'PENDIENTES DE ACEPTACIÓN'}</strong>${legalAcceptedDate?`<span>${adminEditorEscape(legalAcceptedDate)}</span>`:''}</p><p>${legalAccepted?'El destinatario no volverá a ver el aviso mientras esta versión siga vigente.':'El aviso legal se mostrará antes de permitir el próximo acceso al expediente.'}</p><button type="button" id="admin-renew-legal" ${legalAccepted?'':'disabled'}>Crear nueva versión</button><span id="admin-legal-status" role="status"></span>`;
+  settingsPanel.insertBefore(legalSettings,dangerZone);
   const albertoSettings=document.createElement('section'),expedientCompleted=Boolean(current.completed&&selected.has('KTB-014'));
   albertoSettings.className='admin-message-settings';
   albertoSettings.innerHTML=`<p class="system-line">COMUNICACIÓN FINAL</p><h4>Mensaje de Alberto</h4><p>${expedientCompleted?current.albertoResponseAccepted===true?'La decisión final ya está registrada. Puedes restaurar el mensaje y repetir el flujo completo.':current.albertoMessageRead===true?'El destinatario ya ha leído el mensaje. Puedes volver a mostrarlo como pendiente.':'El mensaje está pendiente de lectura.':'Esta acción estará disponible cuando el expediente esté completado.'}</p><button type="button" id="admin-reset-alberto" ${expedientCompleted?'':'disabled'}>Restaurar mensaje y decisión final</button><span id="admin-alberto-status" role="status"></span>`;
@@ -1018,6 +1031,17 @@ const renderAdminEditor=(profile,state)=>{
   const toggleAccess=async()=>{const nextActive=!isActive;if(!confirm(nextActive?'¿Reactivar el acceso de este destinatario?':'¿Desactivar el acceso de este destinatario? No podrá iniciar sesión hasta que lo reactives.'))return;const buttons=[document.querySelector('#admin-toggle-user'),document.querySelector('#admin-side-toggle-user')];buttons.forEach(button=>button.disabled=true);try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'set-active',userId:profile.id,active:nextActive}});if(error)throw error;profile.is_active=data?.isActive===undefined?nextActive:data.isActive;renderAdminEditor(profile,current)}catch(error){console.error(error);buttons.forEach(button=>button.disabled=false);document.querySelector('#admin-identity-status').textContent=await functionErrorMessage(error)}};
   document.querySelector('#admin-toggle-user').onclick=toggleAccess;document.querySelector('#admin-side-toggle-user').onclick=toggleAccess;
   document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!confirm(`¿Volver a mostrar el mensaje y la decisión final a ${profile.display_name||profile.email}?`))return;button.disabled=true;status.textContent='Restaurando mensaje…';const nextState={...current,completed:true,albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:profile.id,state:nextState,updated_at:new Date().toISOString()});if(error){console.error(error);status.textContent='No se ha podido restaurar el mensaje.';button.disabled=false;return}renderAdminEditor(profile,nextState)};
+  document.querySelector('#admin-renew-legal').onclick=async()=>{
+    const button=document.querySelector('#admin-renew-legal'),status=document.querySelector('#admin-legal-status');
+    if(!confirm(`¿Crear una nueva versión de las bases para ${profile.display_name||profile.email}? Tendrá que aceptarlas de nuevo antes de acceder al expediente.`))return;
+    button.disabled=true;status.textContent='Creando nueva versión…';
+    const nextVersion=legalVersion+1,nextState={...current,legalAccepted:false,legalAcceptedAt:null,legalVersion:nextVersion,legalResetAt:new Date().toISOString()};
+    const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:profile.id,state:nextState,updated_at:new Date().toISOString()});
+    if(error){console.error(error);status.textContent='No se ha podido crear la nueva versión.';button.disabled=false;return}
+    const {error:activityError}=await supabaseClient.from('expedient_activity_log').insert({user_id:profile.id,event_type:'legal_terms_reset',document_id:null,details:{version:nextVersion,source:'administration'}});
+    if(activityError)console.warn('La versión se actualizó, pero no pudo registrarse en la actividad.',activityError);
+    renderAdminEditor(profile,nextState);
+  };
   document.querySelector('#admin-reset-progress').onclick=async()=>{const button=document.querySelector('#admin-reset-progress'),status=document.querySelector('#admin-reset-status');if(!confirm(`¿Limpiar por completo el expediente de ${profile.display_name||profile.email}? Esta acción no se puede deshacer.`))return;button.disabled=true;status.textContent='Limpiando expediente…';try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'reset-progress',userId:profile.id}});if(error)throw error;renderAdminEditor(profile,data?.state||safeState())}catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}};
   renderAdminActivity(profile.id);
   renderAdminPurchases(profile.id);
@@ -1037,7 +1061,7 @@ const renderAdminPurchases=async userId=>{
 const renderAdminActivity=async userId=>{
   const full=document.querySelector('#admin-activity-log'),preview=document.querySelector('#admin-activity-preview'),last=document.querySelector('#admin-last-activity');if(!full)return;
   try{const {data,error}=await supabaseClient.from('expedient_activity_log').select('event_type,document_id,details,created_at').eq('user_id',userId).order('created_at',{ascending:false});if(error)throw error;const items=data||[];if(last)last.textContent=items[0]?new Date(items[0].created_at).toLocaleDateString('es-ES'):'Sin actividad';
-    const activityTitle=item=>item.event_type==='login'?'Inicio de sesión verificado':item.event_type==='logout'?'Cierre de sesión':item.event_type==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas`:item.event_type==='supplementary_file_consulted'?'Archivo final consultado':item.event_type==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
+    const activityTitle=item=>item.event_type==='login'?'Inicio de sesión verificado':item.event_type==='logout'?'Cierre de sesión':item.event_type==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:item.event_type==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:item.event_type==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas`:item.event_type==='supplementary_file_consulted'?'Archivo final consultado':item.event_type==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
     const row=item=>`<li><time>${new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})}</time><strong>${adminEditorEscape(activityTitle(item))}</strong></li>`;
     if(!items.length){full.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Aún no hay actividad registrada para este destinatario.</p>';if(preview)preview.innerHTML='<p>Sin actividad registrada.</p>';return}
     full.innerHTML=`<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p class="admin-activity-count">${items.length} registros</p><ol class="admin-activity-list">${items.map(row).join('')}</ol>`;if(preview)preview.innerHTML=`<ol class="admin-activity-list compact">${items.slice(0,3).map(row).join('')}</ol>`;
@@ -1118,9 +1142,8 @@ setTimeout(()=>{
       access.hidden=true;
       adminAccess.hidden=true;
       loading.hidden=true;
-      gate.hidden=true;
-      dash.hidden=false;
-      render();
+      if(getState().legalAccepted){gate.hidden=true;dash.hidden=false;render()}
+      else{gate.hidden=false;dash.hidden=true}
     }catch(error){console.warn('No se pudo restaurar la sesión del expediente.',error);message.textContent='';access.hidden=false}
   };
   void restoreRecipientSession();
