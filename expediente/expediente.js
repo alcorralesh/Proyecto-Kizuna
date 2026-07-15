@@ -366,6 +366,14 @@ adminEventsView.innerHTML=`<p class="system-line">AGENDA KIZUNA · EVENTOS EN JA
 document.querySelector('.admin-views').appendChild(adminEventsView);
 
 const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView};
+const adminViewTitles={users:['USUARIOS','Gestión de expedientes'],mailbox:['BUZÓN','Mensajes recibidos'],media:['MEDIA','Biblioteca de imágenes'],blog:['BLOG','Gestión de artículos'],events:['EVENTOS','Gestión de eventos']};
+Object.entries(adminViews).forEach(([name,view])=>{
+  const [section,title]=adminViewTitles[name];
+  const bar=document.createElement('header');
+  bar.className='admin-section-bar';
+  bar.innerHTML=`<span>${section}</span><strong>${title}</strong>`;
+  view.prepend(bar);
+});
 const adminUserPanels={create:document.querySelector('#admin-user-create-tab'),manage:document.querySelector('#admin-user-manage-tab')};
 document.querySelectorAll('.admin-user-tabs button').forEach(button=>button.onclick=()=>{
   document.querySelectorAll('.admin-user-tabs button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active))});
