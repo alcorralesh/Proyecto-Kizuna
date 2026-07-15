@@ -162,18 +162,29 @@ setTimeout(()=>{
     const closing=log.querySelector('.auth-closing-message');
     const routing=log.querySelector('.auth-routing-message');
     const skip=document.querySelector('#auth-skip');
+    const continueButton=document.querySelector('#auth-continue')||document.createElement('button');
+    continueButton.id='auth-continue';continueButton.type='button';continueButton.hidden=true;
+    if(!continueButton.isConnected)skip.before(continueButton);
+    routing.innerHTML='Verificaci&oacute;n completada.<br><strong>El expediente est&aacute; preparado para su consulta.</strong>';
     const timers=[];
     let finished=false;
     const show=element=>{element.hidden=false;requestAnimationFrame(()=>element.classList.add('is-visible'))};
     const setProgress=value=>masterProgress.style.width=`${value}%`;
     const schedule=(delay,action)=>timers.push(setTimeout(()=>{if(!finished)action()},delay));
-    const finishLoading=()=>{
+    const showCompletion=()=>{
       if(finished)return;
-      finished=true;timers.forEach(clearTimeout);setProgress(100);patchState({loadingSeen:true});loading.hidden=true;
+      finished=true;timers.forEach(clearTimeout);setProgress(100);patchState({loadingSeen:true});
+      live.hidden=true;caseBlock.hidden=true;show(recipient);show(summary);show(closing);show(routing);
+      continueButton.innerHTML=`${completed?'Consultar expediente archivado':reviewed?'Continuar expediente':'Iniciar consulta'} <b>→</b>`;
+      continueButton.hidden=false;skip.hidden=true;
+    };
+    const advance=()=>{
+      loading.hidden=true;
       if(getState().legalAccepted){dash.hidden=false;render()}else gate.hidden=false;
     };
+    continueButton.onclick=advance;
     skip.hidden=!state.loadingSeen;
-    skip.onclick=finishLoading;
+    skip.onclick=showCompletion;
     masterProgress.style.width='0';
     schedule(100,()=>setProgress(12));
     schedule(650,()=>{live.textContent='Validando credenciales…';setProgress(24)});
@@ -185,7 +196,7 @@ setTimeout(()=>{
     schedule(4050,()=>{caseBlock.hidden=true;show(summary);setProgress(84)});
     schedule(4650,()=>{show(closing);setProgress(92)});
     schedule(5150,()=>{show(routing);setProgress(98)});
-    schedule(5700,finishLoading);
+    schedule(5700,showCompletion);
   };
   mark.onclick=async()=>{
     const done=read(),alreadyRead=done.includes(active);

@@ -173,6 +173,9 @@
 .auth-expedient-progress i{display:block;height:100%;background:#7e1b19}
 #auth-loading #auth-log .auth-closing-message{margin:7px 0 0;padding-left:10px;border-left:1px solid #7e1b19}
 #auth-loading #auth-log .auth-routing-message{margin:7px 0 0;color:#7e1b19;text-align:right;letter-spacing:.03em}
+#auth-continue{display:block;margin:7px 0 0 auto;padding:9px 13px}
+#auth-continue[hidden]{display:none}
+#auth-continue b{margin-left:14px}
 #auth-skip{display:block;margin:6px 0 0 auto;padding:6px 0;border:0;border-bottom:1px solid #7e1b19;background:transparent;color:#7e1b19;font:8px var(--mono);cursor:pointer}
 #auth-skip[hidden]{display:none}
 #auth-skip b{margin-left:12px;font:15px var(--serif)}
