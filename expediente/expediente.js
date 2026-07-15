@@ -355,7 +355,7 @@ const enhanceDocumentImages=()=>{
       scale=nextScale;update();frame.scrollLeft=contentX*ratio-viewX;frame.scrollTop=contentY*ratio-viewY;
     };
     const distance=points=>Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y),center=points=>({x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2});
-    const canDrag=()=>scale>1.01||viewer.classList.contains('is-reader-fullscreen');
+    const canDrag=()=>true;
     const restartDrag=()=>{const point=[...pointers.values()][0];dragging=Boolean(point&&canDrag());if(point){point.startX=point.x;point.startY=point.y;point.scrollX=frame.scrollLeft;point.scrollY=frame.scrollTop}};
     readerTools.onclick=async event=>{
       const action=event.target.closest('[data-reader-action]')?.dataset.readerAction;if(!action)return;
@@ -374,7 +374,7 @@ const enhanceDocumentImages=()=>{
     frame.addEventListener('pointermove',event=>{const point=pointers.get(event.pointerId);if(!point)return;point.x=event.clientX;point.y=event.clientY;if(pointers.size>=2&&pinchStart){event.preventDefault();const points=[...pointers.values()].slice(0,2),focus=center(points);setScale(pinchStart.scale*distance(points)/pinchStart.distance,focus.x,focus.y)}else if(dragging){event.preventDefault();frame.scrollLeft=point.scrollX-(event.clientX-point.startX);frame.scrollTop=point.scrollY-(event.clientY-point.startY)}});
     const releasePointer=event=>{pointers.delete(event.pointerId);pinchStart=null;restartDrag()};frame.addEventListener('pointerup',releasePointer);frame.addEventListener('pointercancel',releasePointer);
     frame.addEventListener('dblclick',event=>{event.preventDefault();setScale(scale>1.01?1:2.5,event.clientX,event.clientY)});
-    frame.addEventListener('wheel',event=>{if(!event.ctrlKey)return;event.preventDefault();setScale(scale+(event.deltaY<0?.2:-.2),event.clientX,event.clientY)},{passive:false});
+    frame.addEventListener('wheel',event=>{event.preventDefault();if(event.ctrlKey)setScale(scale+(event.deltaY<0?.2:-.2),event.clientX,event.clientY);else{frame.scrollTop+=event.deltaY;frame.scrollLeft+=event.deltaX}},{passive:false});
     update();
   });
   syncReaderChrome();
