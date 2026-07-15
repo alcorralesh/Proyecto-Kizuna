@@ -18,6 +18,11 @@ create table if not exists public.shop_products (
 
 alter table public.shop_products enable row level security;
 
+-- Los GRANT habilitan el acceso base; las políticas RLS de abajo determinan
+-- qué filas puede consultar o modificar cada sesión.
+grant select on table public.shop_products to anon, authenticated;
+grant insert, update, delete on table public.shop_products to authenticated;
+
 drop policy if exists "Public can view active shop products" on public.shop_products;
 create policy "Public can view active shop products"
 on public.shop_products for select
