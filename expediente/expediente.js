@@ -220,6 +220,7 @@ const progressKeys=[...Array.from({length:14},(_,i)=>`KTB-${String(i+1).padStart
 const name=id=>isFolder(id)?`Carpeta ${id} · ${folderDetails[id][0]}`:`Expediente ${id}`;const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='';
 const comicPrevious=document.createElement('button'),comicFollowing=document.createElement('button');comicPrevious.id='comic-prev-fixed';comicPrevious.type='button';comicPrevious.textContent='← Página anterior';comicPrevious.hidden=true;comicFollowing.id='comic-next-fixed';comicFollowing.type='button';comicFollowing.textContent='Página siguiente →';comicFollowing.hidden=true;readerBackFolder.before(comicPrevious,comicFollowing);
 const adminAccessMode=new URLSearchParams(location.search).get('admin')==='1';
+if(!adminAccessMode)access.hidden=true;
 if(adminAccessMode){gate.hidden=true;access.hidden=true;adminAccess.hidden=false;setTimeout(()=>document.querySelector('#admin-username').focus(),0)}
 const imageToolsStyle=document.createElement('style');imageToolsStyle.textContent=`.image-inspector{position:relative;max-height:64vh;overflow:auto;background:#1b211f;border:1px solid #8b887d;cursor:grab;touch-action:pan-y pinch-zoom;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;outline:none}.image-inspector:active{cursor:grabbing}.image-inspector img{display:block;max-width:none!important;max-height:none!important;margin:0!important;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;transform-origin:0 0}.image-tools{display:flex;align-items:center;gap:7px;margin:10px 0 20px}.image-tools button{min-width:44px;min-height:44px;border:1px solid #7e1b19;background:#f7edda;color:#7e1b19;padding:9px 12px;font:10px var(--mono);cursor:pointer}.image-tools button:hover,.image-tools button:focus-visible{background:#7e1b19;color:#fff}.image-tools .image-gesture-hint{margin-left:auto;font:9px/1.5 var(--mono);color:#7e1b19;text-align:right}.image-fullscreen-exit{display:none;position:fixed;right:max(14px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));z-index:20002;min-width:48px;min-height:48px;border:1px solid #fff;background:#171d1ddd;color:#fff;padding:10px 14px;font:10px var(--mono);cursor:pointer}.image-inspector:fullscreen,.image-inspector.is-fallback-fullscreen{box-sizing:border-box;max-height:none;width:100%;height:100%;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:#171d1b;overflow:auto;display:block;touch-action:none}.image-inspector.is-fallback-fullscreen{position:fixed;inset:0;z-index:20000}.image-inspector:fullscreen .image-fullscreen-exit,.image-inspector.is-fallback-fullscreen .image-fullscreen-exit{display:block}.image-inspector:fullscreen img,.image-inspector.is-fallback-fullscreen img{height:auto!important}.image-inspector.is-zoomed{touch-action:none}@media(max-width:700px){.image-inspector{max-height:62vh}.image-tools{flex-wrap:wrap}.image-tools button{flex:1}.image-tools button[data-action="full"]{flex-basis:100%}.image-tools .image-gesture-hint{width:100%;margin:3px 0 0;text-align:center}}`;document.head.appendChild(imageToolsStyle);
 const enhanceDocumentImagesLegacy=()=>{
@@ -1013,7 +1014,7 @@ setTimeout(()=>{
     try{
       const client=await getSupabase();
       const {data:{session}}=await client.auth.getSession();
-      if(!session||isAdmin(session.user))return;
+      if(!session||isAdmin(session.user)){access.hidden=false;return}
       currentUser=session.user;
       await loadRemoteProgress(session.user);
       message.textContent='';
@@ -1023,7 +1024,7 @@ setTimeout(()=>{
       gate.hidden=true;
       dash.hidden=false;
       render();
-    }catch(error){console.warn('No se pudo restaurar la sesión del expediente.',error);message.textContent=''}
+    }catch(error){console.warn('No se pudo restaurar la sesión del expediente.',error);message.textContent='';access.hidden=false}
   };
   void restoreRecipientSession();
 
