@@ -33,7 +33,7 @@ updateCompletionHeader=done=>{
   const recipientValue=recipient?.querySelector('strong');
   if(recipientValue)recipientValue.textContent=recipientName().toLocaleUpperCase('es-ES');
 };
-const localState=()=>({read:JSON.parse(localStorage.getItem('kizuna-read')||'[]'),mailRead:Number(localStorage.getItem('kizuna-mail-read')||0),finalFileSeen:localStorage.getItem('kizuna-final-file-seen')==='true',completed:localStorage.getItem('kizuna-complete')==='true',comicReadPages:JSON.parse(localStorage.getItem('kizuna-comic-read-pages')||'[]')});
+const localState=()=>({read:JSON.parse(localStorage.getItem('kizuna-read')||'[]'),mailRead:Number(localStorage.getItem('kizuna-mail-read')||0),finalFileSeen:localStorage.getItem('kizuna-final-file-seen')==='true',completed:localStorage.getItem('kizuna-complete')==='true',comicReadPages:JSON.parse(localStorage.getItem('kizuna-comic-read-pages')||'[]'),legalAccepted:localStorage.getItem('kizuna-legal-accepted')==='true',loadingSeen:localStorage.getItem('kizuna-loading-seen')==='true'});
 const getState=()=>remoteState||localState();
 const read=()=>getState().read||[];
 const persistRemote=async()=>{if(!supabaseClient||!currentUser||!remoteState)return;const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:currentUser.id,state:remoteState,updated_at:new Date().toISOString()});if(error)console.error('No se pudo guardar el progreso remoto.',error)};
@@ -53,10 +53,10 @@ const recordActivity=async(eventType,documentId=null,details={})=>{
     console.warn('No se pudo registrar la actividad del expediente.',error);
   }
 };
-const patchState=changes=>{if(remoteState){remoteState={...remoteState,...changes};persistRemote();return}const state={...localState(),...changes};localStorage.setItem('kizuna-read',JSON.stringify(state.read));localStorage.setItem('kizuna-mail-read',String(state.mailRead));localStorage.setItem('kizuna-final-file-seen',String(state.finalFileSeen));localStorage.setItem('kizuna-complete',String(state.completed));localStorage.setItem('kizuna-comic-read-pages',JSON.stringify(state.comicReadPages||[]))};
+const patchState=changes=>{if(remoteState){remoteState={...remoteState,...changes};persistRemote();return}const state={...localState(),...changes};localStorage.setItem('kizuna-read',JSON.stringify(state.read));localStorage.setItem('kizuna-mail-read',String(state.mailRead));localStorage.setItem('kizuna-final-file-seen',String(state.finalFileSeen));localStorage.setItem('kizuna-complete',String(state.completed));localStorage.setItem('kizuna-comic-read-pages',JSON.stringify(state.comicReadPages||[]));localStorage.setItem('kizuna-legal-accepted',String(Boolean(state.legalAccepted)));localStorage.setItem('kizuna-loading-seen',String(Boolean(state.loadingSeen)))};
 const save=items=>patchState({read:items});
 const getSupabase=async()=>{if(supabaseClient)return supabaseClient;if(!window.supabase){if(!supabaseScript){supabaseScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)})}await supabaseScript}supabaseClient=window.supabase.createClient(supabaseUrl,supabaseKey);return supabaseClient};
-const loadRemoteProgress=async user=>{currentUser=user;const client=await getSupabase();const [{data,error},{data:profile,error:profileError}]=await Promise.all([client.from('expedient_progress').select('state').eq('user_id',user.id).maybeSingle(),client.from('expedient_profiles').select('display_name,email,is_active').eq('id',user.id).maybeSingle()]);if(error)throw error;if(profileError)console.warn('No se pudo leer el nombre del perfil.',profileError);if(profile?.is_active===false){await client.auth.signOut();throw new Error('Este acceso ha sido desactivado por la División de Archivos Temporales.')}currentDisplayName=profile?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Destinatario autorizado';updateRecipientName();if(data?.state){remoteState={read:[],mailRead:0,finalFileSeen:false,completed:false,comicReadPages:[],...data.state};return}remoteState=localState();await persistRemote()};
+const loadRemoteProgress=async user=>{currentUser=user;const client=await getSupabase();const [{data,error},{data:profile,error:profileError}]=await Promise.all([client.from('expedient_progress').select('state').eq('user_id',user.id).maybeSingle(),client.from('expedient_profiles').select('display_name,email,is_active').eq('id',user.id).maybeSingle()]);if(error)throw error;if(profileError)console.warn('No se pudo leer el nombre del perfil.',profileError);if(profile?.is_active===false){await client.auth.signOut();throw new Error('Este acceso ha sido desactivado por la División de Archivos Temporales.')}currentDisplayName=profile?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Destinatario autorizado';updateRecipientName();if(data?.state){remoteState={read:[],mailRead:0,finalFileSeen:false,completed:false,comicReadPages:[],legalAccepted:false,loadingSeen:false,...data.state};return}remoteState=localState();await persistRemote()};
 const recordComicPage=async page=>{
   const viewed=Array.isArray(getState().comicReadPages)?getState().comicReadPages:[];
   if(viewed.includes(page))return;
@@ -127,16 +127,76 @@ setTimeout(()=>{
     if(continueButton)continueButton.onclick=()=>{viewer.close();patchState({completed:true,finalFileSeen:false});setTimeout(()=>{render();openGuaranteedFinalAlert()},180)};
   };
   openDashboard=()=>{
-    const done=read(),reviewed=progressKeys.filter(id=>done.includes(id)).length;
-    const integrity=Math.round(reviewed/progressKeys.length*100);
-    const ktbReviewed=done.filter(id=>id.startsWith('KTB-'));
-    const lastDocument=ktbReviewed.at(-1)||'Sin documentos confirmados';
+    const done=read(),state=getState(),consulted=sequence.filter(id=>done.includes(id)),total=sequence.length;
+    const completed=Boolean(state.completed||done.includes('KTB-014'));
+    const reviewed=completed?total:consulted.length;
+    const percentage=completed?100:Math.round(reviewed/total*100);
+    const lastDocument=completed?'KTB-014':consulted.at(-1)||'Ninguno';
+    const nextDocument=completed?null:sequence.find(id=>!done.includes(id))||'KTB-001';
+    const accessLevel=completed?'VIII':roman(Math.max(1,Math.ceil(percentage/12.5)));
+    const status=completed?'Expediente cerrado':reviewed?'En curso':'Pendiente de inicio';
+    const username=currentUser?.email?.split('@')[0]||'jose.cuadrado';
+    const safe=value=>String(value).replace(/[&<>'"]/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
+    const caseMessage=completed
+      ?'<p>Historial completo localizado.</p><p>Verificando cierre del expediente…</p><p>Secuencia de lectura completada.</p><p>Integridad documental confirmada.</p>'
+      :reviewed
+        ?'<p>Historial de consulta localizado.</p><p>Restaurando sesión…</p><p>Permisos activos verificados.</p><p>Secuencia de lectura sincronizada.</p>'
+        :'<p>No se han encontrado consultas anteriores.</p><p>Inicializando expediente…</p><p>Nivel de acceso I concedido.</p><p>Documento inicial disponible: <strong>KTB-001</strong></p>';
+    const closingMessage=completed
+      ?'<strong>Expediente archivado.</strong><br>Consulta histórica autorizada.'
+      :reviewed
+        ?`<strong>Sesión restaurada.</strong><br>Continuación disponible desde: <strong>${safe(nextDocument)}</strong>`
+        :'<strong>Expediente preparado.</strong><br>Documento inicial disponible: <strong>KTB-001</strong>';
     access.hidden=true;
     loading.hidden=false;
+    gate.hidden=true;
+    dash.hidden=true;
     const log=document.querySelector('#auth-log');
-    log.innerHTML=`<p>Comprobando expediente…</p><div style="height:8px;background:#d3c8b4"><i id="auth-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.3s ease"></i></div><p>Registros confirmados: <strong>${reviewed} de ${progressKeys.length}</strong></p><p>Última consulta: <strong>${lastDocument}</strong></p><p>Integridad documental: <strong>${integrity} %</strong></p>`;
-    setTimeout(()=>document.querySelector('#auth-progress').style.width=`${integrity}%`,80);
-    setTimeout(()=>{loading.hidden=true;gate.hidden=false},2300);
+    log.innerHTML=`<p class="auth-live-message">Conectando con el Archivo Central…</p><section class="auth-recipient" hidden><p>DESTINATARIO AUTORIZADO</p><h2>${safe(recipientName())}</h2><dl><div><dt>Usuario</dt><dd>${safe(username)}</dd></div><div><dt>Expediente asociado</dt><dd>KTB-EXP-2026-JP-00184</dd></div></dl></section><div class="auth-case-message" hidden>${caseMessage}</div><section class="auth-state-summary" hidden><p>ESTADO DEL EXPEDIENTE</p><dl><div><dt>Documentos consultados</dt><dd>${reviewed} de ${total}</dd></div><div><dt>Último documento leído</dt><dd>${safe(lastDocument)}</dd></div><div><dt>Progreso total</dt><dd>${percentage} %</dd></div><div><dt>Nivel de acceso</dt><dd>${accessLevel}</dd></div><div><dt>Estado</dt><dd>${status}</dd></div></dl><div class="auth-expedient-progress"><i style="width:${percentage}%"></i></div></section><p class="auth-closing-message" hidden>${closingMessage}</p><p class="auth-routing-message" hidden>Derivando consulta a la<br><strong>División de Archivos Temporales…</strong></p>`;
+    const masterProgress=document.querySelector('#auth-master-progress');
+    masterProgress.parentElement.hidden=false;
+    const live=log.querySelector('.auth-live-message');
+    const recipient=log.querySelector('.auth-recipient');
+    const caseBlock=log.querySelector('.auth-case-message');
+    const summary=log.querySelector('.auth-state-summary');
+    const closing=log.querySelector('.auth-closing-message');
+    const routing=log.querySelector('.auth-routing-message');
+    const skip=document.querySelector('#auth-skip');
+    const continueButton=document.querySelector('#auth-continue')||document.createElement('button');
+    continueButton.id='auth-continue';continueButton.type='button';continueButton.hidden=true;
+    if(!continueButton.isConnected)skip.before(continueButton);
+    routing.innerHTML='Verificaci&oacute;n completada.<br><strong>El expediente est&aacute; preparado para su consulta.</strong>';
+    const timers=[];
+    let finished=false;
+    const show=element=>{element.hidden=false;requestAnimationFrame(()=>element.classList.add('is-visible'))};
+    const setProgress=value=>masterProgress.style.width=`${value}%`;
+    const schedule=(delay,action)=>timers.push(setTimeout(()=>{if(!finished)action()},delay));
+    const showCompletion=()=>{
+      if(finished)return;
+      finished=true;timers.forEach(clearTimeout);setProgress(100);patchState({loadingSeen:true});
+      live.hidden=true;caseBlock.hidden=true;show(recipient);show(summary);show(closing);show(routing);
+      continueButton.innerHTML=`${completed?'Consultar expediente archivado':reviewed?'Continuar expediente':'Iniciar consulta'} <b>→</b>`;
+      continueButton.hidden=false;skip.hidden=true;
+    };
+    const advance=()=>{
+      loading.hidden=true;
+      dash.hidden=true;gate.hidden=false;
+    };
+    continueButton.onclick=advance;
+    skip.hidden=!state.loadingSeen;
+    skip.onclick=showCompletion;
+    masterProgress.style.width='0';
+    schedule(100,()=>setProgress(12));
+    schedule(650,()=>{live.textContent='Validando credenciales…';setProgress(24)});
+    schedule(1250,()=>{live.textContent='Identidad confirmada.';show(recipient);setProgress(36)});
+    schedule(1950,()=>{live.textContent='Recuperando historial de consulta…';setProgress(48)});
+    schedule(2450,()=>{live.textContent='Comprobando permisos activos…';setProgress(58)});
+    schedule(2950,()=>{live.textContent='Calculando progreso del expediente…';setProgress(68)});
+    schedule(3450,()=>{live.hidden=true;show(caseBlock);setProgress(76)});
+    schedule(4050,()=>{caseBlock.hidden=true;show(summary);setProgress(84)});
+    schedule(4650,()=>{show(closing);setProgress(92)});
+    schedule(5150,()=>{show(routing);setProgress(98)});
+    schedule(5700,showCompletion);
   };
   mark.onclick=async()=>{
     const done=read(),alreadyRead=done.includes(active);
@@ -287,7 +347,7 @@ function syncKtb(id,onComplete){next.style.display='none';mark.style.display='no
 function startFinale(){next.style.display='none';mark.style.display='none';document.querySelector('#doc-type').textContent='KIZUNA / VALIDACIÓN FINAL';document.querySelector('#doc-title').textContent='Verificando expediente…';document.querySelector('#doc-body').innerHTML='<p id="final-log">Integridad de la línea temporal<br>████████████████████<br><strong>100 %</strong></p>';const lines=['Comprobando coherencia narrativa…<br>✔ Sin incidencias','Comprobando integridad documental…<br>✔ Sin incidencias','Validando secuencia temporal…<br>✔ Confirmada','Archivando expediente…','<strong style="font-size:28px;color:#7e1b19">EXPEDIENTE CERRADO</strong>'];let i=0;const timer=setInterval(()=>{document.querySelector('#final-log').innerHTML+=`<br><br>${lines[i++]}`;if(i===lines.length){clearInterval(timer);setTimeout(showFinaleMessage,700)}},520)}
 function showFinaleMessage(){document.querySelector('#doc-type').textContent='KIZUNA TRAVEL BUREAU';document.querySelector('#doc-title').textContent='PROJECT JAPAN';document.querySelector('#doc-body').innerHTML=`<p><strong>Estado del expediente</strong><br>COMPLETADO</p><p>Durante las últimas semanas has recorrido un expediente que nunca debió existir.</p><p>Has leído documentos escritos antes de ser creados. Has seguido el rastro de recuerdos que todavía no habían sucedido.</p><p>Y, aun así…</p><p>Has llegado exactamente al lugar al que debías llegar.</p><p>Gracias por confiar en nosotros.</p><p>Ha sido un honor acompañarte durante esta expedición.</p><p><strong>KIZUNA TRAVEL BUREAU</strong></p><button id="final-continue">Continuar</button>`;document.querySelector('#final-continue').onclick=()=>{viewer.close();render();setTimeout(showFinalFileAlert,180)}}
 function showFinalLogo(){document.querySelector('#doc-type').textContent='';document.querySelector('#doc-title').textContent='KIZUNA';document.querySelector('#doc-body').innerHTML='<img style="display:block;width:130px;margin:0 auto 18px;border-radius:50%" src="../assets/kizuna-logo-official.png" alt="Kizuna Travel Bureau"><p style="text-align:center;font-size:20px">TRAVEL BUREAU</p><p style="text-align:center;margin-top:70px">Porque los mejores recuerdos nunca pertenecieron a un expediente. Siempre te pertenecieron a ti.</p>'}
-document.querySelector('#gate-consent').onchange=event=>document.querySelector('#gate-continue').disabled=!event.target.checked;document.querySelector('#gate-continue').onclick=()=>{gate.hidden=true;dash.hidden=false;render()};document.querySelector('#access-form').onsubmit=event=>{event.preventDefault();const username=document.querySelector('#username').value.trim().toLowerCase(),password=document.querySelector('#password').value;if(username!=='jose.cuadrado'||password!=='kizuna2026')message.textContent='No se han podido verificar las credenciales de acceso.';else openDashboard()};document.querySelector('#exit').onclick=()=>{location.href='../index.html'};document.querySelector('.close').onclick=()=>viewer.close();mark.onclick=()=>{const done=read();if(!done.includes(active)){done.push(active);save(done)}if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}const parent=fileFolder(active);if(parent){openFolder(parent);return}if(active.startsWith('KTB-')){const id=active;syncKtb(id,()=>{if(id==='KTB-014'){localStorage.setItem('kizuna-complete','true');startFinale()}else{viewer.close();render()}});return}viewer.close();render()};next.onclick=()=>{const index=sequence.indexOf(active);if(index<sequence.length-1&&allowed(sequence[index+1]))openDoc(sequence[index+1])};
+document.querySelector('#gate-consent').onchange=event=>document.querySelector('#gate-continue').disabled=!event.target.checked;document.querySelector('#gate-continue').onclick=()=>{patchState({legalAccepted:true});gate.hidden=true;dash.hidden=false;render()};document.querySelector('#access-form').onsubmit=event=>{event.preventDefault();const username=document.querySelector('#username').value.trim().toLowerCase(),password=document.querySelector('#password').value;if(username!=='jose.cuadrado'||password!=='kizuna2026')message.textContent='No se han podido verificar las credenciales de acceso.';else openDashboard()};document.querySelector('#exit').onclick=()=>{location.href='../index.html'};document.querySelector('.close').onclick=()=>viewer.close();mark.onclick=()=>{const done=read();if(!done.includes(active)){done.push(active);save(done)}if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}const parent=fileFolder(active);if(parent){openFolder(parent);return}if(active.startsWith('KTB-')){const id=active;syncKtb(id,()=>{if(id==='KTB-014'){localStorage.setItem('kizuna-complete','true');startFinale()}else{viewer.close();render()}});return}viewer.close();render()};next.onclick=()=>{const index=sequence.indexOf(active);if(index<sequence.length-1&&allowed(sequence[index+1]))openDoc(sequence[index+1])};
 
 // Panel reservado para cuentas con el rol seguro app_metadata.role = admin.
 const adminPanel=document.createElement('main');
@@ -738,6 +798,8 @@ const openAdminDashboard=async()=>{
   access.hidden=true;
   adminAccess.hidden=true;
   loading.hidden=false;
+  document.querySelector('#auth-master-progress').parentElement.hidden=true;
+  document.querySelector('#auth-skip').hidden=true;
   const log=document.querySelector('#auth-log');
   log.innerHTML='<p>Verificando acceso administrativo…</p><div style="height:8px;background:#d3c8b4"><i id="admin-access-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.2s ease"></i></div><p>Preparando herramientas de gestión…</p><div style="height:8px;background:#d3c8b4"><i id="admin-tools-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.2s ease"></i></div>';
   setTimeout(()=>document.querySelector('#admin-access-progress').style.width='100%',100);
