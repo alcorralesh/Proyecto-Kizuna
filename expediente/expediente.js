@@ -180,7 +180,7 @@ setTimeout(()=>{
     };
     const advance=()=>{
       loading.hidden=true;
-      if(getState().legalAccepted){dash.hidden=false;render()}else gate.hidden=false;
+      dash.hidden=true;gate.hidden=false;
     };
     continueButton.onclick=advance;
     skip.hidden=!state.loadingSeen;
