@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Tienda simulada de KIZUNA Travel Bureau.">
+  <title>Tienda simulada · KIZUNA Travel Bureau</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=EB+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="tienda.css">
+</head>
+<body class="shop-page">
+  <header class="shop-header">
+    <a class="wordmark" href="../index.html"><img src="../assets/kizuna-logo-official.png" alt="Kizuna Travel Bureau"><span>KIZUNA<small>TRAVEL BUREAU</small></span></a>
+    <nav aria-label="Navegación de tienda"><a href="../index.html">Volver a la web</a><button id="shop-cart-toggle" type="button">Cesta <b id="shop-cart-count">0</b></button></nav>
+  </header>
+  <main>
+    <section class="shop-hero">
+      <div><p class="eyebrow">KIZUNA TRAVEL BUREAU · SERVICIOS DE VIAJE</p><h1>Pequeñas piezas<br>para un gran <em>viaje.</em></h1></div>
+      <p>Entradas, transporte y recuerdos seleccionados para recorrer Japón con calma.</p>
+    </section>
+    <aside class="shop-simulation-notice" role="note"><strong>TIENDA DE DEMOSTRACIÓN</strong><span>Esta tienda es una simulación. No se realizan cobros, reservas ni envíos reales.</span></aside>
+    <section class="shop-catalog" aria-labelledby="shop-catalog-title">
+      <header><div><p class="eyebrow">CATÁLOGO KIZUNA</p><h2 id="shop-catalog-title">Prepara tu expedición.</h2></div><div id="shop-filters" role="group" aria-label="Filtrar productos"></div></header>
+      <div id="shop-products" class="shop-products" aria-live="polite"><p class="shop-loading">Consultando catálogo…</p></div>
+    </section>
+  </main>
+  <footer class="shop-footer"><a class="wordmark" href="../index.html"><img src="../assets/kizuna-logo-official.png" alt=""><span>KIZUNA<small>TRAVEL BUREAU</small></span></a><p>Una experiencia de compra completamente simulada.</p></footer>
+  <dialog id="shop-cart" class="shop-cart"><form method="dialog"><button class="shop-dialog-close" aria-label="Cerrar">×</button></form><div id="shop-cart-content"></div></dialog>
+  <dialog id="shop-checkout" class="shop-checkout"><form method="dialog"><button class="shop-dialog-close" aria-label="Cerrar">×</button></form><div id="shop-checkout-content"></div></dialog>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="tienda.js"></script>
+</body>
+</html>
+
