@@ -739,11 +739,12 @@ const openAdminDashboard=async()=>{
   adminAccess.hidden=true;
   loading.hidden=false;
   const log=document.querySelector('#auth-log');
-  log.innerHTML='<p>Verificando permisos administrativos…</p><div style="height:8px;background:#d3c8b4"><i id="auth-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 2.4s ease"></i></div><p>Localizando expedientes autorizados…</p>';
-  setTimeout(()=>document.querySelector('#auth-progress').style.width='100%',100);
+  log.innerHTML='<p>Verificando acceso administrativo…</p><div style="height:8px;background:#d3c8b4"><i id="admin-access-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.2s ease"></i></div><p>Preparando herramientas de gestión…</p><div style="height:8px;background:#d3c8b4"><i id="admin-tools-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.2s ease"></i></div>';
+  setTimeout(()=>document.querySelector('#admin-access-progress').style.width='100%',100);
+  setTimeout(()=>document.querySelector('#admin-tools-progress').style.width='100%',1500);
   const [{data,error}]=await Promise.all([
     supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').order('email'),
-    new Promise(resolve=>setTimeout(resolve,2800))
+    new Promise(resolve=>setTimeout(resolve,3000))
   ]);
   loading.hidden=true;
   if(error){adminAccess.hidden=false;adminMessage.textContent='No se ha podido cargar el directorio de expedientes.';console.error(error);return}
