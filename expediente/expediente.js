@@ -453,8 +453,16 @@ adminEventsView.id='admin-events-view';adminEventsView.className='admin-view';ad
 adminEventsView.innerHTML=`<p class="system-line">AGENDA KIZUNA · EVENTOS EN JAPÓN</p><h1>Gestión de<br><em>eventos.</em></h1><p class="admin-intro">Crea encuentros, controla su aforo y consulta cuántas personas se han apuntado.</p><div class="admin-events-layout"><form id="admin-event-form"><input type="hidden" name="id"><p class="system-line" id="admin-event-form-title">NUEVO EVENTO</p><label>Título<input name="title" required maxlength="180"></label><label>Descripción<textarea name="description" required maxlength="1000" rows="4"></textarea></label><label>Lugar<input name="location" required maxlength="180"></label><div class="admin-event-fields"><label>Fecha y hora en Japón<input name="starts_at" type="datetime-local" required></label><label>Plazas totales<input name="capacity" type="number" min="1" max="10000" required value="20"></label><label>Orden<input name="sort_order" type="number" step="1" value="0"></label></div><label class="admin-event-published"><input name="is_published" type="checkbox" checked> Publicado en la web</label><div class="admin-event-form-actions"><button>Guardar evento</button><button id="admin-event-cancel" type="button" hidden>Cancelar edición</button></div><span id="admin-event-status" role="status"></span></form><section><div class="admin-event-list-heading"><p class="system-line">EVENTOS EXISTENTES</p><button id="admin-event-refresh" type="button">↻ Actualizar</button></div><div id="admin-event-list"></div></section></div>`;
 document.querySelector('.admin-views').appendChild(adminEventsView);
 
-const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView};
-const adminViewTitles={users:['USUARIOS','Gestión de expedientes'],mailbox:['BUZÓN','Mensajes recibidos'],media:['MEDIA','Biblioteca de imágenes'],blog:['BLOG','Gestión de artículos'],events:['EVENTOS','Gestión de eventos']};
+const adminShopNav=document.createElement('button');
+adminShopNav.type='button';adminShopNav.dataset.adminView='shop';adminShopNav.innerHTML='<span>06</span>Tienda';
+document.querySelector('.admin-sidebar').appendChild(adminShopNav);
+const adminShopView=document.createElement('section');
+adminShopView.id='admin-shop-view';adminShopView.className='admin-view';adminShopView.hidden=true;
+adminShopView.innerHTML=`<p class="system-line">TIENDA KIZUNA · CATÁLOGO SIMULADO</p><h1>Gestión de<br><em>productos.</em></h1><p class="admin-intro">Configura el catálogo público. La tienda no procesa pagos, reservas ni pedidos reales.</p><aside class="admin-shop-warning"><strong>ENTORNO DE DEMOSTRACIÓN</strong> Todos los precios y existencias son informativos.</aside><div class="admin-shop-layout"><form id="admin-shop-form"><input type="hidden" name="id"><p class="system-line" id="admin-shop-form-title">NUEVO PRODUCTO</p><label>Nombre<input name="name" required maxlength="180"></label><label>Categoría<select name="category" required><option value="museos">Museos</option><option value="templos">Templos</option><option value="parques">Parques de atracciones</option><option value="transporte">Metro y tren</option><option value="merchandising">Merchandising KIZUNA</option></select></label><label>Descripción<textarea name="description" required maxlength="1000" rows="4"></textarea></label><div class="admin-shop-fields"><label>Precio simulado (€)<input name="price" type="number" min="0" step="0.01" required value="0"></label><label>Stock<input name="stock" type="number" min="0" step="1" required value="0"></label><label>Orden<input name="sort_order" type="number" step="1" value="0"></label></div><label>Imagen · URL o ruta pública<input name="image_url" maxlength="1000" placeholder="assets/imagen.png o https://…"></label><label>Etiqueta<input name="badge" maxlength="60" placeholder="NOVEDAD, 72 HORAS…"></label><label class="admin-shop-active"><input name="is_active" type="checkbox" checked> Visible en la tienda</label><div class="admin-shop-form-actions"><button>Guardar producto</button><button id="admin-shop-cancel" type="button" hidden>Cancelar edición</button></div><span id="admin-shop-status" role="status"></span></form><section><div class="admin-shop-list-heading"><p class="system-line">PRODUCTOS EXISTENTES</p><button id="admin-shop-refresh" type="button">↻ Actualizar</button></div><div id="admin-shop-list"></div></section></div>`;
+document.querySelector('.admin-views').appendChild(adminShopView);
+
+const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView,shop:adminShopView};
+const adminViewTitles={users:['USUARIOS','Gestión de expedientes'],mailbox:['BUZÓN','Mensajes recibidos'],media:['MEDIA','Biblioteca de imágenes'],blog:['BLOG','Gestión de artículos'],events:['EVENTOS','Gestión de eventos'],shop:['TIENDA','Catálogo simulado']};
 Object.entries(adminViews).forEach(([name,view])=>{
   const [section,title]=adminViewTitles[name];
   const bar=document.createElement('header');
@@ -474,6 +482,7 @@ document.querySelectorAll('.admin-sidebar button').forEach(button=>button.onclic
   if(button.dataset.adminView==='media')loadMediaLibrary();
   if(button.dataset.adminView==='blog')loadAdminArticles();
   if(button.dataset.adminView==='events')loadAdminEvents();
+  if(button.dataset.adminView==='shop')loadAdminProducts();
 });
 
 const mailboxBadge=document.querySelector('#admin-mailbox-badge');
@@ -745,6 +754,52 @@ adminEventForm.onsubmit=async submitEvent=>{
 };
 document.querySelector('#admin-event-cancel').onclick=()=>{adminEventForm.elements.capacity.min='1';resetAdminEventForm()};
 document.querySelector('#admin-event-refresh').onclick=loadAdminEvents;
+
+const adminShopForm=document.querySelector('#admin-shop-form');
+const adminShopList=document.querySelector('#admin-shop-list');
+const adminShopStatus=document.querySelector('#admin-shop-status');
+let adminProducts=[];
+const adminShopCategories={museos:'MUSEOS',templos:'TEMPLOS',parques:'PARQUES',transporte:'TRANSPORTE',merchandising:'MERCHANDISING'};
+const resetAdminShopForm=()=>{
+  adminShopForm.reset();adminShopForm.elements.id.value='';adminShopForm.elements.price.value='0';adminShopForm.elements.stock.value='0';adminShopForm.elements.sort_order.value='0';adminShopForm.elements.is_active.checked=true;
+  document.querySelector('#admin-shop-form-title').textContent='NUEVO PRODUCTO';document.querySelector('#admin-shop-cancel').hidden=true;adminShopStatus.textContent='';
+};
+const editAdminProduct=product=>{
+  Object.entries(product).forEach(([key,value])=>{if(adminShopForm.elements[key]&&key!=='is_active')adminShopForm.elements[key].value=value??''});
+  adminShopForm.elements.is_active.checked=product.is_active;document.querySelector('#admin-shop-form-title').textContent='EDITANDO PRODUCTO';document.querySelector('#admin-shop-cancel').hidden=false;adminShopForm.scrollIntoView({behavior:'smooth',block:'start'});
+};
+const deleteAdminProduct=async product=>{
+  if(!confirm(`¿Eliminar definitivamente «${product.name}» del catálogo?`))return;
+  const {error}=await supabaseClient.from('shop_products').delete().eq('id',product.id);
+  if(error){alert('No se ha podido eliminar el producto.');console.error(error);return}
+  if(adminShopForm.elements.id.value===product.id)resetAdminShopForm();await loadAdminProducts();
+};
+const createAdminProductCard=product=>{
+  const card=document.createElement('article');card.className=`admin-shop-card ${product.is_active?'is-active':'is-hidden'}`;
+  const image=document.createElement('img');image.src=product.image_url?product.image_url.startsWith('http')?product.image_url:`../${product.image_url.replace(/^\.\.\//,'').replace(/^\//,'')}`:'../assets/kizuna-logo-official.png';image.alt='';
+  const body=document.createElement('div');const meta=document.createElement('p');meta.className='admin-shop-card-meta';meta.textContent=`${adminShopCategories[product.category]||product.category} · ORDEN ${product.sort_order} · ${product.is_active?'VISIBLE':'OCULTO'}`;
+  const title=document.createElement('h2');title.textContent=product.name;const description=document.createElement('p');description.textContent=product.description;
+  const figures=document.createElement('strong');figures.className='admin-shop-figures';figures.textContent=`${Number(product.price).toLocaleString('es-ES',{style:'currency',currency:'EUR'})} · ${product.stock} unidades`;
+  const actions=document.createElement('div');actions.className='admin-shop-card-actions';const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.onclick=()=>editAdminProduct(product);const remove=document.createElement('button');remove.type='button';remove.className='danger';remove.textContent='Eliminar';remove.onclick=()=>deleteAdminProduct(product);
+  actions.append(edit,remove);body.append(meta,title,description,figures,actions);card.append(image,body);return card;
+};
+const loadAdminProducts=async()=>{
+  if(!supabaseClient||adminViews.shop.hidden)return;
+  adminShopList.innerHTML='<p class="admin-shop-empty">Cargando catálogo…</p>';
+  const {data,error}=await supabaseClient.from('shop_products').select('id,name,category,description,price,stock,image_url,badge,is_active,sort_order').order('sort_order',{ascending:true}).order('created_at',{ascending:false});
+  if(error){adminShopList.innerHTML='<p class="admin-shop-empty">No se puede recuperar el catálogo. Ejecuta primero supabase-shop.sql.</p>';console.error(error);return}
+  adminProducts=data||[];adminShopList.replaceChildren(...adminProducts.map(createAdminProductCard));if(!adminProducts.length)adminShopList.innerHTML='<p class="admin-shop-empty">Todavía no hay productos. Crea el primero desde el formulario.</p>';
+};
+adminShopForm.onsubmit=async event=>{
+  event.preventDefault();const button=adminShopForm.querySelector('.admin-shop-form-actions button'),values=Object.fromEntries(new FormData(adminShopForm)),id=values.id;
+  const payload={name:values.name.trim(),category:values.category,description:values.description.trim(),price:Number(values.price),stock:Number(values.stock),image_url:values.image_url.trim(),badge:values.badge.trim().toUpperCase(),sort_order:Number(values.sort_order)||0,is_active:adminShopForm.elements.is_active.checked,updated_at:new Date().toISOString()};
+  adminShopStatus.textContent=id?'Guardando cambios…':'Creando producto…';button.disabled=true;
+  try{const result=id?await supabaseClient.from('shop_products').update(payload).eq('id',id):await supabaseClient.from('shop_products').insert(payload);if(result.error)throw result.error;resetAdminShopForm();await loadAdminProducts();adminShopStatus.textContent='Producto guardado correctamente.';setTimeout(()=>adminShopStatus.textContent='',1800)}
+  catch(error){console.error(error);adminShopStatus.textContent=`No se ha podido guardar: ${error.message}`}
+  finally{button.disabled=false}
+};
+document.querySelector('#admin-shop-cancel').onclick=resetAdminShopForm;
+document.querySelector('#admin-shop-refresh').onclick=loadAdminProducts;
 
 const isAdmin=user=>user?.app_metadata?.role==='admin';
 const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,...(state||{})});
