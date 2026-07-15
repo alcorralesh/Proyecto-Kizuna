@@ -441,6 +441,9 @@ adminPanel.hidden=true;
 adminPanel.className='admin-dashboard';
 adminPanel.innerHTML=`<aside class="admin-rail"><div class="admin-brand"><img src="../assets/kizuna-logo-official.png" alt="Kizuna"><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>Administración</strong></div></div><nav class="admin-sidebar" aria-label="Secciones de administración"><button type="button" class="active" data-admin-view="users"><span>01</span>Usuarios</button><button type="button" data-admin-view="mailbox"><span>02</span>Buzón <b id="admin-mailbox-badge" hidden>0</b></button><button type="button" data-admin-view="media"><span>03</span>Media</button><button type="button" data-admin-view="blog"><span>04</span>Blog</button></nav><button id="admin-exit">Cerrar sesión <span>→</span></button></aside><section class="admin-content"><div class="admin-views"><section id="admin-users-view" class="admin-view"><p class="system-line">ACCESO ADMINISTRATIVO · REGISTROS DE DESTINATARIOS</p><h1>Gestión de<br><em>expedientes.</em></h1><p class="admin-intro">Crea nuevos accesos o consulta y corrige los expedientes existentes.</p><div class="admin-user-tabs" role="tablist" aria-label="Gestión de usuarios"><button type="button" class="active" role="tab" aria-selected="true" aria-controls="admin-user-create-tab" data-user-tab="create"><span>01</span>Crear nuevo usuario</button><button type="button" role="tab" aria-selected="false" aria-controls="admin-user-manage-tab" data-user-tab="manage"><span>02</span>Consultar y editar usuarios</button></div><section id="admin-user-create-tab" class="admin-user-tab-panel" role="tabpanel"></section><section id="admin-user-manage-tab" class="admin-user-tab-panel" role="tabpanel" hidden><p class="admin-user-panel-intro">Selecciona un destinatario para consultar y corregir su progreso documental, identidad y actividad.</p><div class="admin-layout"><aside><label>DESTINATARIOS<select id="admin-user-list"><option value="">Cargando registros…</option></select></label></aside><section id="admin-editor" hidden></section></div></section></section><section id="admin-mailbox-view" class="admin-view" hidden><div class="admin-mailbox-heading"><div><p class="system-line">MENSAJES · FORMULARIO PÚBLICO</p><h1>Buzón de<br><em>mensajes.</em></h1><p id="admin-mailbox-summary" class="admin-intro">Cargando mensajes…</p></div><button id="admin-mailbox-refresh" type="button">↻ Actualizar</button></div><div id="admin-mailbox-list" class="admin-mailbox-list"></div></section><section id="admin-media-view" class="admin-view" hidden><p class="system-line">MEDIA · SUPABASE STORAGE</p><h1>Biblioteca de<br><em>imágenes.</em></h1><p class="admin-intro">Importa la carpeta assets completa o sustituye una imagen conservando su ruta pública.</p><div class="admin-media-actions"><label class="admin-media-upload">Importar carpeta assets<input id="admin-media-folder" type="file" accept="image/*" webkitdirectory multiple></label><button id="admin-media-refresh" type="button">Actualizar biblioteca</button></div><p id="admin-media-status" role="status">Preparado para conectar con el bucket kizuna-assets.</p><div id="admin-media-grid" class="admin-media-grid"></div></section><section id="admin-blog-view" class="admin-view" hidden><p class="system-line">CUADERNO DE VIAJE · CONTENIDO PÚBLICO</p><h1>Gestión del<br><em>blog.</em></h1><p class="admin-intro">Crea, edita, ordena y publica los artículos que aparecen en la web.</p><div class="admin-blog-layout"><form id="admin-blog-form"><input type="hidden" name="id"><input type="hidden" name="slug"><p class="system-line" id="admin-blog-form-title">NUEVO ARTÍCULO</p><label>Título<input name="title" required maxlength="180"></label><label>Categoría<input name="category" required maxlength="60" placeholder="GUÍA, CULTURA, SABORES…"></label><label>Resumen<textarea name="excerpt" required maxlength="500" rows="3"></textarea></label><label>Texto completo<textarea name="content" required maxlength="20000" rows="12"></textarea></label><div class="admin-blog-options"><label>Orden<input name="sort_order" type="number" value="0" step="1"></label><label class="admin-blog-published"><input name="is_published" type="checkbox" checked> Publicado</label></div><div class="admin-blog-form-actions"><button>Guardar artículo</button><button id="admin-blog-cancel" type="button" hidden>Cancelar edición</button></div><span id="admin-blog-status" role="status"></span></form><section><div class="admin-blog-list-heading"><p class="system-line">ARTÍCULOS EXISTENTES</p><button id="admin-blog-refresh" type="button">↻ Actualizar</button></div><div id="admin-blog-list"></div></section></div></section></div></section>`;
 document.body.appendChild(adminPanel);
+const adminUserRefreshButton=document.createElement('button');
+adminUserRefreshButton.id='admin-user-refresh';adminUserRefreshButton.type='button';adminUserRefreshButton.disabled=true;adminUserRefreshButton.textContent='↻ Actualizar usuario';
+document.querySelector('#admin-user-manage-tab .admin-layout>aside').appendChild(adminUserRefreshButton);
 
 const adminEventsNav=document.createElement('button');
 adminEventsNav.type='button';adminEventsNav.dataset.adminView='events';adminEventsNav.innerHTML='<span>05</span>Eventos';
@@ -961,32 +964,41 @@ const renderAdminActivity=async userId=>{
 const openAdminDashboard=async()=>{
   access.hidden=true;
   adminAccess.hidden=true;
-  loading.hidden=false;
-  document.querySelector('#auth-master-progress').parentElement.hidden=true;
-  document.querySelector('#auth-skip').hidden=true;
-  const log=document.querySelector('#auth-log');
-  log.innerHTML='<p>Verificando acceso administrativo…</p><div style="height:8px;background:#d3c8b4"><i id="admin-access-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.2s ease"></i></div><p>Preparando herramientas de gestión…</p><div style="height:8px;background:#d3c8b4"><i id="admin-tools-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.2s ease"></i></div>';
-  setTimeout(()=>document.querySelector('#admin-access-progress').style.width='100%',100);
-  setTimeout(()=>document.querySelector('#admin-tools-progress').style.width='100%',1500);
-  const [{data,error}]=await Promise.all([
-    supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').order('email'),
-    new Promise(resolve=>setTimeout(resolve,3000))
-  ]);
   loading.hidden=true;
-  if(error){adminAccess.hidden=false;adminMessage.textContent='No se ha podido cargar el directorio de expedientes.';console.error(error);return}
   adminPanel.hidden=false;
   refreshMailboxBadge();
   connectMailboxRealtime();
   const select=document.querySelector('#admin-user-list');
   if(select.closest('label')?.firstChild)select.closest('label').firstChild.nodeValue='BUSCAR DESTINATARIO';
-  select.innerHTML='<option value="">Selecciona un destinatario</option>'+data.filter(profile=>profile.id!==currentUser.id).map(profile=>`<option value="${profile.id}">${profile.display_name||profile.email} · ${profile.email}</option>`).join('');
-  select.onchange=async()=>{
-    const profile=data.find(item=>item.id===select.value);
-    if(!profile){document.querySelector('#admin-editor').hidden=true;return}
-    const {data:progress,error:progressError}=await supabaseClient.from('expedient_progress').select('state').eq('user_id',profile.id).maybeSingle();
-    if(progressError){console.error(progressError);return}
-    renderAdminEditor(profile,progress?.state);
+  select.disabled=true;select.innerHTML='<option value="">Cargando destinatarios…</option>';
+  const {data,error}=await supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').order('email');
+  if(error){select.innerHTML='<option value="">No se pudo cargar el directorio</option>';console.error(error);return}
+  let profiles=data.filter(profile=>profile.id!==currentUser.id);
+  select.disabled=false;
+  select.innerHTML='<option value="">Selecciona un destinatario</option>'+profiles.map(profile=>`<option value="${profile.id}">${profile.display_name||profile.email} · ${profile.email}</option>`).join('');
+  const loadSelectedAdminUser=async refreshing=>{
+    const userId=select.value;
+    adminUserRefreshButton.disabled=!userId;
+    if(!userId){document.querySelector('#admin-editor').hidden=true;return}
+    const originalLabel=adminUserRefreshButton.textContent;
+    if(refreshing){adminUserRefreshButton.disabled=true;adminUserRefreshButton.textContent='Actualizando…'}
+    try{
+      const [{data:profile,error:profileError},{data:progress,error:progressError}]=await Promise.all([
+        supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').eq('id',userId).maybeSingle(),
+        supabaseClient.from('expedient_progress').select('state').eq('user_id',userId).maybeSingle()
+      ]);
+      if(profileError)throw profileError;if(progressError)throw progressError;if(!profile)throw new Error('El destinatario ya no está disponible.');
+      profiles=profiles.map(item=>item.id===profile.id?profile:item);
+      const option=select.querySelector(`option[value="${profile.id}"]`);if(option)option.textContent=`${profile.display_name||profile.email} · ${profile.email}`;
+      renderAdminEditor(profile,progress?.state);
+      if(refreshing)adminUserRefreshButton.textContent='Actualizado ✓';
+    }catch(error){console.error(error);if(refreshing)adminUserRefreshButton.textContent='Error al actualizar'}finally{
+      adminUserRefreshButton.disabled=false;
+      if(refreshing)setTimeout(()=>{adminUserRefreshButton.textContent=originalLabel},1300);
+    }
   };
+  select.onchange=()=>loadSelectedAdminUser(false);
+  adminUserRefreshButton.onclick=()=>loadSelectedAdminUser(true);
 };
 
 setTimeout(()=>{
