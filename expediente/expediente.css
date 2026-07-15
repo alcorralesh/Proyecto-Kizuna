@@ -143,3 +143,38 @@
 .admin-event-empty{padding:28px 0;font:11px/1.6 var(--mono)}
 @media(max-width:1100px){.admin-events-layout{grid-template-columns:1fr}#admin-event-form{position:static}.admin-events-layout>section{max-width:760px}}
 @media(max-width:750px){.admin-events-layout{margin-top:22px;gap:28px}#admin-event-form{padding:23px}.admin-event-fields{grid-template-columns:1fr 1fr}.admin-event-fields label:first-child{grid-column:1/-1}.admin-event-card h2{font-size:27px}}
+
+/* Verificación dinámica del expediente. */
+#auth-loading.access-screen{padding:12px 5vw;gap:8px}
+#auth-loading>.division-brand img{width:46px;height:46px}
+#auth-loading>.access-card.auth-loading-card{align-self:start;width:min(680px,100%);max-height:calc(100svh - 82px);margin:7px auto 0;padding:28px 42px;overflow:auto;scrollbar-width:thin;box-shadow:12px 13px 0 rgba(0,0,0,.2)}
+#auth-loading>.auth-loading-card .system-line{margin-bottom:12px}
+#auth-loading>.auth-loading-card h1{font-size:49px;line-height:.82}
+.auth-master-progress{height:6px;margin:20px 0 15px;background:#d3c8b4;overflow:hidden}
+.auth-master-progress i{display:block;width:0;height:100%;background:#7e1b19;transition:width .55s ease}
+#auth-loading #auth-log{min-height:240px;margin-top:0}
+#auth-loading #auth-log p{margin:8px 0;font:10px/1.45 var(--mono)}
+.auth-live-message{min-height:31px;color:#5f5a51}
+.auth-recipient,.auth-case-message,.auth-state-summary,.auth-closing-message,.auth-routing-message{opacity:0;transform:translateY(5px);transition:opacity .32s ease,transform .32s ease}
+.auth-recipient.is-visible,.auth-case-message.is-visible,.auth-state-summary.is-visible,.auth-closing-message.is-visible,.auth-routing-message.is-visible{opacity:1;transform:none}
+.auth-recipient{padding:12px 0 10px;border-top:1px solid #c6bba7;border-bottom:1px solid #c6bba7}
+#auth-loading #auth-log .auth-recipient>p,.auth-state-summary>p{margin:0 0 8px;color:#7e1b19;font:8px var(--mono);letter-spacing:.13em}
+.auth-recipient h2{margin:0 0 8px;font:600 27px/1 var(--serif);letter-spacing:-.03em}
+.auth-recipient dl{display:grid;grid-template-columns:1fr 1.2fr;gap:10px;margin:0}
+.auth-recipient dt,.auth-state-summary dt{color:#746c5f;font:8px/1.4 var(--mono);text-transform:uppercase}
+.auth-recipient dd,.auth-state-summary dd{margin:2px 0 0;font:600 10px/1.4 var(--mono)}
+.auth-case-message{padding:9px 0}
+#auth-loading #auth-log .auth-case-message p{margin:5px 0}
+.auth-state-summary{padding:12px 14px;background:#e8deca;border-left:3px solid #7e1b19}
+.auth-state-summary dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 18px;margin:0}
+.auth-state-summary dl>div:last-child{grid-column:1/-1}
+.auth-state-summary dl>div:last-child dd{color:#7e1b19}
+.auth-expedient-progress{height:6px;margin-top:11px;background:#c9bda8}
+.auth-expedient-progress i{display:block;height:100%;background:#7e1b19}
+#auth-loading #auth-log .auth-closing-message{margin:11px 0 0;padding-left:12px;border-left:1px solid #7e1b19}
+#auth-loading #auth-log .auth-routing-message{margin:12px 0 0;color:#7e1b19;text-align:right;letter-spacing:.03em}
+#auth-skip{display:block;margin:12px 0 0 auto;padding:9px 0;border:0;border-bottom:1px solid #7e1b19;background:transparent;color:#7e1b19;font:9px var(--mono);cursor:pointer}
+#auth-skip[hidden]{display:none}
+#auth-skip b{margin-left:12px;font:15px var(--serif)}
+@media(max-width:750px){#auth-loading.access-screen{padding:8px 4vw}#auth-loading>.division-brand{font-size:13px}#auth-loading>.division-brand img{width:40px;height:40px}#auth-loading>.access-card.auth-loading-card{max-height:calc(100svh - 62px);margin-top:2px;padding:23px 25px}#auth-loading>.auth-loading-card h1{font-size:43px}.auth-master-progress{margin:16px 0 12px}#auth-loading #auth-log{min-height:225px}.auth-recipient dl,.auth-state-summary dl{grid-template-columns:1fr}.auth-state-summary dl>div:last-child{grid-column:auto}.auth-recipient h2{font-size:24px}}
+@media(max-width:420px){#auth-loading>.access-card.auth-loading-card{padding:20px 19px}#auth-loading>.auth-loading-card h1{font-size:39px}#auth-loading #auth-log p{font-size:9px}.auth-state-summary{padding:10px 12px}.auth-recipient dd,.auth-state-summary dd{font-size:9px}}
