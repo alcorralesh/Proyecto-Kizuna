@@ -471,8 +471,17 @@
   .final-message>footer{grid-template-columns:1fr}.final-message>footer button{grid-column:1;grid-row:auto;margin-top:10px;width:100%}
 }
 @media(min-width:701px) and (max-width:1100px) and (orientation:portrait){
-  #viewer .reader-content:not(.has-image) .paper:has(.reading-confirmation),#viewer .reader-content:not(.has-image) .paper:has(.final-verification),#viewer .reader-content:not(.has-image) .paper:has(.final-message){width:min(760px,100%);padding:36px 42px}
-  .reading-confirmation h3,.final-verification h3,.final-message h3{font-size:56px}.confirmation-log li{padding-left:10px;padding-right:10px}.confirmation-unlock{grid-template-columns:auto 1fr}.confirmation-unlock>strong{grid-column:2;justify-self:start}
+  #viewer .reader-content:not(.has-image) .paper:has(.reading-confirmation),#viewer .reader-content:not(.has-image) .paper:has(.final-verification),#viewer .reader-content:not(.has-image) .paper:has(.final-message){width:min(920px,calc(100% - 20px));padding:42px 48px}
+  .reading-confirmation>header,.final-verification>header,.final-message>header{display:block;margin-bottom:20px}
+  .reading-confirmation>header .system-line,.final-verification>header .system-line,.final-message>header .system-line{margin-bottom:13px}
+  .reading-confirmation h3,.final-verification h3,.final-message h3{font-size:54px;line-height:.9}
+  .reading-confirmation h3 br,.final-verification h3 br,.final-message h3 br{display:none}
+  .reading-confirmation h3 em,.final-verification h3 em,.final-message h3 em{margin-left:.13em}
+  .confirmation-log li{min-height:58px;padding-left:14px;padding-right:14px;font-size:9px}
+  .confirmation-result{padding:20px 22px}.confirmation-result h4{font-size:25px}.confirmation-result p:last-child{font-size:9px!important}
+  .confirmation-event,.confirmation-unlock{padding:20px 22px}
+  .confirmation-unlock{grid-template-columns:auto 1fr}.confirmation-unlock>strong{grid-column:2;justify-self:start}
+  .reading-confirmation>footer{padding-top:8px}.reading-confirmation>footer p{font-size:9px!important}
 }
 @media(max-height:760px) and (min-width:701px){
   #viewer .reader-content:not(.has-image) .paper:has(.reading-confirmation),#viewer .reader-content:not(.has-image) .paper:has(.final-verification),#viewer .reader-content:not(.has-image) .paper:has(.final-message){padding:24px 34px}
