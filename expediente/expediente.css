@@ -491,3 +491,34 @@
   .reading-confirmation>header,.final-verification>header,.final-message>header{margin-bottom:14px}.reading-confirmation h3,.final-verification h3,.final-message h3{font-size:45px}.confirmation-progress{margin-bottom:13px}.confirmation-log{margin-bottom:13px}.confirmation-result{padding:12px 16px}.confirmation-result .confirmation-seal{width:64px;height:64px}.confirmation-event,.confirmation-unlock{padding:12px 16px}.final-message-copy{padding:14px 18px}.final-message-copy p{font-size:8px!important}
 }
 @media(prefers-reduced-motion:reduce){.confirmation-progress i,.confirmation-result,.confirmation-meter i,.confirmation-unlock,.final-integrity i,.final-closed,.confirmation-preview img{transition-duration:.01ms!important}.confirmation-result.is-visible .confirmation-seal{animation:none;opacity:1;transform:rotate(-7deg)}.confirmation-folder-symbol i,.confirmation-preview i{animation:none}}
+
+/* En móvil, los avisos previos se comportan como pantallas completas. */
+@media(max-width:600px){
+  #gate.access-screen{min-height:100dvh;grid-template-rows:auto minmax(0,1fr);padding:max(8px,env(safe-area-inset-top)) 8px max(8px,env(safe-area-inset-bottom));gap:8px}
+  #gate>.access-brand{min-height:42px;padding:0 8px}
+  #gate>.access-card.gate-card{align-self:stretch;display:flex;flex-direction:column;justify-content:center;width:100%;min-height:0;margin:0;padding:clamp(25px,7vw,34px) clamp(23px,6vw,30px);box-shadow:none}
+  #gate .gate-card .system-line{margin-bottom:14px;font-size:8px}
+  #gate .gate-card h1{font-size:clamp(43px,12vw,51px);line-height:.86}
+  #gate .gate-card>p:not(.system-line){margin:13px 0;font-size:10px;line-height:1.58}
+  #gate .gate-card .gate-phrase{margin:16px 0;font-size:17px;line-height:1.35}
+  #gate .gate-card .consent{margin:17px 0!important;font-size:10px!important;line-height:1.55!important}
+  #gate .gate-card button{width:100%;min-height:48px}
+  #gate .gate-card>a{margin-top:16px;text-align:center}
+
+  #viewer.is-recovery-mode .reader-content.is-recovery{place-items:stretch;padding:0;overflow:auto}
+  #viewer.is-recovery-mode .reader-content.is-recovery .paper{align-self:stretch;width:100%;height:100%;min-height:100%;border:0;box-shadow:none}
+  #viewer.is-recovery-mode .reader-content.is-recovery #doc-body{height:100%;min-height:100%}
+  #viewer.is-recovery-mode .archive-recovery{display:flex;flex-direction:column;min-height:100%;padding:clamp(28px,7vw,38px) clamp(22px,6vw,30px)}
+  #viewer.is-recovery-mode .archive-recovery>header{gap:18px;padding-bottom:22px}
+  #viewer.is-recovery-mode .archive-recovery>header h3{font-size:clamp(48px,14vw,61px)}
+  #viewer.is-recovery-mode .archive-recovery>header>span{font-size:7px}
+  #viewer.is-recovery-mode .recovery-steps{flex:1;justify-content:center;margin:24px 0}
+  #viewer.is-recovery-mode .recovery-steps li{min-height:58px}
+  #viewer.is-recovery-mode .recovery-steps li span{font-size:10px;line-height:1.45}
+  #viewer.is-recovery-mode .archive-recovery .recovery-live{margin-top:15px!important;font-size:9px!important;line-height:1.5}
+}
+
+@media(max-width:600px) and (max-height:620px){
+  #gate>.access-card.gate-card{justify-content:flex-start}
+  #viewer.is-recovery-mode .recovery-steps{flex:none;margin:18px 0}
+}
