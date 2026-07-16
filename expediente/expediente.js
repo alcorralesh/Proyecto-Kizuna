@@ -347,6 +347,7 @@ const syncReaderChrome=()=>{
   comicPrevious.hidden=!comicImage;
   comicFollowing.hidden=!comicImage;
   const alreadyRead=Boolean(active&&read().includes(active));
+  if(readerCanConfirm&&!alreadyRead)mark.textContent='Confirmar lectura';
   mark.style.display=readerCanConfirm&&!alreadyRead?'inline-block':'none';
   readerBackFolder.hidden=!readerReturnToFolder;
   readerStatus.classList.toggle('is-confirmed',readerCanConfirm&&alreadyRead);
