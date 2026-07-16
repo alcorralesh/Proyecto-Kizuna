@@ -378,3 +378,12 @@
 @media(max-width:750px){
   .documents{grid-template-columns:1fr}
 }
+
+/* Identidad del destinatario: nombre y correo de acceso editables. */
+.admin-identity-details form{grid-template-columns:repeat(2,minmax(230px,1fr))}
+.admin-identity-details form>label small{display:block;margin-top:7px;color:#756f64;font:7px/1.5 var(--mono);letter-spacing:0;text-transform:none}
+.admin-identity-details form>span{grid-column:1/-1}
+@media(max-width:850px){
+  .admin-identity-details form{grid-template-columns:1fr}
+  .admin-identity-details form>span{grid-column:auto}
+}

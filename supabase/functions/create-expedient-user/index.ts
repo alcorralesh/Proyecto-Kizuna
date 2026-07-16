@@ -38,20 +38,48 @@ Deno.serve(async (request) => {
   if (action === 'update-profile') {
     const userId = String(payload.userId ?? '')
     const displayName = String(payload.displayName ?? '').trim()
+    const requestedEmail = String(payload.email ?? '').trim().toLowerCase()
     if (!userId || !displayName) return response({ error: 'Indica un nombre para el destinatario.' }, 400)
+
+    const { data: currentProfile, error: currentProfileError } = await adminClient
+      .from('expedient_profiles')
+      .select('email, display_name')
+      .eq('id', userId)
+      .maybeSingle()
+    if (currentProfileError) return response({ error: currentProfileError.message }, 400)
+    if (!currentProfile) return response({ error: 'El destinatario ya no está disponible.' }, 404)
+
+    const email = requestedEmail || String(currentProfile.email ?? '').trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return response({ error: 'Indica un correo electrónico válido.' }, 400)
+    }
+
+    const { data: authData, error: authLookupError } = await adminClient.auth.admin.getUserById(userId)
+    if (authLookupError || !authData.user) {
+      return response({ error: authLookupError?.message ?? 'No se encontró la cuenta de acceso.' }, 400)
+    }
+
+    const previousEmail = String(authData.user.email ?? currentProfile.email ?? '').trim().toLowerCase()
+    const emailChanged = email !== previousEmail
+    const { error: authError } = await adminClient.auth.admin.updateUserById(userId, {
+      ...(emailChanged ? { email, email_confirm: true } : {}),
+      user_metadata: { ...(authData.user.user_metadata ?? {}), display_name: displayName },
+    })
+    if (authError) return response({ error: authError.message }, 400)
 
     const { error: profileError } = await adminClient
       .from('expedient_profiles')
-      .update({ display_name: displayName })
+      .update({ display_name: displayName, email })
       .eq('id', userId)
-    if (profileError) return response({ error: profileError.message }, 400)
-    // El perfil es la fuente de verdad de la web. La sincronización con
-    // Auth es auxiliar: no debe impedir que el administrador actualice el nombre.
-    const { error: authError } = await adminClient.auth.admin.updateUserById(userId, {
-      user_metadata: { display_name: displayName },
-    })
-    if (authError) console.warn('No se pudo sincronizar el nombre en Auth:', authError.message)
-    return response({ id: userId, displayName })
+    if (profileError) {
+      const { error: rollbackError } = await adminClient.auth.admin.updateUserById(userId, {
+        ...(emailChanged ? { email: previousEmail, email_confirm: true } : {}),
+        user_metadata: { ...(authData.user.user_metadata ?? {}), display_name: currentProfile.display_name },
+      })
+      if (rollbackError) console.error('No se pudo revertir la cuenta de Auth:', rollbackError.message)
+      return response({ error: profileError.message }, 400)
+    }
+    return response({ id: userId, displayName, email })
   }
 
   if (action === 'set-active') {
