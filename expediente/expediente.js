@@ -217,6 +217,7 @@ const progressKeys=[...Array.from({length:14},(_,i)=>`KTB-${String(i+1).padStart
 const name=id=>isFolder(id)?`Carpeta ${id} · ${folderDetails[id][0]}`:`Expediente ${id}`;const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='';
 const comicPrevious=document.createElement('button'),comicFollowing=document.createElement('button');comicPrevious.id='comic-prev-fixed';comicPrevious.type='button';comicPrevious.textContent='← Página anterior';comicPrevious.hidden=true;comicFollowing.id='comic-next-fixed';comicFollowing.type='button';comicFollowing.textContent='Página siguiente →';comicFollowing.hidden=true;readerBackFolder.before(comicPrevious,comicFollowing);
 const archiveBatchConfirm=document.createElement('button');archiveBatchConfirm.id='archive-confirm-batch';archiveBatchConfirm.type='button';archiveBatchConfirm.hidden=true;readerBackFolder.before(archiveBatchConfirm);
+const finalVerificationButton=document.createElement('button');finalVerificationButton.id='final-verification-action';finalVerificationButton.type='button';finalVerificationButton.textContent='Iniciar verificación final →';finalVerificationButton.hidden=true;finalVerificationButton.dataset.ready='false';readerBackExpedient.before(finalVerificationButton);
 const adminAccessMode=new URLSearchParams(location.search).get('admin')==='1';
 if(!adminAccessMode)access.hidden=true;
 if(adminAccessMode){gate.hidden=true;access.hidden=true;adminAccess.hidden=false;setTimeout(()=>document.querySelector('#admin-username').focus(),0)}
@@ -349,6 +350,7 @@ const syncReaderChrome=()=>{
   comicFollowing.hidden=!comicImage;
   const activeBatchMarker=active==='AR01-BILLETES'?'AR01-BILLETES':active==='AR03-cities'?'AR03-CITIES-COMPLETE':active==='AR03-temples'?'AR03-TEMPLES-COMPLETE':'';
   archiveBatchConfirm.hidden=!activeBatchMarker||read().includes(activeBatchMarker);
+  finalVerificationButton.hidden=!(active==='KTB-014'&&finalVerificationButton.dataset.ready==='true'&&document.querySelector('.reading-confirmation.is-final'));
   const alreadyRead=Boolean(active&&read().includes(active));
   if(readerCanConfirm&&!alreadyRead)mark.textContent='Confirmar lectura';
   mark.style.display=readerCanConfirm&&!alreadyRead?'inline-block':'none';
@@ -485,17 +487,11 @@ const confirmationAcPage=id=>{
   const number=Number(id.slice(-3));
   return number>=4?Math.min(11,number-3):0;
 };
-const confirmationButton=(label,handler)=>{
-  const button=document.querySelector('#confirmation-continue');
-  if(!button)return;
-  button.hidden=false;
-  button.textContent=label;
-  button.disabled=false;
-  button.onclick=handler;
-};
 function syncKtb(id,onComplete){
   next.style.display='none';
   mark.style.display='none';
+  finalVerificationButton.hidden=true;
+  finalVerificationButton.dataset.ready='false';
   comicPrevious.hidden=true;
   comicFollowing.hidden=true;
   readerBackFolder.hidden=true;
@@ -515,7 +511,7 @@ function syncKtb(id,onComplete){
       ?`<section class="confirmation-event confirmation-event-page" id="confirmation-event"><p class="system-line">ARCHIVO COMPLEMENTARIO AC-01</p><figure class="confirmation-preview"><div><img src="../assets/documents/AC-01/Pagina-${acPage}.png" alt="Vista previa de la página ${acPage} recuperada"><i aria-hidden="true"></i><span>RECONSTRUYENDO</span></div><figcaption>PÁGINA ${String(acPage).padStart(2,'0')} · AC-01</figcaption></figure><div class="confirmation-event-copy"><div class="confirmation-event-head"><span>${String(acPage).padStart(2,'0')}</span><div><h4>${isFinal?'Reconstrucción completada':'Nueva página reconstruida'}</h4><p>${isFinal?'La secuencia complementaria ya está disponible en su totalidad.':`La confirmación de ${id} ha incorporado una nueva página al archivo.`}</p></div></div><div class="confirmation-meter"><i style="--confirmation-value:${Math.round(acPage/11*100)}%"></i></div><p class="confirmation-count"><strong>${acPage}</strong> de 11 páginas disponibles</p></div></section>`
       :`<section class="confirmation-event confirmation-event-next" id="confirmation-event"><p class="system-line">SECUENCIA ACTUALIZADA</p><div class="confirmation-event-head"><span>→</span><div><h4>${nextKtb?'Siguiente documento autorizado':'Registro completado'}</h4><p>${nextKtb?`${nextKtb} queda preparado para continuar la consulta.`:'La lectura ha quedado archivada correctamente.'}</p></div></div></section>`;
   const unlock=folder?`<section class="confirmation-unlock" id="confirmation-unlock"><span class="confirmation-folder-symbol" aria-hidden="true"><i></i></span><div><p class="system-line">NUEVA FASE AUTORIZADA</p><h4>${folder} · ${folderDetails[folder][0]}</h4><p>${folderDetails[folder][1]}</p></div><strong>AUTORIZADO</strong></section>`:'';
-  body.innerHTML=`<section class="reading-confirmation ${isFinal?'is-final':''}" aria-live="polite"><header><p class="system-line">REGISTRO DE LECTURA · ${id}</p><h3>Confirmando<br><em>lectura.</em></h3></header><div class="confirmation-progress" aria-hidden="true"><i id="confirmation-progress"></i></div><ol class="confirmation-log"><li id="confirmation-step-1"><span></span>Verificando integridad de la consulta</li><li id="confirmation-step-2"><span></span>Registrando ${id} en el expediente</li><li id="confirmation-step-3"><span></span>Sincronizando nivel de autorización</li></ol><section class="confirmation-result" id="confirmation-result" hidden><div class="confirmation-seal"><span>LECTURA</span><strong>CONFIRMADA</strong></div><div><p class="system-line">REGISTRO COMPLETADO</p><h4>${id} ha quedado archivado.</h4><p>La secuencia autorizada se ha actualizado correctamente.</p></div></section>${detail}${unlock}<footer><p id="confirmation-final-note">Procesando cambios en el Archivo Central…</p><button id="confirmation-continue" type="button" disabled ${isFinal?'':'hidden'}>Continuar →</button></footer></section>`;
+  body.innerHTML=`<section class="reading-confirmation ${isFinal?'is-final':''}" aria-live="polite"><header><p class="system-line">REGISTRO DE LECTURA · ${id}</p><h3>Confirmando<br><em>lectura.</em></h3></header><div class="confirmation-progress" aria-hidden="true"><i id="confirmation-progress"></i></div><ol class="confirmation-log"><li id="confirmation-step-1"><span></span>Verificando integridad de la consulta</li><li id="confirmation-step-2"><span></span>Registrando ${id} en el expediente</li><li id="confirmation-step-3"><span></span>Sincronizando nivel de autorización</li></ol><section class="confirmation-result" id="confirmation-result" hidden><div class="confirmation-seal"><span>LECTURA</span><strong>CONFIRMADA</strong></div><div><p class="system-line">REGISTRO COMPLETADO</p><h4>${id} ha quedado archivado.</h4><p>La secuencia autorizada se ha actualizado correctamente.</p></div></section>${detail}${unlock}<footer><p id="confirmation-final-note">Procesando cambios en el Archivo Central…</p></footer></section>`;
   const progress=document.querySelector('#confirmation-progress'),result=document.querySelector('#confirmation-result'),event=document.querySelector('#confirmation-event'),unlockPanel=document.querySelector('#confirmation-unlock'),note=document.querySelector('#confirmation-final-note');
   const steps=[1,2,3];
   steps.forEach((step,index)=>setTimeout(()=>{
@@ -543,11 +539,11 @@ function syncKtb(id,onComplete){
     if(!viewer.open)return;
     unlockPanel?.classList.add('is-visible');
     note.textContent=isFinal?'La verificación final ya puede comenzar.':folder?'La nueva fase queda disponible desde este momento.':'El expediente está preparado para continuar.';
-    if(isFinal)confirmationButton('Iniciar verificación final →',onComplete);
+    if(isFinal){finalVerificationButton.dataset.ready='true';finalVerificationButton.hidden=false;finalVerificationButton.onclick=onComplete}
   },isFinal?3100:folder?2900:acPage?2850:2350);
 }
 function startFinale(){
-  next.style.display='none';mark.style.display='none';readerTools.hidden=true;readerContent.classList.remove('has-image','is-folder');
+  next.style.display='none';mark.style.display='none';finalVerificationButton.hidden=true;finalVerificationButton.dataset.ready='false';readerTools.hidden=true;readerContent.classList.remove('has-image','is-folder');
   document.querySelector('#doc-type').textContent='VERIFICACIÓN FINAL · ARCHIVO CENTRAL';
   document.querySelector('#doc-title').textContent='Cerrando expediente…';
   document.querySelector('#doc-body').innerHTML=`<section class="final-verification" aria-live="polite"><header><p class="system-line">PROTOCOLO DE CIERRE · PROJECT JAPAN</p><h3>Cerrando<br><em>expediente.</em></h3></header><div class="final-integrity"><span>INTEGRIDAD DE LA LÍNEA TEMPORAL</span><strong id="final-percentage">0 %</strong><div><i id="final-progress"></i></div></div><ol><li id="final-check-1"><span></span>Coherencia narrativa</li><li id="final-check-2"><span></span>Integridad documental</li><li id="final-check-3"><span></span>Secuencia temporal</li><li id="final-check-4"><span></span>Archivo complementario AC-01 · 11/11</li></ol><section id="final-closed" class="final-closed" hidden><p>VERIFICACIÓN COMPLETADA</p><h4>EXPEDIENTE<br>CERRADO</h4><span>KTB-EXP-2026-JP-00184</span></section><button id="final-summary" type="button" disabled>Ver acta de cierre →</button></section>`;
