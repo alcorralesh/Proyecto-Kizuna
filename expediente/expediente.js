@@ -331,7 +331,7 @@ const exitReaderFullscreen=async()=>{
 const syncReaderChrome=()=>{
   readerCode.textContent=active||'ARCHIVO';
   const hasImage=Boolean(document.querySelector('#doc-body>.image-inspector'));
-  const comicImage=document.querySelector('#doc-body img[src*="/AC-01/Pagina-"]');
+  const comicImage=document.querySelector('#doc-body>.image-inspector img[src*="/AC-01/Pagina-"]');
   const comicPage=Number(document.querySelector('#doc-body')?.dataset.comicPage||0);
   const comicPages=Number(document.querySelector('#doc-body')?.dataset.comicPages||0);
   if(active!==readerChromeActive||mark.style.display!=='none'){readerCanConfirm=mark.style.display!=='none';readerChromeActive=active}
@@ -461,11 +461,18 @@ const confirmationButton=(label,handler)=>{
 function syncKtb(id,onComplete){
   next.style.display='none';
   mark.style.display='none';
+  comicPrevious.hidden=true;
+  comicFollowing.hidden=true;
+  readerBackFolder.hidden=true;
   readerTools.hidden=true;
   readerContent.classList.remove('has-image','is-folder');
+  readerPosition.innerHTML='DOCUMENTO COMPLETO <span>·</span> FINAL DEL DOCUMENTO';
+  readerHint.innerHTML='Desplaza para leer <span>·</span> Pellizca para ampliar';
   document.querySelector('#doc-type').textContent='DIVISIÓN DE ARCHIVOS TEMPORALES · REGISTRO DE CONSULTA';
   document.querySelector('#doc-title').textContent='Actualizando expediente…';
   const body=document.querySelector('#doc-body'),folder=confirmationFolderAfter(id),acPage=confirmationAcPage(id),isAcDiscovery=id==='KTB-003',isFinal=id==='KTB-014';
+  delete body.dataset.comicPage;
+  delete body.dataset.comicPages;
   const nextKtb=sequence.slice(sequence.indexOf(id)+1).find(item=>item.startsWith('KTB-'));
   const detail=isAcDiscovery
     ?`<section class="confirmation-event confirmation-event-ac" id="confirmation-event"><p class="system-line">HALLAZGO ASOCIADO</p><div class="confirmation-event-head"><span>AC-01</span><div><h4>Archivo complementario localizado</h4><p>El registro existe, pero todavía no contiene páginas recuperadas.</p></div></div><div class="confirmation-meter"><i style="--confirmation-value:0%"></i></div><p class="confirmation-count"><strong>0</strong> de 11 páginas disponibles</p></section>`
