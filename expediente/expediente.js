@@ -117,7 +117,10 @@ setTimeout(()=>{
     const warning=document.createElement('section');
     warning.id='final-flow-exit-warning';warning.className='final-flow-exit-warning';warning.setAttribute('role','dialog');warning.setAttribute('aria-modal','true');
     warning.innerHTML=`<div><p>CIERRE DE EXPEDIENTE EN CURSO</p><h2>El proceso todavía<br><em>no ha terminado.</em></h2><span>Tu avance está guardado. Si sales ahora, KTB-014 permanecerá pendiente y deberás continuar el cierre la próxima vez.</span><footer><button type="button" data-final-stay>Continuar el cierre</button><button type="button" data-final-leave>Salir y continuar después</button></footer></div>`;
-    document.body.appendChild(warning);
+    // El visor es un <dialog> modal y vive en la capa superior del navegador.
+    // El aviso debe formar parte del propio diálogo para quedar visible y
+    // recibir los clics mientras el cierre de KTB-014 está en curso.
+    viewer.appendChild(warning);
     warning.querySelector('[data-final-stay]').onclick=()=>warning.remove();
     warning.querySelector('[data-final-leave]').onclick=()=>{warning.remove();finalSequenceActive=false;finalPopupPending=false;viewer.close();render()};
   };
