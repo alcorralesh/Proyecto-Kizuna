@@ -1000,6 +1000,9 @@ const renderAdminEditor=(profile,state)=>{
   const documentsPanel=editor.querySelector('[data-editor-panel="documents"]'),settingsPanel=editor.querySelector('[data-editor-panel="settings"]');
   const identityDetails=editor.querySelector('.admin-identity-details'),dangerZone=editor.querySelector('.admin-danger-zone');
   identityDetails.open=true;settingsPanel.append(identityDetails,dangerZone);
+  const identityEmailLabel=document.createElement('label');
+  identityEmailLabel.innerHTML=`Correo electrónico de acceso<input name="email" type="email" autocomplete="email" required value="${email}"><small>El destinatario utilizará este correo la próxima vez que inicie sesión.</small>`;
+  identityDetails.querySelector('input[name="displayName"]').closest('label').after(identityEmailLabel);
   const legalAccepted=Boolean(current.legalAccepted),legalVersion=Number(current.legalVersion||1);
   const legalAcceptedDate=current.legalAcceptedAt&&!Number.isNaN(Date.parse(current.legalAcceptedAt))?new Date(current.legalAcceptedAt).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):null;
   const legalSettings=document.createElement('section');
@@ -1029,7 +1032,21 @@ const renderAdminEditor=(profile,state)=>{
   const saveProgress=async()=>{const status=document.querySelector('#admin-save-status'),button=document.querySelector('#admin-save-progress');const records=[...editor.querySelectorAll('input[name="records"]:checked')].map(input=>input.value),closing=records.includes('KTB-014'),wasCompleted=Boolean(current.completed);const nextState={...current,read:records,completed:closing,albertoMessageRead:closing&&wasCompleted?Boolean(current.albertoMessageRead):false,albertoResponseAccepted:closing&&wasCompleted?Boolean(current.albertoResponseAccepted):false,finalAlertShown:closing?current.finalAlertShown:false,finalFileSeen:closing?current.finalFileSeen:false};status.textContent='Guardando…';button.disabled=true;const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:profile.id,state:nextState,updated_at:new Date().toISOString()});if(error){status.textContent='No se pudieron guardar los cambios.';console.error(error);button.disabled=false;return}renderAdminEditor(profile,nextState)};
   document.querySelector('#admin-save-progress').onclick=saveProgress;
   const identityForm=document.querySelector('#admin-identity-form');
-  identityForm.onsubmit=async event=>{event.preventDefault();const status=document.querySelector('#admin-identity-status'),button=identityForm.querySelector('button:not([type="button"])'),newName=new FormData(identityForm).get('displayName').trim();status.textContent='Actualizando identidad…';button.disabled=true;try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'update-profile',userId:profile.id,displayName:newName}});if(error)throw error;profile.display_name=data?.displayName||newName;renderAdminEditor(profile,current)}catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}};
+  identityForm.onsubmit=async event=>{
+    event.preventDefault();
+    const status=document.querySelector('#admin-identity-status'),button=identityForm.querySelector('button:not([type="button"])'),formData=new FormData(identityForm);
+    const newName=String(formData.get('displayName')||'').trim(),newEmail=String(formData.get('email')||'').trim().toLowerCase();
+    const emailChanged=newEmail!==String(profile.email||'').trim().toLowerCase();
+    if(emailChanged&&!confirm(`¿Cambiar el correo de acceso de ${profile.email} a ${newEmail}? El correo anterior dejará de servir para iniciar sesión.`))return;
+    status.textContent='Actualizando identidad y acceso…';button.disabled=true;
+    try{
+      const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'update-profile',userId:profile.id,displayName:newName,email:newEmail}});
+      if(error)throw error;
+      profile.display_name=data?.displayName||newName;profile.email=data?.email||newEmail;
+      const option=document.querySelector(`#admin-user-list option[value="${profile.id}"]`);if(option)option.textContent=`${profile.display_name||profile.email} · ${profile.email}`;
+      renderAdminEditor(profile,current);
+    }catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}
+  };
   const toggleAccess=async()=>{const nextActive=!isActive;if(!confirm(nextActive?'¿Reactivar el acceso de este destinatario?':'¿Desactivar el acceso de este destinatario? No podrá iniciar sesión hasta que lo reactives.'))return;const buttons=[document.querySelector('#admin-toggle-user'),document.querySelector('#admin-side-toggle-user')];buttons.forEach(button=>button.disabled=true);try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'set-active',userId:profile.id,active:nextActive}});if(error)throw error;profile.is_active=data?.isActive===undefined?nextActive:data.isActive;renderAdminEditor(profile,current)}catch(error){console.error(error);buttons.forEach(button=>button.disabled=false);document.querySelector('#admin-identity-status').textContent=await functionErrorMessage(error)}};
   document.querySelector('#admin-toggle-user').onclick=toggleAccess;document.querySelector('#admin-side-toggle-user').onclick=toggleAccess;
   document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!confirm(`¿Volver a mostrar el mensaje y la decisión final a ${profile.display_name||profile.email}?`))return;button.disabled=true;status.textContent='Restaurando mensaje…';const nextState={...current,completed:true,albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:profile.id,state:nextState,updated_at:new Date().toISOString()});if(error){console.error(error);status.textContent='No se ha podido restaurar el mensaje.';button.disabled=false;return}renderAdminEditor(profile,nextState)};
