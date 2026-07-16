@@ -117,8 +117,13 @@ setTimeout(()=>{
   const originalShowFinaleMessage=showFinaleMessage;
   showFinaleMessage=()=>{
     originalShowFinaleMessage();
-    const continueButton=document.querySelector('#final-continue');
-    if(continueButton)continueButton.onclick=()=>{viewer.close();patchState({completed:true,finalFileSeen:false});setTimeout(()=>{render();openGuaranteedFinalAlert()},180)};
+    if(finalVerificationButton.dataset.stage==='complete')finalVerificationButton.onclick=()=>{
+      finalVerificationButton.hidden=true;
+      finalVerificationButton.dataset.ready='false';
+      viewer.close();
+      patchState({completed:true,finalFileSeen:false});
+      setTimeout(()=>{render();openGuaranteedFinalAlert()},180);
+    };
   };
   openDashboard=()=>{
     const done=read(),state=getState(),consulted=sequence.filter(id=>done.includes(id)),total=sequence.length;
@@ -217,7 +222,26 @@ const progressKeys=[...Array.from({length:14},(_,i)=>`KTB-${String(i+1).padStart
 const name=id=>isFolder(id)?`Carpeta ${id} · ${folderDetails[id][0]}`:`Expediente ${id}`;const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='';
 const comicPrevious=document.createElement('button'),comicFollowing=document.createElement('button');comicPrevious.id='comic-prev-fixed';comicPrevious.type='button';comicPrevious.textContent='← Página anterior';comicPrevious.hidden=true;comicFollowing.id='comic-next-fixed';comicFollowing.type='button';comicFollowing.textContent='Página siguiente →';comicFollowing.hidden=true;readerBackFolder.before(comicPrevious,comicFollowing);
 const archiveBatchConfirm=document.createElement('button');archiveBatchConfirm.id='archive-confirm-batch';archiveBatchConfirm.type='button';archiveBatchConfirm.hidden=true;readerBackFolder.before(archiveBatchConfirm);
-const finalVerificationButton=document.createElement('button');finalVerificationButton.id='final-verification-action';finalVerificationButton.type='button';finalVerificationButton.textContent='Iniciar verificación final →';finalVerificationButton.hidden=true;finalVerificationButton.dataset.ready='false';readerBackExpedient.before(finalVerificationButton);
+const finalVerificationButton=document.createElement('button');finalVerificationButton.id='final-verification-action';finalVerificationButton.type='button';finalVerificationButton.textContent='Iniciar verificación final →';finalVerificationButton.hidden=true;finalVerificationButton.dataset.ready='false';finalVerificationButton.dataset.locked='false';finalVerificationButton.dataset.stage='';readerBackExpedient.before(finalVerificationButton);
+const setFinalFlowAction=(stage,label,handler,ready=true)=>{
+  finalVerificationButton.dataset.stage=stage;
+  finalVerificationButton.dataset.ready=ready?'true':'false';
+  finalVerificationButton.dataset.locked='true';
+  finalVerificationButton.textContent=label;
+  finalVerificationButton.onclick=handler;
+  finalVerificationButton.disabled=!ready;
+  finalVerificationButton.hidden=!ready;
+  readerBackExpedient.hidden=true;
+};
+const clearFinalFlow=()=>{
+  finalVerificationButton.dataset.stage='';
+  finalVerificationButton.dataset.ready='false';
+  finalVerificationButton.dataset.locked='false';
+  finalVerificationButton.onclick=null;
+  finalVerificationButton.disabled=false;
+  finalVerificationButton.hidden=true;
+  readerBackExpedient.hidden=false;
+};
 const adminAccessMode=new URLSearchParams(location.search).get('admin')==='1';
 if(!adminAccessMode)access.hidden=true;
 if(adminAccessMode){gate.hidden=true;access.hidden=true;adminAccess.hidden=false;setTimeout(()=>document.querySelector('#admin-username').focus(),0)}
@@ -350,7 +374,8 @@ const syncReaderChrome=()=>{
   comicFollowing.hidden=!comicImage;
   const activeBatchMarker=active==='AR01-BILLETES'?'AR01-BILLETES':active==='AR03-cities'?'AR03-CITIES-COMPLETE':active==='AR03-temples'?'AR03-TEMPLES-COMPLETE':'';
   archiveBatchConfirm.hidden=!activeBatchMarker||read().includes(activeBatchMarker);
-  finalVerificationButton.hidden=!(active==='KTB-014'&&finalVerificationButton.dataset.ready==='true'&&document.querySelector('.reading-confirmation.is-final'));
+  finalVerificationButton.hidden=finalVerificationButton.dataset.ready!=='true';
+  readerBackExpedient.hidden=finalVerificationButton.dataset.locked==='true';
   const alreadyRead=Boolean(active&&read().includes(active));
   if(readerCanConfirm&&!alreadyRead)mark.textContent='Confirmar lectura';
   mark.style.display=readerCanConfirm&&!alreadyRead?'inline-block':'none';
@@ -412,7 +437,7 @@ const updateMailboxIndicator=()=>{const unread=Math.max(0,mailboxMessages().leng
 const privateStyle=document.createElement('style');privateStyle.textContent=`.dashboard>header{position:sticky;top:0;z-index:40;padding:8px 5vw;background:#f6f0e2!important;isolation:isolate;box-shadow:0 1px 0 #b4ae9f}.dashboard>header .access-brand img{width:44px;height:44px}.case-head{position:sticky;top:61px;z-index:30;padding:20px 10vw!important;min-height:140px;align-items:center;background:#e6dac2!important;isolation:isolate;box-shadow:0 8px 16px #8f80661c}.case-head h1{font-size:48px}.case-head .system-line{margin:0 0 8px}.case-head .case-id{margin:7px 0 0;font-size:8px}.case-head dl{gap:28px}.case-list{position:relative;z-index:1;padding-top:34px}.header-actions{display:flex;align-items:center;gap:15px}.header-actions .sync-clock{margin:0}#return-public-site{border-color:#202726;color:#202726}@media(max-width:750px){.case-head{top:61px;padding:17px 7vw!important;min-height:0}.case-head h1{font-size:40px}.case-head dl{margin-top:17px}.header-actions{gap:5px}.header-actions button{padding:8px 6px;font-size:7px}.sync-clock{display:none!important}}`;document.head.appendChild(privateStyle);setInterval(()=>{if(!dash.hidden)updateMailboxIndicator()},600);updateMailboxIndicator();
 const mobileCaseHeaderStyle=document.createElement('style');mobileCaseHeaderStyle.textContent=`@media(max-width:600px){.dashboard{overflow-x:hidden}.dashboard>header{min-height:50px;padding:5px 10px!important;gap:8px}.dashboard>header .access-brand{min-width:0;gap:7px}.dashboard>header .access-brand img{width:34px;height:34px}.dashboard>header .access-brand span{overflow:hidden;font-size:11px;letter-spacing:.12em;text-overflow:ellipsis;white-space:nowrap}.dashboard>header .access-brand small{display:none}.dashboard>header .header-actions{flex:0 0 auto;margin-left:auto;gap:4px!important}.dashboard>header .header-actions button{display:grid;place-items:center;height:38px;min-width:42px;padding:4px 6px!important;line-height:1.15}.dashboard>header #mailbox-toggle{max-width:62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dashboard>header #return-public-site,.dashboard>header #exit{width:44px;font-size:0!important}.dashboard>header #return-public-site::after{content:'WEB';font:7px var(--mono);letter-spacing:.04em}.dashboard>header #exit::after{content:'SALIR';font:7px var(--mono);letter-spacing:.04em}.case-head{top:49px!important}}@media(max-width:360px){.dashboard>header .access-brand span{font-size:9px}.dashboard>header #mailbox-toggle{max-width:54px}.dashboard>header #return-public-site,.dashboard>header #exit{width:40px;min-width:40px}}`;document.head.appendChild(mobileCaseHeaderStyle);
 function createFinalDiscoveryAlert(onOpen){document.querySelector('#final-file-alert')?.remove();const alert=document.createElement('section');alert.id='final-file-alert';alert.className='final-discovery-alert';alert.setAttribute('role','dialog');alert.setAttribute('aria-modal','true');alert.setAttribute('aria-labelledby','final-discovery-title');alert.innerHTML=`<div class="final-discovery-card"><div class="final-discovery-scan" aria-hidden="true"></div><section class="final-discovery-closing" aria-live="polite"><p>VERIFICACIÓN FINAL · ARCHIVO CENTRAL</p><h2>Cerrando<br><em>expediente.</em></h2><div class="final-discovery-progress"><i></i><strong>100 %</strong></div><ol><li>Integridad documental confirmada</li><li>Secuencia temporal archivada</li><li>Comprobando registros residuales…</li></ol></section><section class="final-discovery-result" aria-live="assertive"><header><div><p>INCIDENCIA DURANTE EL CIERRE</p><h2 id="final-discovery-title">Archivo fuera<br><em>de inventario.</em></h2></div><span>FINAL-01</span></header><p>Se ha detectado un registro que no forma parte de la secuencia autorizada del expediente.</p><dl><div><dt>CLASIFICACIÓN</dt><dd>No catalogado</dd></div><div><dt>ORIGEN</dt><dd>No verificado</dd></div><div><dt>RELACIÓN</dt><dd>Desconocida</dd></div><div><dt>ESTADO</dt><dd>Pendiente de revisión</dd></div></dl><div class="final-discovery-seal">NO INCLUIR<br>EN EL EXPEDIENTE</div><footer><p>¿Desea examinar el archivo localizado?</p><button id="final-file-alert-open" type="button">Examinar FINAL-01 <span>→</span></button></footer></section></div>`;document.body.appendChild(alert);const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;setTimeout(()=>alert.classList.add('is-scanning'),reduced?20:700);setTimeout(()=>{alert.classList.add('is-detected');document.querySelector('#final-file-alert-open')?.focus()},reduced?60:2350);document.querySelector('#final-file-alert-open').onclick=async()=>{alert.remove();await onOpen()}}
-function openFinalLocatedFile(){active='FINAL-01';next.style.display='none';mark.style.display='none';document.querySelector('#doc-type').textContent='DIVISIÓN DE ARCHIVOS TEMPORALES / VERIFICACIÓN FINAL';document.querySelector('#doc-title').textContent='Archivo localizado';document.querySelector('#doc-body').innerHTML='<img src="../assets/documents/FINAL-01-email-interno.png" alt="Correo interno recuperado de José" style="display:block;width:100%;height:auto;border:1px solid #8b887d">';if(!viewer.open)viewer.showModal()}
+function openFinalLocatedFile(){clearFinalFlow();active='FINAL-01';next.style.display='none';mark.style.display='none';document.querySelector('#doc-type').textContent='DIVISIÓN DE ARCHIVOS TEMPORALES / VERIFICACIÓN FINAL';document.querySelector('#doc-title').textContent='Archivo localizado';document.querySelector('#doc-body').innerHTML='<img src="../assets/documents/FINAL-01-email-interno.png" alt="Correo interno recuperado de José" style="display:block;width:100%;height:auto;border:1px solid #8b887d">';if(!viewer.open)viewer.showModal()}
 function showFinalFileAlert(){if(!read().includes('KTB-014')||getState().finalFileSeen||viewer.open||document.querySelector('#final-file-alert'))return;createFinalDiscoveryAlert(async()=>{await markFinalFileConsulted('final_alert');openFinalLocatedFile()})}
 function openDashboard(){access.hidden=true;loading.hidden=false;const log=document.querySelector('#auth-log');log.innerHTML='<p>Comprobando expediente…</p><div style="height:8px;background:#d3c8b4"><i id="auth-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.7s ease"></i></div><p>Sincronizando registros…</p><p>Integridad documental: <strong>100 %</strong></p>';setTimeout(()=>document.querySelector('#auth-progress').style.width='100%',80);setTimeout(()=>{loading.hidden=true;gate.hidden=false},2100)}
 function updateCompletionHeader(done){const head=document.querySelector('.case-head'),old=document.querySelector('#completion-record');if(old)old.remove();head.style.position='';if(!done.includes('KTB-014')){head.style.setProperty('padding-bottom','20px','important');head.style.minHeight='140px';return}head.style.setProperty('padding-bottom','100px','important');head.style.minHeight='245px';const record=document.createElement('section');record.id='completion-record';record.style.cssText='position:absolute;left:10vw;right:10vw;bottom:18px;border-top:1px solid #9b8870;padding-top:12px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 20px;color:#7e1b19;font:9px/1.65 "DM Mono",monospace;letter-spacing:.03em';record.innerHTML=`<span>PROJECT JAPAN<br><strong style="font-size:11px">✔ FINALIZADO · EXPEDIENTE ARCHIVADO</strong></span><span>DESTINATARIO<br><strong style="font-size:11px">JOSÉ CUADRADO</strong></span><span>FECHA DE ARCHIVO<br><strong style="font-size:11px">${new Date().toLocaleDateString('es-ES')}</strong></span><span>INTEGRIDAD<br><strong style="font-size:11px">100 %</strong></span>`;head.appendChild(record)}
@@ -490,8 +515,8 @@ const confirmationAcPage=id=>{
 function syncKtb(id,onComplete){
   next.style.display='none';
   mark.style.display='none';
-  finalVerificationButton.hidden=true;
-  finalVerificationButton.dataset.ready='false';
+  if(id==='KTB-014')setFinalFlowAction('verification','Iniciar verificación final →',onComplete,false);
+  else clearFinalFlow();
   comicPrevious.hidden=true;
   comicFollowing.hidden=true;
   readerBackFolder.hidden=true;
@@ -539,15 +564,15 @@ function syncKtb(id,onComplete){
     if(!viewer.open)return;
     unlockPanel?.classList.add('is-visible');
     note.textContent=isFinal?'La verificación final ya puede comenzar.':folder?'La nueva fase queda disponible desde este momento.':'El expediente está preparado para continuar.';
-    if(isFinal){finalVerificationButton.dataset.ready='true';finalVerificationButton.hidden=false;finalVerificationButton.onclick=onComplete}
+    if(isFinal)setFinalFlowAction('verification','Iniciar verificación final →',onComplete,true);
   },isFinal?3100:folder?2900:acPage?2850:2350);
 }
 function startFinale(){
-  next.style.display='none';mark.style.display='none';finalVerificationButton.hidden=true;finalVerificationButton.dataset.ready='false';readerTools.hidden=true;readerContent.classList.remove('has-image','is-folder');
+  next.style.display='none';mark.style.display='none';setFinalFlowAction('summary','Ver acta de cierre →',showFinaleMessage,false);readerTools.hidden=true;readerContent.classList.remove('has-image','is-folder');
   document.querySelector('#doc-type').textContent='VERIFICACIÓN FINAL · ARCHIVO CENTRAL';
   document.querySelector('#doc-title').textContent='Cerrando expediente…';
-  document.querySelector('#doc-body').innerHTML=`<section class="final-verification" aria-live="polite"><header><p class="system-line">PROTOCOLO DE CIERRE · PROJECT JAPAN</p><h3>Cerrando<br><em>expediente.</em></h3></header><div class="final-integrity"><span>INTEGRIDAD DE LA LÍNEA TEMPORAL</span><strong id="final-percentage">0 %</strong><div><i id="final-progress"></i></div></div><ol><li id="final-check-1"><span></span>Coherencia narrativa</li><li id="final-check-2"><span></span>Integridad documental</li><li id="final-check-3"><span></span>Secuencia temporal</li><li id="final-check-4"><span></span>Archivo complementario AC-01 · 11/11</li></ol><section id="final-closed" class="final-closed" hidden><p>VERIFICACIÓN COMPLETADA</p><h4>EXPEDIENTE<br>CERRADO</h4><span>KTB-EXP-2026-JP-00184</span></section><button id="final-summary" type="button" disabled>Ver acta de cierre →</button></section>`;
-  const bar=document.querySelector('#final-progress'),percentage=document.querySelector('#final-percentage'),closed=document.querySelector('#final-closed'),summary=document.querySelector('#final-summary');
+  document.querySelector('#doc-body').innerHTML=`<section class="final-verification" aria-live="polite"><header><p class="system-line">PROTOCOLO DE CIERRE · PROJECT JAPAN</p><h3>Cerrando<br><em>expediente.</em></h3></header><div class="final-integrity"><span>INTEGRIDAD DE LA LÍNEA TEMPORAL</span><strong id="final-percentage">0 %</strong><div><i id="final-progress"></i></div></div><ol><li id="final-check-1"><span></span>Coherencia narrativa</li><li id="final-check-2"><span></span>Integridad documental</li><li id="final-check-3"><span></span>Secuencia temporal</li><li id="final-check-4"><span></span>Archivo complementario AC-01 · 11/11</li></ol><section id="final-closed" class="final-closed" hidden><p>VERIFICACIÓN COMPLETADA</p><h4>EXPEDIENTE<br>CERRADO</h4><span>KTB-EXP-2026-JP-00184</span></section></section>`;
+  const bar=document.querySelector('#final-progress'),percentage=document.querySelector('#final-percentage'),closed=document.querySelector('#final-closed');
   [1,2,3,4].forEach((step,index)=>setTimeout(()=>{
     if(!viewer.open)return;
     document.querySelector(`#final-check-${step}`)?.classList.add('is-complete');
@@ -556,14 +581,14 @@ function startFinale(){
   setTimeout(()=>{
     if(!viewer.open)return;
     closed.hidden=false;requestAnimationFrame(()=>closed.classList.add('is-visible'));
-    summary.disabled=false;summary.onclick=showFinaleMessage;
+    setFinalFlowAction('summary','Ver acta de cierre →',showFinaleMessage,true);
   },2650);
 }
 function showFinaleMessage(){
   document.querySelector('#doc-type').textContent='KIZUNA TRAVEL BUREAU · ACTA DE CIERRE';
   document.querySelector('#doc-title').textContent='PROJECT JAPAN · Expediente archivado';
-  document.querySelector('#doc-body').innerHTML=`<section class="final-message"><header><p class="system-line">ESTADO DEL EXPEDIENTE</p><h3>La consulta ha<br><em>terminado.</em></h3></header><dl><div><dt>DOCUMENTOS</dt><dd>71 de 71</dd></div><div><dt>INTEGRIDAD</dt><dd>100 %</dd></div><div><dt>AUTORIZACIÓN</dt><dd>NIVEL VIII</dd></div><div><dt>ESTADO</dt><dd>ARCHIVADO</dd></div></dl><div class="final-message-copy"><p>Durante las últimas semanas has recorrido un expediente que nunca debió existir.</p><p>Has leído documentos escritos antes de ser creados y has seguido el rastro de recuerdos que todavía no habían sucedido.</p><p>Y, aun así, has llegado exactamente al lugar al que debías llegar.</p><p>Gracias por confiar en nosotros. Ha sido un honor acompañarte durante esta expedición.</p></div><footer><strong>KIZUNA TRAVEL BUREAU</strong><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><button id="final-continue" type="button">Completar archivo →</button></footer></section>`;
-  document.querySelector('#final-continue').onclick=()=>{viewer.close();render();setTimeout(showFinalFileAlert,180)};
+  document.querySelector('#doc-body').innerHTML=`<section class="final-message"><header><p class="system-line">ESTADO DEL EXPEDIENTE</p><h3>La consulta ha<br><em>terminado.</em></h3></header><dl><div><dt>DOCUMENTOS</dt><dd>71 de 71</dd></div><div><dt>INTEGRIDAD</dt><dd>100 %</dd></div><div><dt>AUTORIZACIÓN</dt><dd>NIVEL VIII</dd></div><div><dt>ESTADO</dt><dd>ARCHIVADO</dd></div></dl><div class="final-message-copy"><p>Durante las últimas semanas has recorrido un expediente que nunca debió existir.</p><p>Has leído documentos escritos antes de ser creados y has seguido el rastro de recuerdos que todavía no habían sucedido.</p><p>Y, aun así, has llegado exactamente al lugar al que debías llegar.</p><p>Gracias por confiar en nosotros. Ha sido un honor acompañarte durante esta expedición.</p></div><footer><strong>KIZUNA TRAVEL BUREAU</strong><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span></footer></section>`;
+  setFinalFlowAction('complete','Completar archivo →',()=>{viewer.close();render();setTimeout(showFinalFileAlert,180)},true);
 }
 function showFinalLogo(){document.querySelector('#doc-type').textContent='';document.querySelector('#doc-title').textContent='KIZUNA';document.querySelector('#doc-body').innerHTML='<img style="display:block;width:130px;margin:0 auto 18px;border-radius:50%" src="../assets/kizuna-logo-official.png" alt="Kizuna Travel Bureau"><p style="text-align:center;font-size:20px">TRAVEL BUREAU</p><p style="text-align:center;margin-top:70px">Porque los mejores recuerdos nunca pertenecieron a un expediente. Siempre te pertenecieron a ti.</p>'}
 document.querySelector('#gate-consent').onchange=event=>document.querySelector('#gate-continue').disabled=!event.target.checked;document.querySelector('#gate-continue').onclick=()=>{patchState({legalAccepted:true});gate.hidden=true;dash.hidden=false;render()};document.querySelector('#access-form').onsubmit=event=>{event.preventDefault();const username=document.querySelector('#username').value.trim().toLowerCase(),password=document.querySelector('#password').value;if(username!=='jose.cuadrado'||password!=='kizuna2026')message.textContent='No se han podido verificar las credenciales de acceso.';else openDashboard()};document.querySelector('#exit').onclick=()=>{location.href='../index.html'};readerCloseButton.onclick=async()=>{if(viewer.classList.contains('is-reader-fullscreen')||document.fullscreenElement===viewer)await exitReaderFullscreen();else viewer.close()};mark.onclick=()=>{const done=read();if(!done.includes(active)){done.push(active);save(done)}if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}const parent=fileFolder(active);if(parent){openFolder(parent);return}if(active.startsWith('KTB-')){const id=active;syncKtb(id,()=>{if(id==='KTB-014'){localStorage.setItem('kizuna-complete','true');startFinale()}else{viewer.close();render()}});return}viewer.close();render()};next.onclick=()=>{const index=sequence.indexOf(active);if(index<sequence.length-1&&allowed(sequence[index+1]))openDoc(sequence[index+1])};
