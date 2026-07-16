@@ -113,6 +113,7 @@ Deno.serve(async (request) => {
       finalFileSeen: false,
       finalAlertShown: false,
       completed: false,
+      finalFlowStage: '',
       albertoMessageRead: false,
       comicReadPages: [],
     }
@@ -161,7 +162,7 @@ Deno.serve(async (request) => {
   })
   await adminClient.from('expedient_progress').upsert({
     user_id: data.user.id,
-    state: { read: [], mailRead: 0, finalFileSeen: false, finalAlertShown: false, completed: false, albertoMessageRead: false, comicReadPages: [] },
+    state: { read: [], mailRead: 0, finalFileSeen: false, finalAlertShown: false, completed: false, finalFlowStage: '', albertoMessageRead: false, comicReadPages: [] },
   })
 
   return response({ id: data.user.id, email: data.user.email })
