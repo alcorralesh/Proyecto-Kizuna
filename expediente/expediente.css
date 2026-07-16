@@ -302,6 +302,7 @@
 .admin-document-grid{overflow-x:hidden}.admin-document-row{min-width:0}.admin-document-title{min-width:0}
 @media(max-width:750px){.admin-dashboard{display:block}.admin-rail{position:sticky;inset:auto;top:0;width:100%;height:auto}.admin-sidebar{display:flex;grid-template-columns:none;gap:4px;overflow-x:auto;scrollbar-width:none}.admin-dashboard .admin-sidebar button{flex:0 0 auto;min-width:92px}.admin-content{width:100%;min-height:100vh;margin:0;padding:0 6vw 38px}.admin-section-bar{top:99px;min-height:47px;margin-bottom:18px;padding:11px 0 9px}.admin-section-bar strong{font-size:20px}}
 /* Lector documental: el archivo ocupa el espacio principal en cualquier pantalla. */
+body:has(#viewer[open]){overflow:hidden}
 #viewer{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;background:#151b19;color:#eee5d2;overflow:hidden}
 #viewer::backdrop{background:#151b19}
 .reader-shell{height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden;background:#151b19}
