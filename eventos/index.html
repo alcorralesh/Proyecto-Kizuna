@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#142b25">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="KIZUNA">
+  <link rel="manifest" href="../manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="../assets/kizuna-app-icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="../assets/kizuna-app-icon-512.png">
+  <meta name="description" content="Agenda completa de eventos de Kizuna Travel Bureau en Japón">
+  <title>Eventos en Japón · Kizuna Travel Bureau</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=EB+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="events-page">
+  <header class="site-header events-page-header">
+    <a class="wordmark" href="../index.html"><img src="../assets/kizuna-logo-official.png" alt="Kizuna Travel Bureau"><span>KIZUNA<small>TRAVEL BUREAU</small></span></a>
+    <div id="public-session" data-events-session data-expedient-href="../expediente/index.html" aria-live="polite"></div>
+    <a class="text-link events-back-link" href="../index.html#eventos">Volver a la web <b>←</b></a>
+  </header>
+  <main>
+    <section class="public-events events-archive" data-events-mode="all">
+      <div class="section-top"><p class="eyebrow">AGENDA KIZUNA · JAPÓN</p><p>AGENDA COMPLETA</p></div>
+      <div class="public-events-intro"><h1>Todos los eventos<br><em>por vivir.</em></h1><p>Consulta todos los encuentros disponibles, reserva tu plaza o añádelos a tu calendario para no perderte nada.</p></div>
+      <div class="public-events-list" data-events-list aria-live="polite"></div>
+    </section>
+  </main>
+  <footer>
+    <a class="wordmark" href="../index.html"><img src="../assets/kizuna-logo-official.png" alt=""><span>KIZUNA<small>TRAVEL BUREAU</small></span></a>
+    <p>Because the best memories deserve to exist.</p>
+    <div><a href="../index.html">La agencia</a><a href="../tienda/index.html">Tienda simulada</a><a href="../expediente/index.html?admin=1">Acceso privado</a></div>
+  </footer>
+  <script src="../events.js"></script>
+</body>
+</html>

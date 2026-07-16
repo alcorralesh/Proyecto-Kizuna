@@ -1,17 +1,43 @@
 (()=>{
   const root=document.querySelector('[data-events-list]');
   if(!root)return;
+  const section=root.closest('[data-events-mode]'),mode=section?.dataset.eventsMode||'home';
+  const allEventsLink=document.querySelector('[data-events-all-link]');
   const fallbackEvents=[
     {id:'fallback-hanabi',title:'Festival de fuegos artificiales de Sumida',description:'Una noche junto al río para contemplar uno de los hanabi más emblemáticos de Tokio.',location:'Parque Sumida · Tokio',starts_at:'2026-09-12T19:00:00+09:00',capacity:40,registered_count:8},
     {id:'fallback-te',title:'Ceremonia de té al amanecer',description:'Una introducción íntima al chanoyu en un jardín tradicional de Kioto.',location:'Distrito de Higashiyama · Kioto',starts_at:'2026-09-26T08:30:00+09:00',capacity:12,registered_count:3},
     {id:'fallback-momiji',title:'Ruta de otoño entre templos',description:'Paseo guiado para descubrir los primeros colores del momiji y su historia.',location:'Arashiyama · Kioto',starts_at:'2026-10-17T09:00:00+09:00',capacity:24,registered_count:5}
   ];
-  let events=fallbackEvents;
+  let events=fallbackEvents,client=null,activeAttendee=null,sessionPromise=null;
   const getClient=async()=>{
+    if(window.getKizunaPublicSupabase)return window.getKizunaPublicSupabase();
     if(window.getKizunaBlogSupabase)return window.getKizunaBlogSupabase();
+    if(client)return client;
     if(!window.supabase)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)});
-    return window.supabase.createClient('https://vcwqkideizdrhzpbghkj.supabase.co','sb_publishable_h3pjxT8UPZkYqRhLskVdlA_m-ulI4EF');
+    client=window.supabase.createClient('https://vcwqkideizdrhzpbghkj.supabase.co','sb_publishable_h3pjxT8UPZkYqRhLskVdlA_m-ulI4EF');
+    return client;
   };
+  const attendeeName=displayName=>{const parts=String(displayName||'').trim().split(/\s+/).filter(Boolean);return {firstName:parts.shift()||'',lastName:parts.join(' ')}};
+  const renderEventSession=(user,profile)=>{
+    const target=document.querySelector('[data-events-session]');if(!target)return;
+    const displayName=profile?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Usuario autorizado';
+    const link=document.createElement('a');link.href=target.dataset.expedientHref||'../expediente/index.html';
+    const label=document.createElement('span');label.textContent='SESIÓN ACTIVA';
+    const name=document.createElement('strong');name.textContent=displayName;link.append(label,name);
+    const logout=document.createElement('button');logout.type='button';logout.textContent='Cerrar sesión';
+    logout.onclick=async()=>{const supabase=await getClient();await supabase.auth.signOut();activeAttendee=null;target.classList.remove('active');target.replaceChildren()};
+    target.replaceChildren(link,logout);target.classList.add('active');
+  };
+  const loadEventSession=()=>sessionPromise||(sessionPromise=(async()=>{
+    try{
+      const supabase=await getClient(),{data:{session}}=await supabase.auth.getSession();
+      if(!session)return null;
+      const {data:profile,error}=await supabase.from('expedient_profiles').select('display_name').eq('id',session.user.id).maybeSingle();
+      if(error)console.warn('No se pudo recuperar el nombre del destinatario.',error);
+      const displayName=profile?.display_name||session.user.user_metadata?.display_name||session.user.email?.split('@')[0]||'';
+      activeAttendee={user:session.user,...attendeeName(displayName)};renderEventSession(session.user,profile);return activeAttendee;
+    }catch(error){console.warn('No se pudo recuperar la sesión para eventos.',error);return null}
+  })());
   const dateParts=value=>{
     const date=new Date(value);
     return {day:new Intl.DateTimeFormat('es-ES',{day:'2-digit',timeZone:'Asia/Tokyo'}).format(date),month:new Intl.DateTimeFormat('es-ES',{month:'short',timeZone:'Asia/Tokyo'}).format(date).replace('.','').toUpperCase(),full:new Intl.DateTimeFormat('es-ES',{dateStyle:'long',timeStyle:'short',timeZone:'Asia/Tokyo'}).format(date)};
@@ -30,7 +56,13 @@
   dialog.querySelector('.event-signup-close').onclick=()=>dialog.close();
   dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});
   let selectedEvent=null;
-  const openSignup=event=>{selectedEvent=event;dialog.querySelector('h2').textContent=event.title;dialog.querySelector('form').reset();dialog.querySelector('.event-signup-status').textContent='';dialog.showModal()};
+  const openSignup=async event=>{
+    selectedEvent=event;const form=dialog.querySelector('form');
+    dialog.querySelector('h2').textContent=event.title;form.reset();dialog.querySelector('.event-signup-status').textContent='';
+    const attendee=activeAttendee||await loadEventSession();
+    if(attendee){form.elements.firstName.value=attendee.firstName;form.elements.lastName.value=attendee.lastName}
+    dialog.showModal();
+  };
   dialog.querySelector('form').onsubmit=async submitEvent=>{
     submitEvent.preventDefault();
     const form=submitEvent.currentTarget,button=form.querySelector('button[type="submit"]'),status=form.querySelector('.event-signup-status'),values=Object.fromEntries(new FormData(form));
@@ -59,7 +91,12 @@
     const signup=document.createElement('button');signup.type='button';signup.className='event-register';signup.textContent=available?'Quiero apuntarme →':'Aforo completo';signup.disabled=!available;signup.onclick=()=>openSignup(event);
     const actions=document.createElement('div');actions.className='public-event-actions';actions.append(calendar,signup);card.append(time,copy,place,actions);return card;
   };
-  const render=items=>{events=items;root.replaceChildren(...items.map(createCard));if(!items.length){const empty=document.createElement('p');empty.className='events-empty';empty.textContent='No hay próximos eventos publicados.';root.appendChild(empty)}};
+  const render=items=>{
+    events=items;const visible=mode==='home'?items.slice(0,3):items;
+    root.replaceChildren(...visible.map(createCard));
+    if(allEventsLink)allEventsLink.hidden=mode!=='home';
+    if(!visible.length){const empty=document.createElement('p');empty.className='events-empty';empty.textContent='No hay próximos eventos publicados.';root.appendChild(empty)}
+  };
   const loadEvents=async()=>{
     render(fallbackEvents);
     try{
@@ -68,5 +105,6 @@
       if(error)throw error;render(data||[]);
     }catch(error){console.warn('Los eventos usan datos locales hasta configurar Supabase.',error)}
   };
+  loadEventSession();
   loadEvents();
 })();
