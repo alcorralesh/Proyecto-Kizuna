@@ -193,19 +193,21 @@ setTimeout(()=>{
     schedule(5150,()=>{show(routing);setProgress(98)});
     schedule(5700,showCompletion);
   };
-  mark.onclick=async()=>{
-    const done=read(),alreadyRead=done.includes(active);
-    if(!alreadyRead){done.push(active);save(done)}
+  mark.onclick=()=>{
+    // El avance visual nunca debe depender de una escritura auxiliar en Supabase.
+    // Conservamos el identificador porque una actualización remota puede volver a
+    // renderizar la interfaz mientras se registra la actividad.
+    const id=active,done=read(),alreadyRead=done.includes(id);
+    if(!alreadyRead){done.push(id);void Promise.resolve(save(done)).catch(error=>console.warn('No se pudo sincronizar la lectura.',error))}
     if(alreadyRead){viewer.close();render();return}
-    if(!alreadyRead&&active.startsWith('AR'))await recordActivity('document_confirmed',active,{source:'recovered_file'});
-    if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}
+    if(id.startsWith('AR'))void recordActivity('document_confirmed',id,{source:'recovered_file'}).catch(error=>console.warn('No se pudo registrar la actividad.',error));
+    if(id.startsWith('AR03-')){if(ar03Complete())openAr03();else if(id==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(id.startsWith('AR03-C-')?'cities':'temples');return}
     if(readerReturnToFolder){readerBackFolder.click();return}
-    const parent=fileFolder(active);
+    const parent=fileFolder(id);
     if(parent){openFolder(parent);return}
-    if(active.startsWith('KTB-')){
-      const id=active;
-      await recordActivity('document_confirmed',id,{source:'recipient_consultation'});
+    if(id.startsWith('KTB-')){
       syncKtb(id,()=>{if(id==='KTB-014'){localStorage.setItem('kizuna-complete','true');startFinale()}else{viewer.close();render()}});
+      void recordActivity('document_confirmed',id,{source:'recipient_consultation'}).catch(error=>console.warn('No se pudo registrar la actividad.',error));
       return;
     }
     viewer.close();render();
@@ -444,7 +446,7 @@ function openAcInfo(){active='AC-01';next.style.display='none';mark.style.displa
 function openComicViewer(page){const pages=Array.from({length:11},(_,i)=>`KTB-${String(i+4).padStart(3,'0')}`).filter(id=>read().includes(id)).length;if(!pages){openAcInfo();return}page=Math.min(Math.max(1,page),pages);active='AC-01';next.style.display='none';mark.style.display='none';const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');paper.style.width='min(1120px,calc(100% - 34px))';paper.style.maxWidth='1120px';paper.style.padding='42px';body.style.maxWidth='900px';body.style.margin='0 auto';document.querySelector('#doc-type').textContent='KIZUNA · DIVISIÓN DE ARCHIVOS TEMPORALES';document.querySelector('#doc-title').textContent='ARCHIVO COMPLEMENTARIO AC-01';document.querySelector('#doc-body').innerHTML=`<img src="../assets/documents/AC-01/Pagina-${page}.png" alt="Página ${page} del registro ilustrado" style="display:block;width:100%;height:auto;border:1px solid #8b887d"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px"><button id="comic-prev" ${page===1?'disabled':''}>← Página anterior</button><strong style="font:12px var(--mono)">PÁGINA ${page} / ${pages}<br><span style="font-size:9px;color:#7e1b19">${pages} DE 11 RECUPERADAS</span></strong><button id="comic-next" ${page===pages?'disabled':''}>Página siguiente →</button></div><button id="comic-back" style="margin-top:18px;background:#7e1b19;color:#fff;border:0;padding:14px 18px;font:11px var(--mono);cursor:pointer">Regresar al expediente</button>`;document.querySelector('#comic-prev').onclick=()=>openComicViewer(page-1);document.querySelector('#comic-next').onclick=()=>openComicViewer(page+1);document.querySelector('#comic-back').onclick=()=>{paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin='';viewer.close()};if(!viewer.open)viewer.showModal()}
 const confirmationFolderAfter=id=>{
   const index=sequence.indexOf(id),candidate=sequence[index+1];
-  return isFolder(candidate)?candidate:null;
+  return candidate&&isFolder(candidate)?candidate:null;
 };
 const confirmationAcPage=id=>{
   const number=Number(id.slice(-3));
