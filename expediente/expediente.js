@@ -44,13 +44,15 @@ const recordActivity=async(eventType,documentId=null,details={})=>{
   if(!currentUser)return;
   try{
     const client=await getSupabase();
-    const {error}=await client.from('expedient_activity_log').insert({
+    const {data,error}=await client.from('expedient_activity_log').insert({
       user_id:currentUser.id,
       event_type:eventType,
       document_id:documentId,
       details
-    });
+    }).select('id').single();
     if(error)throw error;
+    const canNotify=(eventType==='document_confirmed'&&documentId!=='ALBERTO')||(eventType==='supplementary_file_consulted'&&documentId==='FINAL-01');
+    if(canNotify&&data?.id)void client.functions.invoke('notify-expedient-activity',{body:{activityId:data.id}}).catch(error=>console.warn('No se pudo solicitar el aviso de actividad.',error));
   }catch(error){
     // El expediente continúa aunque el registro secundario no esté disponible.
     console.warn('No se pudo registrar la actividad del expediente.',error);
@@ -694,8 +696,16 @@ adminShopView.id='admin-shop-view';adminShopView.className='admin-view';adminSho
 adminShopView.innerHTML=`<p class="system-line">TIENDA KIZUNA · CATÁLOGO SIMULADO</p><h1>Gestión de<br><em>productos.</em></h1><p class="admin-intro">Configura el catálogo público. La tienda no procesa pagos, reservas ni pedidos reales.</p><aside class="admin-shop-warning"><strong>ENTORNO DE DEMOSTRACIÓN</strong> Todos los precios y existencias son informativos.</aside><div class="admin-shop-layout"><form id="admin-shop-form"><input type="hidden" name="id"><p class="system-line" id="admin-shop-form-title">NUEVO PRODUCTO</p><label>Nombre<input name="name" required maxlength="180"></label><label>Categoría<select name="category" required><option value="museos">Museos</option><option value="templos">Templos</option><option value="parques">Parques de atracciones</option><option value="transporte">Metro y tren</option><option value="merchandising">Merchandising KIZUNA</option></select></label><label>Descripción<textarea name="description" required maxlength="1000" rows="4"></textarea></label><div class="admin-shop-fields"><label>Precio simulado (€)<input name="price" type="number" min="0" step="0.01" required value="0"></label><label>Stock<input name="stock" type="number" min="0" step="1" required value="0"></label><label>Orden<input name="sort_order" type="number" step="1" value="0"></label></div><label>Imagen · URL o ruta pública<input name="image_url" maxlength="1000" placeholder="assets/imagen.png o https://…"></label><label>Etiqueta<input name="badge" maxlength="60" placeholder="NOVEDAD, 72 HORAS…"></label><label class="admin-shop-active"><input name="is_active" type="checkbox" checked> Visible en la tienda</label><div class="admin-shop-form-actions"><button>Guardar producto</button><button id="admin-shop-cancel" type="button" hidden>Cancelar edición</button></div><span id="admin-shop-status" role="status"></span></form><section><div class="admin-shop-list-heading"><div><p class="system-line">PRODUCTOS EXISTENTES</p><span id="admin-shop-count"></span></div><button id="admin-shop-refresh" type="button">↻ Actualizar</button></div><div class="admin-shop-filters"><label>Buscar producto<input id="admin-shop-search" type="search" placeholder="Nombre, etiqueta o descripción"></label><label>Categoría<select id="admin-shop-category"><option value="all">Todas</option><option value="museos">Museos</option><option value="templos">Templos</option><option value="parques">Parques</option><option value="transporte">Transporte</option><option value="merchandising">Merchandising</option></select></label><label>Visibilidad<select id="admin-shop-visibility"><option value="all">Todos</option><option value="visible">Visibles</option><option value="hidden">Ocultos</option></select></label></div><div id="admin-shop-list"></div></section></div>`;
 document.querySelector('.admin-views').appendChild(adminShopView);
 
-const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView,shop:adminShopView};
-const adminViewTitles={users:['USUARIOS','Gestión de expedientes'],mailbox:['BUZÓN','Mensajes recibidos'],media:['MEDIA','Biblioteca de imágenes'],blog:['BLOG','Gestión de artículos'],events:['EVENTOS','Gestión de eventos'],shop:['TIENDA','Catálogo simulado']};
+const adminCommunicationsNav=document.createElement('button');
+adminCommunicationsNav.type='button';adminCommunicationsNav.dataset.adminView='communications';adminCommunicationsNav.innerHTML='<span>07</span>Comunicaciones';
+document.querySelector('.admin-sidebar').appendChild(adminCommunicationsNav);
+const adminCommunicationsView=document.createElement('section');
+adminCommunicationsView.id='admin-communications-view';adminCommunicationsView.className='admin-view';adminCommunicationsView.hidden=true;
+adminCommunicationsView.innerHTML=`<p class="system-line">ARCHIVO CENTRAL · AVISOS AUTOMÁTICOS</p><h1>Gestión de<br><em>comunicaciones.</em></h1><p class="admin-intro">Decide qué acciones del destinatario generan un aviso por correo. Las lecturas siempre se registran aunque el correo esté desactivado.</p><aside class="admin-communications-note"><strong>CORREO DE DESTINO</strong><span>Se utiliza la dirección configurada en el secreto ACTIVITY_NOTIFICATION_EMAIL.</span></aside><section class="admin-communications-card"><header><div><p class="system-line">PREFERENCIAS DE AVISO</p><h2>Actividad del expediente</h2></div><div class="admin-communications-actions"><button id="admin-communications-enable" type="button">Activar todos</button><button id="admin-communications-disable" type="button">Desactivar todos</button></div></header><div class="admin-communications-toolbar"><label>Buscar aviso<input id="admin-communications-search" type="search" placeholder="KTB-001, Alberto, documento final…"></label><label>Mostrar<select id="admin-communications-filter"><option value="all">Todos</option><option value="enabled">Activados</option><option value="disabled">Desactivados</option></select></label></div><div id="admin-communications-list"><p>Cargando preferencias…</p></div><footer><span id="admin-communications-status" role="status"></span><button id="admin-communications-save" type="button">Guardar preferencias</button></footer></section>`;
+document.querySelector('.admin-views').appendChild(adminCommunicationsView);
+
+const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView,shop:adminShopView,communications:adminCommunicationsView};
+const adminViewTitles={users:['USUARIOS','Gestión de expedientes'],mailbox:['BUZÓN','Mensajes recibidos'],media:['MEDIA','Biblioteca de imágenes'],blog:['BLOG','Gestión de artículos'],events:['EVENTOS','Gestión de eventos'],shop:['TIENDA','Catálogo simulado'],communications:['COMUNICACIONES','Avisos de actividad']};
 Object.entries(adminViews).forEach(([name,view])=>{
   const [section,title]=adminViewTitles[name];
   const bar=document.createElement('header');
@@ -717,6 +727,7 @@ document.querySelectorAll('.admin-sidebar button').forEach(button=>button.onclic
   if(button.dataset.adminView==='blog')loadAdminArticles();
   if(button.dataset.adminView==='events')loadAdminEvents();
   if(button.dataset.adminView==='shop')loadAdminProducts();
+  if(button.dataset.adminView==='communications')loadAdminCommunications();
 });
 
 const mailboxBadge=document.querySelector('#admin-mailbox-badge');
@@ -1206,6 +1217,43 @@ const adminRecordTitle=id=>{
   if(id.startsWith('AR03-T-'))return `Registro cultural ${Number(id.split('-').at(-1))+1}`;
   if(id==='AR06-PROTOCOL')return 'Protocolo de recuperación';
   return id;
+};
+
+const adminCommunicationEntries=()=>[
+  ...progressKeys.map(id=>({key:`document:${id}`,code:id,title:adminRecordTitle(id),group:id.startsWith('KTB-')?'Secuencia principal':'Archivos recuperados'})),
+  {key:'special:final-opened',code:'FINAL-01',title:'Apertura del documento final',group:'Acciones especiales'},
+  {key:'special:alberto-opened',code:'ALBERTO',title:'Apertura del mensaje de Alberto',group:'Acciones especiales'},
+];
+let adminCommunicationPreferences=new Map();
+const renderAdminCommunications=()=>{
+  const target=document.querySelector('#admin-communications-list');if(!target)return;
+  const query=String(document.querySelector('#admin-communications-search')?.value||'').trim().toLowerCase();
+  const filter=document.querySelector('#admin-communications-filter')?.value||'all';
+  const entries=adminCommunicationEntries().filter(entry=>{const enabled=adminCommunicationPreferences.get(entry.key)===true;return(!query||`${entry.code} ${entry.title} ${entry.group}`.toLowerCase().includes(query))&&(filter==='all'||(filter==='enabled'&&enabled)||(filter==='disabled'&&!enabled))});
+  const groups=['Secuencia principal','Archivos recuperados','Acciones especiales'];
+  target.innerHTML=groups.map(group=>{const items=entries.filter(entry=>entry.group===group);if(!items.length)return'';return `<section class="admin-communication-group"><header><span>${group}</span><strong>${items.filter(entry=>adminCommunicationPreferences.get(entry.key)===true).length} activos</strong></header><div>${items.map(entry=>{const enabled=adminCommunicationPreferences.get(entry.key)===true;return `<label class="admin-communication-row ${enabled?'is-enabled':''}" data-communication-search="${adminEditorEscape(`${entry.code} ${entry.title}`.toLowerCase())}"><span class="admin-communication-code">${adminEditorEscape(entry.code)}</span><span><strong>${adminEditorEscape(entry.title)}</strong><small>${enabled?'Se enviará un correo':'Sin aviso por correo'}</small></span><input type="checkbox" data-communication-key="${adminEditorEscape(entry.key)}" ${enabled?'checked':''}><i aria-hidden="true"></i></label>`}).join('')}</div></section>`}).join('')||'<p class="admin-communications-empty">No hay avisos que coincidan con el filtro.</p>';
+  target.querySelectorAll('[data-communication-key]').forEach(input=>input.onchange=()=>{adminCommunicationPreferences.set(input.dataset.communicationKey,input.checked);renderAdminCommunications()});
+};
+const loadAdminCommunications=async()=>{
+  const target=document.querySelector('#admin-communications-list'),status=document.querySelector('#admin-communications-status');if(!target||!supabaseClient)return;
+  target.innerHTML='<p>Cargando preferencias…</p>';status.textContent='';
+  const {data,error}=await supabaseClient.from('expedient_communication_preferences').select('event_key,enabled');
+  if(error){console.error(error);target.innerHTML='<p>No se han podido recuperar las preferencias. Ejecuta primero <strong>supabase-communication-preferences.sql</strong>.</p>';return}
+  adminCommunicationPreferences=new Map((data||[]).map(item=>[item.event_key,item.enabled===true]));
+  renderAdminCommunications();
+};
+document.querySelector('#admin-communications-search').oninput=renderAdminCommunications;
+document.querySelector('#admin-communications-filter').onchange=renderAdminCommunications;
+document.querySelector('#admin-communications-enable').onclick=()=>{adminCommunicationEntries().forEach(entry=>adminCommunicationPreferences.set(entry.key,true));renderAdminCommunications()};
+document.querySelector('#admin-communications-disable').onclick=()=>{adminCommunicationEntries().forEach(entry=>adminCommunicationPreferences.set(entry.key,false));renderAdminCommunications()};
+document.querySelector('#admin-communications-save').onclick=async()=>{
+  const button=document.querySelector('#admin-communications-save'),status=document.querySelector('#admin-communications-status');button.disabled=true;status.textContent='Guardando preferencias…';
+  try{
+    const {data:{user}}=await supabaseClient.auth.getUser();
+    const rows=adminCommunicationEntries().map(entry=>({event_key:entry.key,enabled:adminCommunicationPreferences.get(entry.key)===true,updated_at:new Date().toISOString(),updated_by:user?.id||null}));
+    const {error}=await supabaseClient.from('expedient_communication_preferences').upsert(rows,{onConflict:'event_key'});if(error)throw error;
+    status.textContent='Preferencias guardadas correctamente.';
+  }catch(error){console.error(error);status.textContent='No se han podido guardar las preferencias.'}finally{button.disabled=false}
 };
 
 const renderAdminEditor=(profile,state,initialTab='summary')=>{
