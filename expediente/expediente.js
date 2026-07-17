@@ -1225,14 +1225,20 @@ const adminCommunicationEntries=()=>[
   {key:'special:alberto-opened',code:'ALBERTO',title:'Apertura del mensaje de Alberto',group:'Acciones especiales'},
 ];
 let adminCommunicationPreferences=new Map();
-const renderAdminCommunications=()=>{
+const updateAdminCommunicationGroupCounts=()=>{
+  document.querySelectorAll('[data-communication-group-count]').forEach(target=>{const group=target.dataset.communicationGroupCount,items=adminCommunicationEntries().filter(entry=>entry.group===group),enabled=items.filter(entry=>adminCommunicationPreferences.get(entry.key)===true).length;target.textContent=`${enabled} de ${items.length} activos`});
+};
+const renderAdminCommunications=(preservePosition=false)=>{
   const target=document.querySelector('#admin-communications-list');if(!target)return;
+  const listScroll=target.scrollTop,pageX=window.scrollX,pageY=window.scrollY;
   const query=String(document.querySelector('#admin-communications-search')?.value||'').trim().toLowerCase();
   const filter=document.querySelector('#admin-communications-filter')?.value||'all';
   const entries=adminCommunicationEntries().filter(entry=>{const enabled=adminCommunicationPreferences.get(entry.key)===true;return(!query||`${entry.code} ${entry.title} ${entry.group}`.toLowerCase().includes(query))&&(filter==='all'||(filter==='enabled'&&enabled)||(filter==='disabled'&&!enabled))});
   const groups=['Secuencia principal','Archivos recuperados','Acciones especiales'];
-  target.innerHTML=groups.map(group=>{const items=entries.filter(entry=>entry.group===group);if(!items.length)return'';return `<section class="admin-communication-group"><header><span>${group}</span><strong>${items.filter(entry=>adminCommunicationPreferences.get(entry.key)===true).length} activos</strong></header><div>${items.map(entry=>{const enabled=adminCommunicationPreferences.get(entry.key)===true;return `<label class="admin-communication-row ${enabled?'is-enabled':''}" data-communication-search="${adminEditorEscape(`${entry.code} ${entry.title}`.toLowerCase())}"><span class="admin-communication-code">${adminEditorEscape(entry.code)}</span><span><strong>${adminEditorEscape(entry.title)}</strong><small>${enabled?'Se enviará un correo':'Sin aviso por correo'}</small></span><input type="checkbox" data-communication-key="${adminEditorEscape(entry.key)}" ${enabled?'checked':''}><i aria-hidden="true"></i></label>`}).join('')}</div></section>`}).join('')||'<p class="admin-communications-empty">No hay avisos que coincidan con el filtro.</p>';
-  target.querySelectorAll('[data-communication-key]').forEach(input=>input.onchange=()=>{adminCommunicationPreferences.set(input.dataset.communicationKey,input.checked);renderAdminCommunications()});
+  target.innerHTML=groups.map(group=>{const items=entries.filter(entry=>entry.group===group);if(!items.length)return'';const allItems=adminCommunicationEntries().filter(entry=>entry.group===group),enabledCount=allItems.filter(entry=>adminCommunicationPreferences.get(entry.key)===true).length;return `<section class="admin-communication-group"><header><div><span>${group}</span><strong data-communication-group-count="${group}">${enabledCount} de ${allItems.length} activos</strong></div><nav><button type="button" data-communication-group-action="enable" data-communication-group="${group}">Activar grupo</button><button type="button" data-communication-group-action="disable" data-communication-group="${group}">Desactivar grupo</button></nav></header><div>${items.map(entry=>{const enabled=adminCommunicationPreferences.get(entry.key)===true;return `<label class="admin-communication-row ${enabled?'is-enabled':''}" data-communication-search="${adminEditorEscape(`${entry.code} ${entry.title}`.toLowerCase())}"><span class="admin-communication-code">${adminEditorEscape(entry.code)}</span><span><strong>${adminEditorEscape(entry.title)}</strong><small>${enabled?'Se enviará un correo':'Sin aviso por correo'}</small></span><input type="checkbox" data-communication-key="${adminEditorEscape(entry.key)}" ${enabled?'checked':''}><i aria-hidden="true"></i></label>`}).join('')}</div></section>`}).join('')||'<p class="admin-communications-empty">No hay avisos que coincidan con el filtro.</p>';
+  target.querySelectorAll('[data-communication-key]').forEach(input=>input.onchange=()=>{adminCommunicationPreferences.set(input.dataset.communicationKey,input.checked);const activeFilter=document.querySelector('#admin-communications-filter')?.value||'all';if(activeFilter!=='all'){renderAdminCommunications(true);return}const row=input.closest('.admin-communication-row');row?.classList.toggle('is-enabled',input.checked);const description=row?.querySelector('small');if(description)description.textContent=input.checked?'Se enviará un correo':'Sin aviso por correo';updateAdminCommunicationGroupCounts()});
+  target.querySelectorAll('[data-communication-group-action]').forEach(button=>button.onclick=()=>{const enabled=button.dataset.communicationGroupAction==='enable';adminCommunicationEntries().filter(entry=>entry.group===button.dataset.communicationGroup).forEach(entry=>adminCommunicationPreferences.set(entry.key,enabled));renderAdminCommunications(true)});
+  if(preservePosition)requestAnimationFrame(()=>{target.scrollTop=listScroll;window.scrollTo(pageX,pageY)});
 };
 const loadAdminCommunications=async()=>{
   const target=document.querySelector('#admin-communications-list'),status=document.querySelector('#admin-communications-status');if(!target||!supabaseClient)return;
@@ -1244,8 +1250,8 @@ const loadAdminCommunications=async()=>{
 };
 document.querySelector('#admin-communications-search').oninput=renderAdminCommunications;
 document.querySelector('#admin-communications-filter').onchange=renderAdminCommunications;
-document.querySelector('#admin-communications-enable').onclick=()=>{adminCommunicationEntries().forEach(entry=>adminCommunicationPreferences.set(entry.key,true));renderAdminCommunications()};
-document.querySelector('#admin-communications-disable').onclick=()=>{adminCommunicationEntries().forEach(entry=>adminCommunicationPreferences.set(entry.key,false));renderAdminCommunications()};
+document.querySelector('#admin-communications-enable').onclick=()=>{adminCommunicationEntries().forEach(entry=>adminCommunicationPreferences.set(entry.key,true));renderAdminCommunications(true)};
+document.querySelector('#admin-communications-disable').onclick=()=>{adminCommunicationEntries().forEach(entry=>adminCommunicationPreferences.set(entry.key,false));renderAdminCommunications(true)};
 document.querySelector('#admin-communications-save').onclick=async()=>{
   const button=document.querySelector('#admin-communications-save'),status=document.querySelector('#admin-communications-status');button.disabled=true;status.textContent='Guardando preferencias…';
   try{
