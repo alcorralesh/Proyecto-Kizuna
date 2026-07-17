@@ -1,0 +1,239 @@
+{
+  "version": 1,
+  "sampleRate": 44100,
+  "format": "wav",
+  "sounds": {
+    "access_authorized": {
+      "label": "Acceso autorizado",
+      "file": "access_authorized.wav",
+      "defaultVolume": 0.34,
+      "duration": 0.86,
+      "peak": 0.5758,
+      "rms": 0.1409
+    },
+    "loading_pulse": {
+      "label": "Pulso de carga",
+      "file": "loading_pulse.wav",
+      "defaultVolume": 0.26,
+      "duration": 0.55,
+      "peak": 0.15,
+      "rms": 0.0625
+    },
+    "credentials_confirmed": {
+      "label": "Credenciales confirmadas",
+      "file": "credentials_confirmed.wav",
+      "defaultVolume": 0.32,
+      "duration": 0.71,
+      "peak": 0.4846,
+      "rms": 0.1266
+    },
+    "legal_notice_open": {
+      "label": "Aviso legal desplegado",
+      "file": "legal_notice_open.wav",
+      "defaultVolume": 0.34,
+      "duration": 0.95,
+      "peak": 0.4048,
+      "rms": 0.0443
+    },
+    "document_open_new": {
+      "label": "Documento nuevo abierto",
+      "file": "document_open_new.wav",
+      "defaultVolume": 0.38,
+      "duration": 1.25,
+      "peak": 0.4306,
+      "rms": 0.0637
+    },
+    "document_open_read": {
+      "label": "Documento leído reabierto",
+      "file": "document_open_read.wav",
+      "defaultVolume": 0.25,
+      "duration": 0.43,
+      "peak": 0.17,
+      "rms": 0.0252
+    },
+    "recovery_step": {
+      "label": "Paso de recuperación",
+      "file": "recovery_step.wav",
+      "defaultVolume": 0.24,
+      "duration": 0.48,
+      "peak": 0.12,
+      "rms": 0.0468
+    },
+    "document_recovered": {
+      "label": "Documento recuperado",
+      "file": "document_recovered.wav",
+      "defaultVolume": 0.4,
+      "duration": 0.95,
+      "peak": 0.6955,
+      "rms": 0.12
+    },
+    "folder_open": {
+      "label": "Carpeta abierta",
+      "file": "folder_open.wav",
+      "defaultVolume": 0.36,
+      "duration": 1.05,
+      "peak": 0.4269,
+      "rms": 0.0568
+    },
+    "page_turn": {
+      "label": "Paso de página",
+      "file": "page_turn.wav",
+      "defaultVolume": 0.28,
+      "duration": 0.48,
+      "peak": 0.22,
+      "rms": 0.0375
+    },
+    "zoom_click": {
+      "label": "Control de zoom",
+      "file": "zoom_click.wav",
+      "defaultVolume": 0.19,
+      "duration": 0.19,
+      "peak": 0.437,
+      "rms": 0.0616
+    },
+    "fullscreen_enter": {
+      "label": "Pantalla completa",
+      "file": "fullscreen_enter.wav",
+      "defaultVolume": 0.24,
+      "duration": 0.52,
+      "peak": 0.1541,
+      "rms": 0.0882
+    },
+    "reading_confirmed": {
+      "label": "Lectura confirmada",
+      "file": "reading_confirmed.wav",
+      "defaultVolume": 0.44,
+      "duration": 0.72,
+      "peak": 0.6688,
+      "rms": 0.0955
+    },
+    "action_error": {
+      "label": "Acción no permitida",
+      "file": "action_error.wav",
+      "defaultVolume": 0.25,
+      "duration": 0.52,
+      "peak": 0.3302,
+      "rms": 0.0766
+    },
+    "document_unlocked": {
+      "label": "Documento desbloqueado",
+      "file": "document_unlocked.wav",
+      "defaultVolume": 0.34,
+      "duration": 0.84,
+      "peak": 0.5535,
+      "rms": 0.1303
+    },
+    "folder_unlocked": {
+      "label": "Carpeta desbloqueada",
+      "file": "folder_unlocked.wav",
+      "defaultVolume": 0.36,
+      "duration": 1.15,
+      "peak": 0.4639,
+      "rms": 0.1004
+    },
+    "card_highlight": {
+      "label": "Tarjeta nueva resaltada",
+      "file": "card_highlight.wav",
+      "defaultVolume": 0.22,
+      "duration": 0.42,
+      "peak": 0.13,
+      "rms": 0.0497
+    },
+    "comic_page_recovered": {
+      "label": "Página de AC-01 reconstruida",
+      "file": "comic_page_recovered.wav",
+      "defaultVolume": 0.34,
+      "duration": 1.15,
+      "peak": 0.2562,
+      "rms": 0.0637
+    },
+    "batch_completed": {
+      "label": "Lote documental completado",
+      "file": "batch_completed.wav",
+      "defaultVolume": 0.36,
+      "duration": 0.9,
+      "peak": 0.5158,
+      "rms": 0.0903
+    },
+    "ar06_warning": {
+      "label": "Advertencia especial AR-06",
+      "file": "ar06_warning.wav",
+      "defaultVolume": 0.3,
+      "duration": 1.15,
+      "peak": 0.2945,
+      "rms": 0.1046
+    },
+    "ktb014_confirmed": {
+      "label": "KTB-014 confirmado",
+      "file": "ktb014_confirmed.wav",
+      "defaultVolume": 0.45,
+      "duration": 1.35,
+      "peak": 0.6688,
+      "rms": 0.1009
+    },
+    "final_verification_step": {
+      "label": "Comprobación final",
+      "file": "final_verification_step.wav",
+      "defaultVolume": 0.25,
+      "duration": 0.62,
+      "peak": 0.1659,
+      "rms": 0.0543
+    },
+    "expedient_closed": {
+      "label": "Expediente cerrado",
+      "file": "expedient_closed.wav",
+      "defaultVolume": 0.5,
+      "duration": 1.75,
+      "peak": 0.7755,
+      "rms": 0.124
+    },
+    "unexpected_file": {
+      "label": "Archivo fuera de inventario",
+      "file": "unexpected_file.wav",
+      "defaultVolume": 0.32,
+      "duration": 1.25,
+      "peak": 0.509,
+      "rms": 0.0822
+    },
+    "alberto_message": {
+      "label": "Mensaje de Alberto recibido",
+      "file": "alberto_message.wav",
+      "defaultVolume": 0.32,
+      "duration": 1.35,
+      "peak": 0.2417,
+      "rms": 0.0761
+    },
+    "alberto_letter_open": {
+      "label": "Carta de Alberto abierta",
+      "file": "alberto_letter_open.wav",
+      "defaultVolume": 0.35,
+      "duration": 1.5,
+      "peak": 0.2319,
+      "rms": 0.0421
+    },
+    "response_registered": {
+      "label": "Respuesta registrada",
+      "file": "response_registered.wav",
+      "defaultVolume": 0.3,
+      "duration": 0.85,
+      "peak": 0.3585,
+      "rms": 0.0743
+    },
+    "expedition_confirmed": {
+      "label": "Expedición confirmada",
+      "file": "expedition_confirmed.wav",
+      "defaultVolume": 0.52,
+      "duration": 2.65,
+      "peak": 0.6688,
+      "rms": 0.1052
+    },
+    "good_trip": {
+      "label": "Buen viaje",
+      "file": "good_trip.wav",
+      "defaultVolume": 0.3,
+      "duration": 2.1,
+      "peak": 0.3229,
+      "rms": 0.0825
+    }
+  }
+}
