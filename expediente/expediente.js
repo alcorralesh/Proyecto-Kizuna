@@ -1,4 +1,23 @@
 if(!window.kizunaStorage){const storageAssetsScript=document.createElement('script');storageAssetsScript.src='../storage-assets.js';document.head.appendChild(storageAssetsScript)}
+const KizunaSound=(()=>{
+  const manifestUrl='../assets/audio/kizuna/manifest.json',assetBase='../assets/audio/kizuna/',preferenceKey='kizuna-sound-preferences-v1';
+  let manifest={sounds:{}},adminConfig={enabled:true,masterVolume:.75,vibrationEnabled:true,events:{}},active=[],loaded=false;
+  const stored=()=>{try{return JSON.parse(localStorage.getItem(preferenceKey)||'{}')}catch{return{}}};
+  let preferences={enabled:false,volume:.8,decided:false,...stored()};
+  const clamp=value=>Math.max(0,Math.min(1,Number(value)||0));
+  const init=async()=>{if(loaded)return manifest;try{const response=await fetch(manifestUrl,{cache:'no-cache'});if(response.ok)manifest=await response.json()}catch(error){console.warn('No se pudo cargar el manifiesto sonoro.',error)}loaded=true;return manifest};
+  const eventConfig=key=>adminConfig.events?.[key]||{};
+  const sourceFor=key=>eventConfig(key).src||`${assetBase}${manifest.sounds?.[key]?.file||`${key}.wav`}`;
+  const stop=key=>{active.filter(item=>!key||item.key===key).forEach(item=>{item.audio.pause();item.audio.currentTime=0});active=active.filter(item=>key&&item.key!==key)};
+  const play=async(key,options={})=>{await init();const definition=manifest.sounds?.[key];if(!definition)return null;const config=eventConfig(key);if(!options.force&&(!preferences.enabled||!adminConfig.enabled||config.enabled===false))return null;if(options.exclusive)stop();const audio=new Audio(options.src||sourceFor(key));audio.preload='auto';audio.volume=clamp((options.volume??config.volume??definition.defaultVolume??.3)*adminConfig.masterVolume*preferences.volume);const item={key,audio};active.push(item);audio.onended=()=>{active=active.filter(entry=>entry!==item)};try{await audio.play();if((options.vibrate||key==='action_error'||key==='document_unlocked'||key==='folder_unlocked')&&adminConfig.vibrationEnabled&&navigator.vibrate)navigator.vibrate(options.vibrate||[18]);return audio}catch(error){active=active.filter(entry=>entry!==item);if(error?.name!=='NotAllowedError')console.warn(`No se pudo reproducir ${key}.`,error);return null}};
+  const sequenceSounds=async(keys,gap=180)=>{for(const key of keys){const audio=await play(key,{force:true});if(audio)await new Promise(resolve=>{audio.addEventListener('ended',resolve,{once:true});setTimeout(resolve,(Number(manifest.sounds?.[key]?.duration)||1)*1000+gap)})}};
+  const syncToggle=()=>{const button=document.querySelector('#sound-toggle');if(!button)return;button.setAttribute('aria-pressed',String(Boolean(preferences.enabled)));button.classList.toggle('active',Boolean(preferences.enabled));button.title=preferences.enabled?'Silenciar sonidos':'Activar sonidos';button.querySelector('b').textContent=preferences.enabled?'Sonido':'Silencio'};
+  const setPreferences=changes=>{preferences={...preferences,...changes,volume:clamp(changes.volume??preferences.volume),decided:true};localStorage.setItem(preferenceKey,JSON.stringify(preferences));syncToggle();return{...preferences}};
+  const applyAdminConfig=config=>{if(config)adminConfig={...adminConfig,...config,events:{...adminConfig.events,...(config.events||{})}};syncToggle()};
+  const bindInterface=()=>{const actions=document.querySelector('#dashboard .header-actions');if(actions&&!document.querySelector('#sound-toggle')){const button=document.createElement('button');button.id='sound-toggle';button.type='button';button.innerHTML='<span aria-hidden="true">♪</span><b>Sonido</b>';actions.prepend(button)}const button=document.querySelector('#sound-toggle');if(button&&!button.dataset.soundBound){button.dataset.soundBound='true';button.onclick=()=>{const enabled=!preferences.enabled;setPreferences({enabled});if(enabled)play('access_authorized')}}syncToggle()};
+  const showConsent=()=>{if(preferences.decided||document.querySelector('#sound-consent')||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;const panel=document.createElement('section');panel.id='sound-consent';panel.className='sound-consent';panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Preferencias de sonido');panel.innerHTML='<div><span aria-hidden="true">♪</span><p><strong>¿Activar la ambientación sonora?</strong><small>Sonidos suaves acompañarán aperturas, confirmaciones y nuevos archivos. Podrás silenciarlos en la cabecera.</small></p><button type="button" data-sound-consent="yes">Activar sonido</button><button type="button" data-sound-consent="no">Continuar en silencio</button></div>';document.body.appendChild(panel);panel.querySelector('[data-sound-consent="yes"]').onclick=()=>{setPreferences({enabled:true});panel.remove();play('access_authorized')};panel.querySelector('[data-sound-consent="no"]').onclick=()=>{setPreferences({enabled:false});panel.remove()}};
+  init();return{init,play,stop,sequence:sequenceSounds,setPreferences,applyAdminConfig,showConsent,bindInterface,getManifest:()=>manifest,getPreferences:()=>({...preferences}),getAdminConfig:()=>JSON.parse(JSON.stringify(adminConfig)),sourceFor};
+})();
 const sequence=['KTB-001','KTB-002','KTB-003','KTB-004','KTB-005','KTB-006','AR-01','KTB-007','AR-02','KTB-008','AR-03','KTB-009','AR-04','KTB-010','AR-05','KTB-011','AR-06','KTB-012','KTB-013','KTB-014'];
 const documentImages=new Set(['KTB-001','KTB-002','KTB-003','KTB-004','KTB-005','KTB-006','KTB-007','KTB-008','KTB-009','KTB-010','KTB-011','KTB-012','KTB-013','KTB-014']);
 const nestedKtb=new Set(['KTB-007','KTB-008','KTB-009','KTB-010','KTB-011','KTB-012']);
@@ -782,8 +801,16 @@ adminCommunicationsView.id='admin-communications-view';adminCommunicationsView.c
 adminCommunicationsView.innerHTML=`<p class="system-line">ARCHIVO CENTRAL · AVISOS AUTOMÁTICOS</p><h1>Gestión de<br><em>comunicaciones.</em></h1><p class="admin-intro">Decide qué acciones del destinatario generan un aviso por correo. Las lecturas siempre se registran aunque el correo esté desactivado.</p><aside class="admin-communications-note"><strong>CORREO DE DESTINO</strong><span>Se utiliza la dirección configurada en el secreto ACTIVITY_NOTIFICATION_EMAIL.</span></aside><section class="admin-communications-card"><header><div><p class="system-line">PREFERENCIAS DE AVISO</p><h2>Actividad del expediente</h2></div><div class="admin-communications-actions"><button id="admin-communications-enable" type="button">Activar todos</button><button id="admin-communications-disable" type="button">Desactivar todos</button></div></header><div class="admin-communications-toolbar"><label>Buscar aviso<input id="admin-communications-search" type="search" placeholder="KTB-001, Alberto, documento final…"></label><label>Mostrar<select id="admin-communications-filter"><option value="all">Todos</option><option value="enabled">Activados</option><option value="disabled">Desactivados</option></select></label></div><div id="admin-communications-list"><p>Cargando preferencias…</p></div><footer><span id="admin-communications-status" role="status"></span><button id="admin-communications-save" type="button">Guardar preferencias</button></footer></section>`;
 document.querySelector('.admin-views').appendChild(adminCommunicationsView);
 
-const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView,shop:adminShopView,communications:adminCommunicationsView};
-const adminViewTitles={users:['USUARIOS','Gestión de expedientes'],mailbox:['BUZÓN','Mensajes recibidos'],media:['MEDIA','Biblioteca de imágenes'],blog:['BLOG','Gestión de artículos'],events:['EVENTOS','Gestión de eventos'],shop:['TIENDA','Catálogo simulado'],communications:['COMUNICACIONES','Avisos de actividad']};
+const adminSoundNav=document.createElement('button');
+adminSoundNav.type='button';adminSoundNav.dataset.adminView='sound';adminSoundNav.innerHTML='<span>08</span>Sonido';
+document.querySelector('.admin-sidebar').appendChild(adminSoundNav);
+const adminSoundView=document.createElement('section');
+adminSoundView.id='admin-sound-view';adminSoundView.className='admin-view';adminSoundView.hidden=true;
+adminSoundView.innerHTML=`<p class="system-line">ARCHIVO CENTRAL · AMBIENTACIÓN</p><h1>Diseño de<br><em>sonido.</em></h1><p class="admin-intro">Configura la respuesta sonora del lector. Los cambios se aplican a todos los destinatarios, que conservan su propio botón de silencio.</p><section class="admin-sound-master"><header><div><p class="system-line">CONFIGURACIÓN GENERAL</p><h2>Ambientación del expediente</h2></div><label class="admin-sound-switch"><input id="admin-sound-enabled" type="checkbox" checked><i aria-hidden="true"></i><span data-sound-master-state>Sonido activado</span></label></header><div class="admin-sound-master-controls"><label>Volumen general <output id="admin-sound-master-output">75 %</output><input id="admin-sound-master-volume" type="range" min="0" max="100" value="75"></label><label class="admin-sound-vibration"><input id="admin-sound-vibration" type="checkbox" checked> Vibración háptica compatible</label><button id="admin-sound-test-sequence" type="button">Probar secuencia</button></div></section><section class="admin-sound-library"><header><div><p class="system-line">BIBLIOTECA DE EVENTOS</p><h2>Sonidos de la interfaz</h2></div><label>Filtrar sonidos<input id="admin-sound-search" type="search" placeholder="Documento, carpeta, cierre…"></label></header><div id="admin-sound-list"><p>Cargando biblioteca sonora…</p></div><footer><span id="admin-sound-status" role="status"></span><button id="admin-sound-reset" type="button">Restaurar valores</button><button id="admin-sound-save" type="button">Guardar configuración</button></footer></section>`;
+document.querySelector('.admin-views').appendChild(adminSoundView);
+
+const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView,shop:adminShopView,communications:adminCommunicationsView,sound:adminSoundView};
+const adminViewTitles={users:['USUARIOS','Gestión de expedientes'],mailbox:['BUZÓN','Mensajes recibidos'],media:['MEDIA','Biblioteca de imágenes'],blog:['BLOG','Gestión de artículos'],events:['EVENTOS','Gestión de eventos'],shop:['TIENDA','Catálogo simulado'],communications:['COMUNICACIONES','Avisos de actividad'],sound:['SONIDO','Ambientación del expediente']};
 Object.entries(adminViews).forEach(([name,view])=>{
   const [section,title]=adminViewTitles[name];
   const bar=document.createElement('header');
@@ -807,6 +834,7 @@ document.querySelectorAll('.admin-sidebar button').forEach(button=>button.onclic
   if(button.dataset.adminView==='events')loadAdminEvents();
   if(button.dataset.adminView==='shop')loadAdminProducts();
   if(button.dataset.adminView==='communications')loadAdminCommunications();
+  if(button.dataset.adminView==='sound')loadAdminSoundConfig();
 });
 
 const mailboxBadge=document.querySelector('#admin-mailbox-badge');
@@ -1298,6 +1326,55 @@ const adminRecordTitle=id=>{
   return id;
 };
 
+const soundGroups={
+  access_authorized:'Acceso y sistema',loading_pulse:'Acceso y sistema',credentials_confirmed:'Acceso y sistema',legal_notice_open:'Acceso y sistema',
+  document_open_new:'Lectura de documentos',document_open_read:'Lectura de documentos',recovery_step:'Lectura de documentos',document_recovered:'Lectura de documentos',folder_open:'Lectura de documentos',page_turn:'Lectura de documentos',zoom_click:'Lectura de documentos',fullscreen_enter:'Lectura de documentos',reading_confirmed:'Lectura de documentos',action_error:'Lectura de documentos',
+  document_unlocked:'Desbloqueos',folder_unlocked:'Desbloqueos',card_highlight:'Desbloqueos',comic_page_recovered:'Desbloqueos',batch_completed:'Desbloqueos',ar06_warning:'Desbloqueos',
+  ktb014_confirmed:'Cierre del expediente',final_verification_step:'Cierre del expediente',expedient_closed:'Cierre del expediente',unexpected_file:'Cierre del expediente',
+  alberto_message:'Mensaje final',alberto_letter_open:'Mensaje final',response_registered:'Mensaje final',expedition_confirmed:'Mensaje final',good_trip:'Mensaje final'
+};
+let adminSoundDraft=null;
+const defaultSoundConfig=()=>{
+  const sounds=KizunaSound.getManifest().sounds||{};
+  return{enabled:true,masterVolume:.75,vibrationEnabled:true,events:Object.fromEntries(Object.entries(sounds).map(([key,value])=>[key,{enabled:true,volume:Number(value.defaultVolume)||.3,src:''}]))};
+};
+const fetchSoundConfig=async()=>{
+  await KizunaSound.init();let config=defaultSoundConfig();
+  try{const client=await getSupabase(),{data,error}=await client.from('kizuna_sound_config').select('enabled,master_volume,vibration_enabled,events').eq('id',1).maybeSingle();if(error)throw error;if(data)config={enabled:data.enabled!==false,masterVolume:Number(data.master_volume??.75),vibrationEnabled:data.vibration_enabled!==false,events:{...config.events,...(data.events||{})}}}catch(error){console.warn('Se utilizará la configuración sonora local.',error)}
+  KizunaSound.applyAdminConfig(config);return config;
+};
+const renderAdminSoundConfig=()=>{
+  if(!adminSoundDraft)return;const manifest=KizunaSound.getManifest().sounds||{},target=document.querySelector('#admin-sound-list'),query=(document.querySelector('#admin-sound-search')?.value||'').trim().toLowerCase();
+  const entries=Object.entries(manifest).filter(([key,item])=>`${key} ${item.label} ${soundGroups[key]||''}`.toLowerCase().includes(query));
+  const groups=[...new Set(entries.map(([key])=>soundGroups[key]||'Otros'))];
+  target.innerHTML=groups.map(group=>`<section class="admin-sound-group"><header><span>${group}</span><strong>${entries.filter(([key])=>(soundGroups[key]||'Otros')===group).length} eventos</strong></header><div>${entries.filter(([key])=>(soundGroups[key]||'Otros')===group).map(([key,item])=>{const config=adminSoundDraft.events[key]||{};return `<article class="admin-sound-row ${config.enabled===false?'is-disabled':''}" data-sound-key="${key}"><label class="admin-sound-row-switch"><input type="checkbox" data-sound-enabled ${config.enabled===false?'':'checked'}><i></i></label><div class="admin-sound-row-copy"><strong>${item.label}</strong><small>${key} · ${Number(item.duration).toFixed(2)} s</small></div><label class="admin-sound-row-volume">Volumen <output>${Math.round(Number(config.volume??item.defaultVolume)*100)} %</output><input type="range" data-sound-volume min="0" max="100" value="${Math.round(Number(config.volume??item.defaultVolume)*100)}"></label><button type="button" data-sound-preview>▶ Probar</button><label class="admin-sound-upload">Sustituir<input type="file" data-sound-upload accept="audio/wav,audio/mpeg,audio/ogg"></label>${config.src?'<button type="button" data-sound-local>Usar original</button>':''}</article>`}).join('')}</div></section>`).join('')||'<p class="admin-sound-empty">No hay sonidos que coincidan con la búsqueda.</p>';
+  target.querySelectorAll('.admin-sound-row').forEach(row=>{
+    const key=row.dataset.soundKey,config=adminSoundDraft.events[key]||(adminSoundDraft.events[key]={enabled:true,volume:manifest[key]?.defaultVolume||.3,src:''});
+    row.querySelector('[data-sound-enabled]').onchange=event=>{config.enabled=event.target.checked;row.classList.toggle('is-disabled',!config.enabled)};
+    row.querySelector('[data-sound-volume]').oninput=event=>{config.volume=Number(event.target.value)/100;row.querySelector('output').textContent=`${event.target.value} %`};
+    row.querySelector('[data-sound-preview]').onclick=()=>KizunaSound.play(key,{force:true,volume:config.volume,src:config.src||undefined,exclusive:true});
+    row.querySelector('[data-sound-upload]').onchange=event=>uploadAdminSound(key,event.target.files?.[0]);
+    const local=row.querySelector('[data-sound-local]');if(local)local.onclick=()=>{config.src='';renderAdminSoundConfig()};
+  });
+};
+const uploadAdminSound=async(key,file)=>{
+  if(!file)return;const status=document.querySelector('#admin-sound-status');status.textContent=`Subiendo ${file.name}…`;
+  try{const extension=(file.name.split('.').pop()||'wav').toLowerCase(),path=`custom/${key}.${extension}`,{error}=await supabaseClient.storage.from('kizuna-audio').upload(path,file,{upsert:true,contentType:file.type||'audio/wav'});if(error)throw error;const {data}=supabaseClient.storage.from('kizuna-audio').getPublicUrl(path);adminSoundDraft.events[key].src=`${data.publicUrl}?v=${Date.now()}`;status.textContent='Audio personalizado preparado. Guarda la configuración.';renderAdminSoundConfig()}catch(error){console.error(error);status.textContent='No se pudo subir el sonido. Ejecuta primero supabase-sound-config.sql.'}
+};
+const updateAdminSoundMasterState=enabled=>{const input=document.querySelector('#admin-sound-enabled'),label=input?.closest('.admin-sound-switch'),text=label?.querySelector('[data-sound-master-state]');if(input)input.setAttribute('aria-checked',String(Boolean(enabled)));if(label)label.classList.toggle('is-disabled',!enabled);if(text)text.textContent=enabled?'Sonido activado':'Sonido desactivado'};
+const loadAdminSoundConfig=async()=>{
+  const status=document.querySelector('#admin-sound-status');status.textContent='Cargando configuración…';adminSoundDraft=await fetchSoundConfig();
+  document.querySelector('#admin-sound-enabled').checked=adminSoundDraft.enabled;updateAdminSoundMasterState(adminSoundDraft.enabled);document.querySelector('#admin-sound-master-volume').value=Math.round(adminSoundDraft.masterVolume*100);document.querySelector('#admin-sound-master-output').textContent=`${Math.round(adminSoundDraft.masterVolume*100)} %`;document.querySelector('#admin-sound-vibration').checked=adminSoundDraft.vibrationEnabled;status.textContent='';renderAdminSoundConfig();
+};
+document.querySelector('#admin-sound-search').oninput=renderAdminSoundConfig;
+document.querySelector('#admin-sound-enabled').onchange=event=>{if(adminSoundDraft)adminSoundDraft.enabled=event.target.checked;updateAdminSoundMasterState(event.target.checked)};
+document.querySelector('#admin-sound-master-volume').oninput=event=>{if(adminSoundDraft)adminSoundDraft.masterVolume=Number(event.target.value)/100;document.querySelector('#admin-sound-master-output').textContent=`${event.target.value} %`};
+document.querySelector('#admin-sound-vibration').onchange=event=>{if(adminSoundDraft)adminSoundDraft.vibrationEnabled=event.target.checked};
+document.querySelector('#admin-sound-test-sequence').onclick=()=>KizunaSound.sequence(['document_open_new','recovery_step','document_recovered','reading_confirmed','document_unlocked']);
+document.querySelector('#admin-sound-reset').onclick=()=>{if(!confirm('¿Restaurar todos los sonidos y volúmenes originales?'))return;adminSoundDraft=defaultSoundConfig();loadAdminSoundConfigControls();renderAdminSoundConfig()};
+const loadAdminSoundConfigControls=()=>{document.querySelector('#admin-sound-enabled').checked=adminSoundDraft.enabled;updateAdminSoundMasterState(adminSoundDraft.enabled);document.querySelector('#admin-sound-master-volume').value=Math.round(adminSoundDraft.masterVolume*100);document.querySelector('#admin-sound-master-output').textContent=`${Math.round(adminSoundDraft.masterVolume*100)} %`;document.querySelector('#admin-sound-vibration').checked=adminSoundDraft.vibrationEnabled};
+document.querySelector('#admin-sound-save').onclick=async()=>{const button=document.querySelector('#admin-sound-save'),status=document.querySelector('#admin-sound-status');button.disabled=true;status.textContent='Guardando ambientación…';try{const {error}=await supabaseClient.from('kizuna_sound_config').upsert({id:1,enabled:adminSoundDraft.enabled,master_volume:adminSoundDraft.masterVolume,vibration_enabled:adminSoundDraft.vibrationEnabled,events:adminSoundDraft.events,updated_at:new Date().toISOString()});if(error)throw error;KizunaSound.applyAdminConfig(adminSoundDraft);status.textContent='Configuración sonora guardada.'}catch(error){console.error(error);status.textContent='No se pudo guardar. Ejecuta primero supabase-sound-config.sql.'}finally{button.disabled=false}};
+
 const adminCommunicationEntries=()=>[
   ...progressKeys.map(id=>({key:`document:${id}`,code:id,title:adminRecordTitle(id),group:id.startsWith('KTB-')?'Secuencia principal':'Archivos recuperados'})),
   {key:'special:final-opened',code:'FINAL-01',title:'Apertura del documento final',group:'Acciones especiales'},
@@ -1610,3 +1687,47 @@ function openComicViewer(page){
   comicFollowing.onclick=()=>openComicViewer(page+1);
   if(!viewer.open)viewer.showModal();
 }
+
+// Integración sonora. Se mantiene separada de la lógica documental para que
+// un fallo de audio nunca bloquee el avance ni la persistencia del expediente.
+const playKizunaSound=(key,options)=>void KizunaSound.play(key,options);
+const soundOpenDoc=openDoc;
+openDoc=id=>{
+  const wasRead=read().includes(id);
+  if(id==='AR-06'&&!read().includes('AR06-PROTOCOL'))playKizunaSound('ar06_warning',{exclusive:true,vibrate:[35,35,35]});
+  else if(isFolder(id)||folders[id]||id==='AR-03')playKizunaSound('folder_open',{exclusive:true});
+  else playKizunaSound(wasRead?'document_open_read':'document_open_new',{exclusive:true});
+  return soundOpenDoc(id);
+};
+const soundComicViewer=openComicViewer;
+openComicViewer=page=>{if(document.querySelector('#doc-body')?.dataset.comicPage)playKizunaSound('page_turn');return soundComicViewer(page)};
+
+document.addEventListener('click',event=>{
+  const target=event.target.closest('button');if(!target)return;
+  if(target===mark&&!target.hidden){playKizunaSound(active==='KTB-014'?'ktb014_confirmed':'reading_confirmed',{exclusive:true,vibrate:[24]});return}
+  if(target.matches('[data-reader-action="in"],[data-reader-action="out"],[data-reader-action="fit"]')||target.matches('.image-tools [data-action="in"],.image-tools [data-action="out"],.image-tools [data-action="fit"]')){playKizunaSound('zoom_click');return}
+  if(target.matches('[data-reader-action="full"],.image-tools [data-action="full"]')){playKizunaSound('fullscreen_enter');return}
+  if(target===archiveBatchConfirm){playKizunaSound('batch_completed',{exclusive:true,vibrate:[20,30,20]});return}
+  if(target===finalVerificationButton){const stage=target.dataset.stage;playKizunaSound(stage==='complete'?'expedient_closed':'final_verification_step',{exclusive:true,vibrate:stage==='complete'?[35,45,60]:[18]});return}
+  if(target.id==='final-file-alert-open'){playKizunaSound('unexpected_file',{exclusive:true,vibrate:[30,45,30]});return}
+  if(target.matches('[data-alberto-open],#alberto-message-open,.alberto-message-open')){playKizunaSound('alberto_letter_open',{exclusive:true});return}
+  if(target.matches('[data-alberto-response],.alberto-response-option')){playKizunaSound('response_registered',{exclusive:true});setTimeout(()=>playKizunaSound('expedition_confirmed',{exclusive:true,vibrate:[25,50,80]}),900)}
+},true);
+
+const soundObserver=new MutationObserver(records=>{
+  for(const record of records)for(const node of record.addedNodes){if(!(node instanceof Element))continue;
+    if(node.matches?.('#final-file-alert')||node.querySelector?.('#final-file-alert'))playKizunaSound('unexpected_file',{exclusive:true,vibrate:[30,40,30]});
+    if(node.matches?.('.alberto-message-alert,.alberto-notice')||node.querySelector?.('.alberto-message-alert,.alberto-notice'))playKizunaSound('alberto_message',{exclusive:true});
+    if(node.matches?.('.new-unlock-notice')||node.querySelector?.('.new-unlock-notice')){const folder=Boolean(document.querySelector('.new-unlock-notice [data-unlock-target^="AR-"]'));playKizunaSound(folder?'folder_unlocked':'document_unlocked',{exclusive:true,vibrate:[25,35,25]});setTimeout(()=>playKizunaSound('card_highlight'),650)}
+    if(node.matches?.('#confirmation-event.confirmation-event-page')||node.querySelector?.('#confirmation-event.confirmation-event-page'))setTimeout(()=>playKizunaSound('comic_page_recovered'),2200);
+    if(node.matches?.('.final-closed')||node.querySelector?.('.final-closed'))setTimeout(()=>playKizunaSound('expedient_closed',{exclusive:true,vibrate:[35,45,70]}),2500);
+  }
+});
+soundObserver.observe(document.body,{childList:true,subtree:true});
+let lastRecoverySoundAt=0;
+const recoverySoundObserver=new MutationObserver(records=>{for(const record of records){const target=record.target;if(!(target instanceof Element))continue;if(target.matches('[data-recovery-step].is-active')&&Date.now()-lastRecoverySoundAt>180){lastRecoverySoundAt=Date.now();playKizunaSound('recovery_step')}if(target.matches('.recovery-ready')||target.querySelector?.('.recovery-ready'))playKizunaSound('document_recovered',{exclusive:true,vibrate:[22]})}});
+recoverySoundObserver.observe(document.querySelector('#doc-body'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+let previousLoadingVisible=!loading.hidden,previousGateVisible=!gate.hidden,previousDashboardVisible=!dash.hidden,loadingSoundTimer=null;
+const soundVisibilityObserver=new MutationObserver(()=>{const loadingVisible=!loading.hidden,gateVisible=!gate.hidden,dashboardVisible=!dash.hidden;if(loadingVisible&&!previousLoadingVisible){playKizunaSound('credentials_confirmed',{exclusive:true});clearInterval(loadingSoundTimer);loadingSoundTimer=setInterval(()=>{if(!loading.hidden)playKizunaSound('loading_pulse')},950)}if(!loadingVisible&&previousLoadingVisible){clearInterval(loadingSoundTimer);loadingSoundTimer=null}if(gateVisible&&!previousGateVisible)playKizunaSound('legal_notice_open',{exclusive:true});if(dashboardVisible&&currentUser){KizunaSound.bindInterface();KizunaSound.showConsent();if(!previousDashboardVisible)playKizunaSound('access_authorized',{exclusive:true})}previousLoadingVisible=loadingVisible;previousGateVisible=gateVisible;previousDashboardVisible=dashboardVisible});
+[dash,loading,gate].forEach(element=>soundVisibilityObserver.observe(element,{attributes:true,attributeFilter:['hidden']}));
+setTimeout(async()=>{KizunaSound.bindInterface();await fetchSoundConfig()},250);
