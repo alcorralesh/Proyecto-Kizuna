@@ -263,7 +263,9 @@ setTimeout(()=>{
   };
 },0);
 const progressKeys=[...Array.from({length:14},(_,i)=>`KTB-${String(i+1).padStart(3,'0')}`),...Object.values(folders).flatMap(folder=>folder.files.map(file=>file.id)),'AR03-CARTA',...ar03Cities.map((_,i)=>`AR03-C-${i}`),...ar03Temples.map((_,i)=>`AR03-T-${i}`),...ar01Tickets.map(ticket=>ticket.id),'AR06-PROTOCOL'];
-const name=id=>isFolder(id)?`Carpeta ${id} · ${folderDetails[id][0]}`:`Expediente ${id}`;const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='';
+const name=id=>isFolder(id)?`Carpeta ${id} · ${folderDetails[id][0]}`:`Expediente ${id}`;
+const folderCompleted=(id,done=read())=>{if(!isFolder(id))return false;const update=id==='AR-03'?'KTB-009':folders[id]?.update;return Boolean(update&&done.includes(update))};
+const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='';
 const comicPrevious=document.createElement('button'),comicFollowing=document.createElement('button');comicPrevious.id='comic-prev-fixed';comicPrevious.type='button';comicPrevious.textContent='← Página anterior';comicPrevious.hidden=true;comicFollowing.id='comic-next-fixed';comicFollowing.type='button';comicFollowing.textContent='Página siguiente →';comicFollowing.hidden=true;readerBackFolder.before(comicPrevious,comicFollowing);
 const archiveBatchConfirm=document.createElement('button');archiveBatchConfirm.id='archive-confirm-batch';archiveBatchConfirm.type='button';archiveBatchConfirm.hidden=true;readerBackFolder.before(archiveBatchConfirm);
 const finalVerificationButton=document.createElement('button');finalVerificationButton.id='final-verification-action';finalVerificationButton.type='button';finalVerificationButton.textContent='Iniciar verificación final →';finalVerificationButton.hidden=true;finalVerificationButton.dataset.ready='false';finalVerificationButton.dataset.locked='false';finalVerificationButton.dataset.stage='';readerBackExpedient.before(finalVerificationButton);
@@ -550,9 +552,9 @@ function render(){
   const comicPages=Array.from({length:11},(_,i)=>`KTB-${String(i+4).padStart(3,'0')}`).filter(id=>done.includes(id)).length;
   const pending=finalFlowPending(),stage=getFinalFlowStage();
   const seenUnlocks=Array.isArray(getState().seenUnlocks)?getState().seenUnlocks:[];
-  const unlockCandidates=visible.filter(id=>allowed(id)&&!done.includes(id));
+  const unlockCandidates=visible.filter(id=>allowed(id)&&!done.includes(id)&&!folderCompleted(id,done));
   if(done.includes('KTB-003'))unlockCandidates.push('AC-01');
-  const newUnlocks=done.length?unlockCandidates.filter(id=>!seenUnlocks.includes(id)):[];
+  const newUnlocks=done.length&&!finalFlowClosed()?unlockCandidates.filter(id=>!seenUnlocks.includes(id)):[];
   const stageLabels={verification:'PASO 1 DE 3 · VERIFICACIÓN FINAL',summary:'PASO 2 DE 3 · ACTA DE CIERRE',complete:'PASO 3 DE 3 · ARCHIVADO'};
   const resumeBanner=pending?`<section class="final-flow-resume"><div><p>CIERRE OBLIGATORIO EN CURSO</p><h3>El expediente todavía no está archivado.</h3><span>${stageLabels[stage]||stageLabels.verification}. Continúa desde el punto guardado.</span></div><button type="button" data-final-resume>Continuar cierre →</button></section>`:'';
   const newUnlockNotice=newUnlocks.length?`<section class="new-unlock-notice" role="status" aria-live="polite" aria-atomic="true"><div><p>NUEVO ACCESO AUTORIZADO</p><h3>${newUnlocks.length===1?(isFolder(newUnlocks[0])?'Nueva carpeta recuperada':'Nuevo documento disponible'):`${newUnlocks.length} nuevos registros disponibles`}</h3><span>${newUnlocks.length===1?`${newUnlocks[0]} ya puede consultarse.`:'La secuencia del expediente se ha actualizado.'}</span></div><button type="button" data-unlock-target="${newUnlocks[0]}">Localizar ${isFolder(newUnlocks[0])?'carpeta':'documento'} <span>↓</span></button><button type="button" class="new-unlock-dismiss" aria-label="Cerrar aviso">×</button></section>`:'';
@@ -563,7 +565,7 @@ function render(){
   document.querySelector('#case-status').textContent=finalFlowClosed()?'Expediente completado':pending?'Cierre en curso':'En proceso';
   updateCompletionHeader(done);
   document.querySelector('#documents').innerHTML=newUnlockNotice+resumeBanner+visible.map(id=>{
-    const ok=allowed(id),seen=done.includes(id),isClosing=id==='KTB-014'&&pending;
+    const ok=allowed(id),seen=done.includes(id)||folderCompleted(id,done),isClosing=id==='KTB-014'&&pending;
     const newlyUnlocked=newUnlocks.includes(id);
     const label=isClosing?'Continuar cierre':isFolder(id)?'Abrir carpeta':'Abrir documento';
     const status=isClosing?(stageLabels[stage]||stageLabels.verification):seen?'LECTURA CONFIRMADA':ok?'DISPONIBLE PARA CONSULTA':'AUTORIZACIÓN PENDIENTE';
