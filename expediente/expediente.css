@@ -599,3 +599,14 @@ body:has(#viewer[open]){overflow:hidden}
 @media(max-width:900px){.admin-sound-row{grid-template-columns:42px 1fr auto}.admin-sound-row-volume{grid-column:2/-1}.admin-sound-master-controls{grid-template-columns:1fr 1fr}.admin-sound-master-controls>label:first-child{grid-column:1/-1}}
 @media(max-width:600px){#sound-toggle{min-width:38px!important;width:38px!important;padding:4px!important}#sound-toggle b{display:none}.sound-consent{left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));width:auto}.sound-consent>div{grid-template-columns:38px 1fr}.sound-consent button{grid-column:1/-1;width:100%}.admin-sound-master,.admin-sound-library{padding:18px 14px}.admin-sound-master>header,.admin-sound-library>header{display:grid}.admin-sound-library>header input{min-width:0;width:100%}.admin-sound-master-controls{grid-template-columns:1fr}.admin-sound-row{grid-template-columns:38px 1fr}.admin-sound-row-volume,.admin-sound-row>button,.admin-sound-upload{grid-column:2/-1;width:100%;box-sizing:border-box}.admin-sound-library>footer{flex-wrap:wrap}.admin-sound-library>footer span{width:100%}}
 @media(max-width:1024px){.ticket-card.is-auto-next,.ticket-batch-summary.is-auto-next{outline:3px solid #9a211d;outline-offset:4px;animation:collection-next-pulse 1.35s ease both}@keyframes collection-next-pulse{0%{box-shadow:0 0 0 0 #9a211d55}45%{box-shadow:0 0 0 12px #9a211d18}100%{box-shadow:0 0 0 0 transparent}}}
+
+/* Control compartido para mostrar u ocultar las contraseñas de acceso. */
+.password-input{position:relative;width:100%}
+.password-input>input{padding-right:46px!important}
+.access-card .password-input>.password-toggle,
+.admin-login-card .password-input>.password-toggle{position:absolute;right:1px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:40px;height:40px;margin:0;padding:0!important;border:0!important;background:transparent!important;color:var(--ink)!important;box-shadow:none!important;cursor:pointer}
+.password-toggle svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.password-toggle .password-eye-slash{display:none}
+.password-toggle.is-visible .password-eye-slash{display:block}
+.password-toggle:hover{color:var(--red)!important}
+.password-toggle:focus-visible{outline:2px solid var(--red)!important;outline-offset:1px}

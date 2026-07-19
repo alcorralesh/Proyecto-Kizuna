@@ -1,6 +1,20 @@
 if(!document.querySelector('link[href="microevents.css"]')){const microeventsStyle=document.createElement('link');microeventsStyle.rel='stylesheet';microeventsStyle.href='microevents.css';document.head.appendChild(microeventsStyle)}
 if(!window.KizunaMicroevents){const microeventsScript=document.createElement('script');microeventsScript.src='microevents.js';document.head.appendChild(microeventsScript)}
 if(!window.kizunaStorage){const storageAssetsScript=document.createElement('script');storageAssetsScript.src='../storage-assets.js';document.head.appendChild(storageAssetsScript)}
+document.querySelectorAll('.password-toggle').forEach(button=>{
+  const input=document.getElementById(button.dataset.passwordTarget);
+  if(!input)return;
+  button.addEventListener('click',()=>{
+    const showPassword=input.type==='password';
+    input.type=showPassword?'text':'password';
+    button.classList.toggle('is-visible',showPassword);
+    button.setAttribute('aria-pressed',String(showPassword));
+    button.setAttribute('aria-label',showPassword?'Ocultar contraseña':'Mostrar contraseña');
+    input.focus({preventScroll:true});
+    const cursorPosition=input.value.length;
+    input.setSelectionRange?.(cursorPosition,cursorPosition);
+  });
+});
 const KizunaSound=(()=>{
   const manifestUrl='../assets/audio/kizuna/manifest.json',assetBase='../assets/audio/kizuna/',preferenceKey='kizuna-sound-preferences-v1';
   let manifest={sounds:{}},adminConfig={enabled:true,masterVolume:.75,vibrationEnabled:true,events:{}},active=[],loaded=false;
