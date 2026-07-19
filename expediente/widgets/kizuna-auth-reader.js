@@ -36,11 +36,11 @@
       .console.is-complete .success{visibility:visible}
       @keyframes sweep{to{transform:translateX(100%)}}
       @media (max-width:620px){
-        .console{min-height:600px}header{padding:16px}.node{display:none}
-        .workspace{grid-template-columns:1fr;grid-template-rows:220px 260px;gap:12px;min-height:510px;padding:20px 24px 50px}
-        .workspace::after{left:50%;right:auto;top:38%;width:2px;height:28%;background:linear-gradient(var(--gold),rgba(214,184,93,.15))}
-        .card-wrap{width:min(76vw,280px)}.reader{width:min(88vw,350px)}
-        .progress{left:16px;right:16px}.progress>span:first-child{display:none}
+        .console{min-height:0}header{padding:9px 12px}.eyebrow{font-size:7px}h2{margin-top:3px;font-size:23px}.node{display:none}
+        .workspace{grid-template-columns:1fr;grid-template-rows:132px 158px;gap:5px;min-height:330px;padding:9px 18px 37px}
+        .workspace::after{left:50%;right:auto;top:37%;width:2px;height:22%;background:linear-gradient(var(--gold),rgba(214,184,93,.15))}
+        .card-wrap{width:min(60vw,205px)}.reader{width:min(76vw,272px)}
+        .progress{left:12px;right:12px;bottom:10px;gap:8px}.progress>span:first-child{display:none}
       }
       @media (prefers-reduced-motion:reduce){.console::before{animation:none}}
     </style>

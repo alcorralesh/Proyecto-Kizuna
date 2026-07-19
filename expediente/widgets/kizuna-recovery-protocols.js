@@ -14,7 +14,7 @@
     .bar{position:relative;z-index:2;height:7px;margin-top:18px;background:#050b09;border:1px solid #4c5b54}.bar i{display:block;width:0;height:100%;background:linear-gradient(90deg,var(--red),var(--gold));box-shadow:0 0 16px #d6b85e66}
     .hint{position:relative;z-index:2;display:flex;justify-content:space-between;gap:20px;margin-top:10px;color:#91a399;font-size:9px;letter-spacing:.09em}.hint strong{color:var(--gold)}
     svg{display:block;max-width:100%;height:auto}.label{font-size:9px;letter-spacing:.13em;color:#aab9b0}
-    @media(max-width:600px){.device{min-height:440px;padding:16px}.scene{min-height:330px;padding-top:16px}header{align-items:flex-start}.hint{flex-direction:column;gap:5px}}
+    @media(max-width:600px){.device{min-height:0;padding:9px}.device>header{align-items:center;gap:8px;padding-bottom:8px}.device>header small{font-size:6px}.device>header h2{margin-top:3px;font-size:22px}.device>header b{font-size:8px}.scene{min-height:285px;padding-top:7px}.bar{margin-top:7px}.hint{margin-top:6px;flex-direction:row;gap:7px;font-size:6px}.hint span:last-child{text-align:right}}
     @media(max-height:620px) and (orientation:landscape){.device{min-height:300px;padding:14px 20px}.scene{min-height:190px;padding:10px 0}.bar{margin-top:8px}}
   `;
 
