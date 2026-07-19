@@ -249,6 +249,7 @@ setTimeout(()=>{
     // Conservamos el identificador porque una actualización remota puede volver a
     // renderizar la interfaz mientras se registra la actividad.
     const id=active,done=read(),alreadyRead=done.includes(id);
+    if(!alreadyRead)queueCollectionAdvance(id,[...done,id]);
     if(!alreadyRead){done.push(id);void Promise.resolve(save(done)).catch(error=>console.warn('No se pudo sincronizar la lectura.',error))}
     if(alreadyRead){viewer.close();render();return}
     if(id.startsWith('AR'))void recordActivity('document_confirmed',id,{source:'recovered_file'}).catch(error=>console.warn('No se pudo registrar la actividad.',error));
@@ -268,6 +269,32 @@ const progressKeys=[...Array.from({length:14},(_,i)=>`KTB-${String(i+1).padStart
 const name=id=>isFolder(id)?`Carpeta ${id} · ${folderDetails[id][0]}`:`Expediente ${id}`;
 const folderCompleted=(id,done=read())=>{if(!isFolder(id))return false;const update=id==='AR-03'?'KTB-009':folders[id]?.update;return Boolean(update&&done.includes(update))};
 const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='';
+let pendingCollectionAdvance=null;
+const queueCollectionAdvance=(id,done)=>{
+  if(ar01Tickets.some(ticket=>ticket.id===id)){
+    const current=ar01Tickets.findIndex(ticket=>ticket.id===id);
+    const following=ar01Tickets.findIndex((ticket,index)=>index>current&&!done.includes(ticket.id));
+    pendingCollectionAdvance={collection:'tickets',selector:following>=0?`[data-ticket="${ar01Tickets[following].id}"]`:'.ticket-batch-summary'};
+    return;
+  }
+  const match=id.match(/^AR03-([CT])-(\d+)$/);
+  if(!match)return;
+  const type=match[1]==='C'?'cities':'temples',items=type==='cities'?ar03Cities:ar03Temples,current=Number(match[2]);
+  const following=items.findIndex((_,index)=>index>current&&!done.includes(`AR03-${match[1]}-${index}`));
+  pendingCollectionAdvance={collection:type,selector:following>=0?`[data-index="${following}"]`:'.ticket-batch-summary'};
+};
+const revealCollectionAdvance=collection=>{
+  if(!pendingCollectionAdvance||pendingCollectionAdvance.collection!==collection)return;
+  const pending=pendingCollectionAdvance;pendingCollectionAdvance=null;
+  if(!window.matchMedia('(max-width: 1024px)').matches)return;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const target=document.querySelector(`#doc-body ${pending.selector}`);if(!target)return;
+    target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center',inline:'nearest'});
+    target.classList.add('is-auto-next');
+    if(target.matches('button'))target.focus({preventScroll:true});
+    setTimeout(()=>target.classList.remove('is-auto-next'),1400);
+  }));
+};
 const comicPrevious=document.createElement('button'),comicFollowing=document.createElement('button');comicPrevious.id='comic-prev-fixed';comicPrevious.type='button';comicPrevious.textContent='← Página anterior';comicPrevious.hidden=true;comicFollowing.id='comic-next-fixed';comicFollowing.type='button';comicFollowing.textContent='Página siguiente →';comicFollowing.hidden=true;readerBackFolder.before(comicPrevious,comicFollowing);
 const archiveBatchConfirm=document.createElement('button');archiveBatchConfirm.id='archive-confirm-batch';archiveBatchConfirm.type='button';archiveBatchConfirm.hidden=true;readerBackFolder.before(archiveBatchConfirm);
 const finalVerificationButton=document.createElement('button');finalVerificationButton.id='final-verification-action';finalVerificationButton.type='button';finalVerificationButton.textContent='Iniciar verificación final →';finalVerificationButton.hidden=true;finalVerificationButton.dataset.ready='false';finalVerificationButton.dataset.locked='false';finalVerificationButton.dataset.stage='';readerBackExpedient.before(finalVerificationButton);
@@ -612,6 +639,7 @@ function openTicketMosaic(){
   archiveBatchConfirm.onclick=async()=>{if(!complete||read().includes('AR01-BILLETES'))return;archiveBatchConfirm.disabled=true;archiveBatchConfirm.textContent='Archivando lote…';const records=read();records.push('AR01-BILLETES');save(records);await recordActivity('document_confirmed','AR01-BILLETES',{source:'recovered_file_bulk',documents:total});openFolder('AR-01')};
   if(!viewer.open)viewer.showModal();
   document.querySelectorAll('.ticket-card').forEach(button=>button.onclick=()=>{const ticket=ar01Tickets.find(item=>item.id===button.dataset.ticket);openTicketItem(ticket)});
+  revealCollectionAdvance('tickets');
 }
 function openTicketItem(ticket){active=ticket.id;next.style.display='none';mark.style.display='inline-block';mark.textContent=read().includes(ticket.id)?'Volver al expediente':'Confirmar lectura';mark.dataset.returnTo='tickets';document.querySelector('#doc-type').textContent='AR-01 / BILLETE RECUPERADO';document.querySelector('#doc-title').textContent=ticket.title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="../assets/documents/AR-01/Billetes/${ticket.src}" alt="${ticket.title}">`;if(!viewer.open)viewer.showModal()}
 function ar03Complete(){const records=read();if(records.includes('KTB-009'))return true;const keys=['AR03-CARTA','AR03-CITIES-COMPLETE','AR03-TEMPLES-COMPLETE',...ar03Cities.map((_,i)=>`AR03-C-${i}`),...ar03Temples.map((_,i)=>`AR03-T-${i}`)];return keys.every(key=>records.includes(key))}
@@ -633,6 +661,7 @@ function openAr03Mosaic(type){
   archiveBatchConfirm.hidden=batchConfirmed;
   archiveBatchConfirm.onclick=async()=>{if(!complete||read().includes(marker))return;archiveBatchConfirm.disabled=true;archiveBatchConfirm.textContent='Archivando lote…';const records=read();records.push(marker);save(records);await recordActivity('document_confirmed',marker,{source:'recovered_file_bulk',documents:total});openAr03()};
   document.querySelectorAll('.visual-archive-card').forEach(button=>button.onclick=()=>openAr03Item(`AR03-${key}-${button.dataset.index}`,button.dataset.file,`../assets/documents/AR-03/${folder}/${button.dataset.file}`,type));
+  revealCollectionAdvance(type);
 }
 function openAr03Item(id,title,src,type){active=id;next.style.display='none';mark.style.display='inline-block';mark.textContent=read().includes(id)?'Volver al expediente':'Confirmar lectura';document.querySelector('#doc-type').textContent='AR-03 / REGISTRO AMPLIADO';document.querySelector('#doc-title').textContent=title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="${src}" alt="${title}">`;mark.dataset.returnTo=type||'temples'}
 const archiveNodes=['TOKYO','KYOTO','OSAKA','NARA','SAPPORO','KOBE','NAGOYA','KANAZAWA','YOKOHAMA','FUKUOKA','SENDAI','HIROSHIMA'];
