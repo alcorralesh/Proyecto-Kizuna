@@ -610,3 +610,20 @@ body:has(#viewer[open]){overflow:hidden}
 .password-toggle.is-visible .password-eye-slash{display:block}
 .password-toggle:hover{color:var(--red)!important}
 .password-toggle:focus-visible{outline:2px solid var(--red)!important;outline-offset:1px}
+
+/* Resumen compacto del avance de las carpetas en la secuencia principal. */
+.document.folder-document{min-height:238px}
+.document-card-status{min-height:11px}
+.folder-card-progress{margin:12px 0 0;padding-top:11px;border-top:1px solid #d2c7b4;color:#6f675b}
+.folder-card-progress>div{display:flex;align-items:center;justify-content:space-between;gap:12px;font:8px/1.35 var(--mono);letter-spacing:.035em;text-transform:uppercase}
+.folder-card-progress span{white-space:nowrap}
+.folder-card-progress span b{color:var(--red);font-size:11px}
+.folder-card-progress strong{color:var(--red);font:inherit;text-align:right}
+.folder-card-progress>i{display:block;height:3px;margin-top:8px;background:#d6ccba;overflow:hidden}
+.folder-card-progress>i>b{display:block;height:100%;background:var(--red);transition:width .35s ease}
+.folder-card-progress.is-complete strong{color:#356a41}
+.folder-card-progress.is-complete>i>b{background:#58774f}
+.document.locked .folder-card-progress{border-color:#c4bdaf;color:#888379}
+.document.locked .folder-card-progress strong,.document.locked .folder-card-progress span b{color:#888379}
+.document.locked .folder-card-progress>i>b{background:#979387}
+@media(max-width:750px){.document.folder-document{min-height:222px}.folder-card-progress>div{align-items:flex-start;flex-direction:column;gap:4px}.folder-card-progress strong{text-align:left}}
