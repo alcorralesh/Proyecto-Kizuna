@@ -280,8 +280,31 @@ setTimeout(()=>{
   };
 },0);
 const progressKeys=[...Array.from({length:14},(_,i)=>`KTB-${String(i+1).padStart(3,'0')}`),...Object.values(folders).flatMap(folder=>folder.files.map(file=>file.id)),'AR03-CARTA',...ar03Cities.map((_,i)=>`AR03-C-${i}`),...ar03Temples.map((_,i)=>`AR03-T-${i}`),...ar01Tickets.map(ticket=>ticket.id),'AR06-PROTOCOL'];
-const name=id=>isFolder(id)?`Carpeta ${id} · ${folderDetails[id][0]}`:`Expediente ${id}`;
+const name=id=>isFolder(id)?`Carpeta ${id} · ${folderDetails[id][0]}`:`Documento ${id}`;
 const folderCompleted=(id,done=read())=>{if(!isFolder(id))return false;const update=id==='AR-03'?'KTB-009':folders[id]?.update;return Boolean(update&&done.includes(update))};
+const folderCardProgress=(id,done=read())=>{
+  const update=id==='AR-03'?'KTB-009':folders[id]?.update;
+  const updateRead=Boolean(update&&done.includes(update));
+  const required=id==='AR-03'
+    ?['AR03-CARTA','AR03-CITIES-COMPLETE','AR03-TEMPLES-COMPLETE']
+    :(folders[id]?.files||[]).map(file=>file.id);
+  const total=required.length;
+  const readCount=updateRead?total:required.filter(key=>done.includes(key)).length;
+  const pending=Math.max(0,total-readCount);
+  const stepsTotal=total+(update?1:0);
+  const stepsDone=readCount+(updateRead?1:0);
+  const percent=stepsTotal?Math.round(stepsDone/stepsTotal*100):0;
+  const detail=updateRead
+    ?'CARPETA COMPLETADA'
+    :pending
+      ?`${pending} ${pending===1?'DOCUMENTO PENDIENTE':'DOCUMENTOS PENDIENTES'}`
+      :`${update} PENDIENTE`;
+  return{readCount,total,percent,detail,updateRead};
+};
+const folderCardProgressMarkup=(id,done)=>{
+  const progress=folderCardProgress(id,done);
+  return `<div class="folder-card-progress ${progress.updateRead?'is-complete':progress.readCount?'is-started':''}" aria-label="${progress.readCount} de ${progress.total} documentos leídos. ${progress.detail.toLowerCase()}"><div><span><b>${progress.readCount}</b> de ${progress.total} leídos</span><strong>${progress.detail}</strong></div><i aria-hidden="true"><b style="width:${progress.percent}%"></b></i></div>`;
+};
 const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='';
 let pendingCollectionAdvance=null;
 const queueCollectionAdvance=(id,done)=>{
@@ -612,7 +635,8 @@ function render(){
     const newlyUnlocked=newUnlocks.includes(id);
     const label=isClosing?'Continuar cierre':isFolder(id)?'Abrir carpeta':'Abrir documento';
     const status=isClosing?(stageLabels[stage]||stageLabels.verification):seen?'LECTURA CONFIRMADA':ok?'DISPONIBLE PARA CONSULTA':'AUTORIZACIÓN PENDIENTE';
-    return `<article class="document ${ok?'':'locked'} ${isClosing?'final-flow-card':''} ${newlyUnlocked?'is-new-unlock':''}" data-document-id="${id}">${newlyUnlocked?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">${isClosing?'◐ ':seen?'✓ ':ok?'○ ':'⌕ '}${id}</span><h3>${name(id)}</h3><p>${status}</p><button type="button" data-id="${id}" ${ok?'':'disabled'} ${isClosing?'data-final-resume':''}>${ok?label:'Acceso restringido'}</button></article>`
+    const folderProgress=isFolder(id)?folderCardProgressMarkup(id,done):'';
+    return `<article class="document ${isFolder(id)?'folder-document':''} ${ok?'':'locked'} ${isClosing?'final-flow-card':''} ${newlyUnlocked?'is-new-unlock':''}" data-document-id="${id}">${newlyUnlocked?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">${isClosing?'◐ ':seen?'✓ ':ok?'○ ':'⌕ '}${id}</span><h3>${name(id)}</h3><p class="document-card-status">${status}</p>${folderProgress}<button type="button" data-id="${id}" ${ok?'':'disabled'} ${isClosing?'data-final-resume':''}>${ok?label:'Acceso restringido'}</button></article>`
   }).join('')+supplementary;
   if(newUnlocks.length){
     void patchState({seenUnlocks:[...new Set([...seenUnlocks,...newUnlocks])]});
@@ -636,7 +660,7 @@ document.querySelector('#documents').addEventListener('click',event=>{
   event.preventDefault();
   openDoc(button.dataset.id);
 });
-function textFor(id){if(id==='AC-01')return ['Archivo complementario AC-01','Estado: Recuperado. Tipo: Registro ilustrado. Origen: No catalogado.','La relación de este registro con la expedición permanece pendiente de clasificación.'];if(id==='KTB-014')return ['Cierre de expediente','La secuencia ha sido completada. Los recuerdos han sido preservados y la línea temporal mantiene una integridad del 100 %.','No se requieren más intervenciones.'];if(isFolder(id))return [`${id} · ${folderDetails[id][0]}`,folderDetails[id][1],'Archivo recuperado parcialmente. El contenido debe consultarse respetando el orden de la secuencia temporal.'];return [`Expediente ${id}`,'Registro validado por la División de Archivos Temporales. Este documento forma parte de una secuencia personal de continuidad.','La lectura atenta de cada página ayuda a que las historias importantes sucedan exactamente como deben.']}
+function textFor(id){if(id==='AC-01')return ['Archivo complementario AC-01','Estado: Recuperado. Tipo: Registro ilustrado. Origen: No catalogado.','La relación de este registro con la expedición permanece pendiente de clasificación.'];if(id==='KTB-014')return ['Cierre de expediente','La secuencia ha sido completada. Los recuerdos han sido preservados y la línea temporal mantiene una integridad del 100 %.','No se requieren más intervenciones.'];if(isFolder(id))return [`${id} · ${folderDetails[id][0]}`,folderDetails[id][1],'Archivo recuperado parcialmente. El contenido debe consultarse respetando el orden de la secuencia temporal.'];return [`Documento ${id}`,'Registro validado por la División de Archivos Temporales. Este documento forma parte de una secuencia personal de continuidad.','La lectura atenta de cada página ayuda a que las historias importantes sucedan exactamente como deben.']}
 const nextRequiredDocument=(id,buttonId)=>{const confirmed=read().includes(id);return `<aside class="folder-next-phase ${confirmed?'is-complete':''}"><div class="folder-next-symbol" aria-hidden="true">${confirmed?'✓':'↗'}</div><div class="folder-next-copy"><p>${confirmed?'DOCUMENTO DE CONTINUIDAD':'FASE SIGUIENTE DESBLOQUEADA'}</p><h4><span>${id}</span> Actualización del expediente</h4><small>${confirmed?'La lectura de este documento ya está confirmada. Puedes volver a consultarlo.':'Para continuar es obligatorio consultar y confirmar la lectura de este nuevo documento.'}</small></div><div class="folder-next-state"><span>${confirmed?'ARCHIVADO':'NUEVO'}</span><strong>${confirmed?'LECTURA CONFIRMADA':'LECTURA PENDIENTE'}</strong></div><button id="${buttonId}" type="button">${confirmed?'Revisar':'Consultar'} ${id} <span>→</span></button></aside>`};
 function openFolder(folderId){active=folderId;readerReturnToFolder=null;readerCanConfirm=false;next.style.display='none';document.querySelector('#doc-type').textContent='CARPETA DE ARCHIVOS RECUPERADOS / ACCESO AUTORIZADO';document.querySelector('#doc-title').textContent=`${folderId} · ${folders[folderId].title}`;const done=read(),files=folders[folderId].files,seenCount=files.filter(file=>done.includes(file.id)).length;const list=files.map((file,index)=>{const unlocked=index===0||done.includes(files[index-1].id),seen=done.includes(file.id);return `<button class="folder-file ${seen?'is-read':unlocked?'is-ready':'is-locked'}" data-file="${file.id}" ${unlocked?'':'disabled'}><span class="folder-file-number">${String(index+1).padStart(2,'0')}</span><span class="folder-file-copy"><strong>${file.title}</strong><small>${seen?'LECTURA CONFIRMADA':unlocked?'DISPONIBLE':'BLOQUEADO HASTA COMPLETAR EL ANTERIOR'}</small></span><span class="folder-file-action">${seen?'REVISAR':unlocked?'ABRIR':'⌕'}</span></button>`}).join('');const complete=files.every(file=>done.includes(file.id)),update=folders[folderId].update;document.querySelector('#doc-body').innerHTML=`<section class="folder-index"><header><div><p class="system-line">ÍNDICE DE LA CARPETA</p><h3>${folders[folderId].title}</h3></div><p><strong>${seenCount}</strong> de ${files.length}<span>documentos leídos</span></p></header><p class="folder-intro">Los documentos internos deben consultarse siguiendo el orden autorizado.</p><div class="folder-file-list">${list}</div><footer>${complete?nextRequiredDocument(update,'folder-update'):'<p>La actualización permanecerá sellada hasta completar todos los documentos.</p>'}</footer></section>`;mark.style.display='none';if(!viewer.open)viewer.showModal();document.querySelectorAll('.folder-file:not([disabled])').forEach(button=>button.onclick=()=>openFolderFile(folderId,button.dataset.file));const updateButton=document.querySelector('#folder-update');if(updateButton)updateButton.onclick=()=>openDoc(update)}
 function openFolderFile(folderId,fileId){const file=folders[folderId].files.find(item=>item.id===fileId);active=fileId;readerReturnToFolder=folderId;readerCanConfirm=true;next.style.display='none';mark.style.display='inline-block';document.querySelector('#doc-type').textContent=`${folderId} / DOCUMENTO INTERNO`;document.querySelector('#doc-title').textContent=file.title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="../assets/documents/${folderId}/${file.src}" alt="${file.title}">`}
@@ -1397,7 +1421,7 @@ const renderAdminActivityLegacy=async userId=>{
 
 const adminEditorEscape=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const adminRecordTitle=id=>{
-  if(id.startsWith('KTB-'))return `Expediente ${id}`;
+  if(id.startsWith('KTB-'))return `Documento ${id}`;
   for(const folder of Object.values(folders)){const file=folder.files.find(item=>item.id===id);if(file)return file.title}
   const ticket=ar01Tickets.find(item=>item.id===id);if(ticket)return ticket.title;
   if(id==='AR03-CARTA')return 'Carta de introducción geográfica';
