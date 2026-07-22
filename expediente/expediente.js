@@ -1007,6 +1007,46 @@ document.querySelector('#admin-mailbox-refresh').onclick=loadAdminMessages;
 const mediaBucket='kizuna-assets';
 const mediaStatus=document.querySelector('#admin-media-status');
 const mediaGrid=document.querySelector('#admin-media-grid');
+adminViews.media.querySelector('.admin-intro').textContent='Importa la carpeta assets para generar originales, miniaturas y copias WebP de lectura. Al reemplazar una imagen se conservan sus rutas y se renueva su versión automáticamente.';
+const mediaPublicBase=`https://vcwqkideizdrhzpbghkj.supabase.co/storage/v1/object/public/${mediaBucket}`;
+const mediaManifestPath='_meta/asset-versions.json';
+const mediaCacheSeconds='31536000';
+let mediaManifest=null;
+
+const encodeMediaPath=path=>String(path||'').replace(/\\/g,'/').replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/');
+const mediaVariantPath=(path,variant)=>{
+  const clean=String(path||'').replace(/\\/g,'/').replace(/^\/+/, '');
+  const dot=clean.lastIndexOf('.');
+  const base=dot>clean.lastIndexOf('/')?clean.slice(0,dot):clean;
+  return `_optimized/${variant}/${base}.webp`;
+};
+const readMediaManifest=async(force=false)=>{
+  if(mediaManifest&&!force)return mediaManifest;
+  try{
+    const response=await fetch(`${mediaPublicBase}/${encodeMediaPath(mediaManifestPath)}?t=${Date.now()}`,{cache:'no-store'});
+    const data=response.ok?await response.json():{};
+    mediaManifest=data?.assets||data||{};
+  }catch(_error){mediaManifest={}}
+  return mediaManifest;
+};
+const saveMediaManifest=async()=>{
+  const body=new Blob([JSON.stringify({version:1,updatedAt:new Date().toISOString(),assets:mediaManifest||{}},null,2)],{type:'application/json'});
+  const {error}=await supabaseClient.storage.from(mediaBucket).upload(mediaManifestPath,body,{upsert:true,cacheControl:'60',contentType:'application/json'});
+  if(error)throw error;
+  await window.kizunaStorage?.refreshManifest?.();
+};
+const canvasToWebp=(canvas,quality)=>new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('El navegador no pudo generar la copia WebP.')),'image/webp',quality));
+const createMediaVariant=async(file,maxWidth,maxHeight,quality)=>{
+  const bitmap=await createImageBitmap(file);
+  const scale=Math.min(1,maxWidth/bitmap.width,maxHeight/bitmap.height);
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+  canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+  const context=canvas.getContext('2d',{alpha:true});
+  context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+  bitmap.close?.();
+  return canvasToWebp(canvas,quality);
+};
 
 const listMediaFiles=async(prefix='')=>{
   const {data,error}=await supabaseClient.storage.from(mediaBucket).list(prefix,{limit:1000,sortBy:{column:'name',order:'asc'}});
@@ -1015,14 +1055,31 @@ const listMediaFiles=async(prefix='')=>{
   for(const item of data||[]){
     const path=prefix?`${prefix}/${item.name}`:item.name;
     if(item.id)files.push({...item,path});
-    else files.push(...await listMediaFiles(path));
+    else if(prefix||!['_optimized','_meta'].includes(item.name))files.push(...await listMediaFiles(path));
   }
   return files;
 };
 
-const uploadMediaFile=async(file,path)=>{
-  const {error}=await supabaseClient.storage.from(mediaBucket).upload(path,file,{upsert:true,cacheControl:'60',contentType:file.type||'image/png'});
+const uploadMediaFile=async(file,path,{deferManifest=false}={})=>{
+  await readMediaManifest();
+  const storage=supabaseClient.storage.from(mediaBucket);
+  const {error}=await storage.upload(path,file,{upsert:true,cacheControl:mediaCacheSeconds,contentType:file.type||'image/png'});
   if(error)throw error;
+
+  const [thumb,reader]=await Promise.all([
+    createMediaVariant(file,520,760,.72),
+    createMediaVariant(file,2200,3400,.86)
+  ]);
+  const thumbPath=mediaVariantPath(path,'thumb');
+  const readerPath=mediaVariantPath(path,'reader');
+  const [{error:thumbError},{error:readerError}]=await Promise.all([
+    storage.upload(thumbPath,thumb,{upsert:true,cacheControl:mediaCacheSeconds,contentType:'image/webp'}),
+    storage.upload(readerPath,reader,{upsert:true,cacheControl:mediaCacheSeconds,contentType:'image/webp'})
+  ]);
+  if(thumbError)throw thumbError;
+  if(readerError)throw readerError;
+  mediaManifest[path]={version:String(Date.now()),thumb:thumbPath,reader:readerPath};
+  if(!deferManifest)await saveMediaManifest();
 };
 
 const replaceMediaFile=(path)=>{
@@ -1047,16 +1104,21 @@ const loadMediaLibrary=async()=>{
   mediaStatus.textContent='Consultando biblioteca…';
   mediaGrid.innerHTML='';
   try{
-    const files=await listMediaFiles();
-    mediaStatus.textContent=files.length?`${files.length} imágenes disponibles en Supabase Storage.`:'El bucket está vacío. Importa la carpeta assets para completar la migración.';
+    const [files,manifest]=await Promise.all([listMediaFiles(),readMediaManifest(true)]);
+    const optimized=files.filter(file=>manifest[file.path]?.thumb&&manifest[file.path]?.reader).length;
+    mediaStatus.textContent=files.length?`${files.length} imágenes disponibles · ${optimized} optimizadas para ahorrar transferencia.`:'El bucket está vacío. Importa la carpeta assets para completar la migración.';
     files.forEach(file=>{
       const card=document.createElement('article');
       const image=document.createElement('img');
       const path=document.createElement('p');
       const button=document.createElement('button');
-      const {data}=supabaseClient.storage.from(mediaBucket).getPublicUrl(file.path);
-      image.src=`${data.publicUrl}?v=${encodeURIComponent(file.updated_at||Date.now())}`;
+      const entry=manifest[file.path];
+      const previewPath=entry?.thumb||file.path;
+      const {data}=supabaseClient.storage.from(mediaBucket).getPublicUrl(previewPath);
+      image.src=`${data.publicUrl}?v=${encodeURIComponent(entry?.version||file.updated_at||Date.now())}`;
       image.alt=file.name;
+      image.loading='lazy';
+      image.decoding='async';
       path.textContent=file.path;
       button.type='button';
       button.textContent='Reemplazar imagen';
@@ -1077,13 +1139,17 @@ document.querySelector('#admin-media-folder').onchange=async event=>{
       const parts=(file.webkitRelativePath||file.name).replace(/\\/g,'/').split('/');
       if(parts[0].toLowerCase()==='assets')parts.shift();
       const path=parts.join('/');
-      mediaStatus.textContent=`Subiendo ${uploaded+1} de ${files.length}: ${path}`;
-      await uploadMediaFile(file,path);
+      mediaStatus.textContent=`Optimizando y subiendo ${uploaded+1} de ${files.length}: ${path}`;
+      await uploadMediaFile(file,path,{deferManifest:true});
       uploaded++;
     }
-    mediaStatus.textContent=`Importación completada: ${uploaded} imágenes subidas.`;
+    await saveMediaManifest();
+    mediaStatus.textContent=`Importación completada: ${uploaded} originales, miniaturas y copias de lectura subidas.`;
     await loadMediaLibrary();
-  }catch(error){mediaStatus.textContent=`Importación detenida tras ${uploaded} archivos: ${error.message}`}
+  }catch(error){
+    if(uploaded)try{await saveMediaManifest()}catch(_manifestError){}
+    mediaStatus.textContent=`Importación detenida tras ${uploaded} archivos: ${error.message}`;
+  }
   finally{event.target.value=''}
 };
 
