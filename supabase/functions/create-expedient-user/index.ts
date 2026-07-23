@@ -115,6 +115,11 @@ Deno.serve(async (request) => {
       completed: false,
       finalFlowStage: '',
       albertoMessageRead: false,
+      albertoResponseAccepted: false,
+      albertoResponse: null,
+      albertoRespondedAt: null,
+      acceptanceEmailSentAt: null,
+      acceptanceEmailId: null,
       comicReadPages: [],
     }
     const { error: progressError } = await adminClient
@@ -162,7 +167,21 @@ Deno.serve(async (request) => {
   })
   await adminClient.from('expedient_progress').upsert({
     user_id: data.user.id,
-    state: { read: [], mailRead: 0, finalFileSeen: false, finalAlertShown: false, completed: false, finalFlowStage: '', albertoMessageRead: false, comicReadPages: [] },
+    state: {
+      read: [],
+      mailRead: 0,
+      finalFileSeen: false,
+      finalAlertShown: false,
+      completed: false,
+      finalFlowStage: '',
+      albertoMessageRead: false,
+      albertoResponseAccepted: false,
+      albertoResponse: null,
+      albertoRespondedAt: null,
+      acceptanceEmailSentAt: null,
+      acceptanceEmailId: null,
+      comicReadPages: [],
+    },
   })
 
   return response({ id: data.user.id, email: data.user.email })

@@ -16,10 +16,9 @@ document.querySelectorAll('.password-toggle').forEach(button=>{
   });
 });
 const KizunaSound=(()=>{
-  const manifestUrl='../assets/audio/kizuna/manifest.json',assetBase='../assets/audio/kizuna/',preferenceKey='kizuna-sound-preferences-v1';
+  const manifestUrl='../assets/audio/kizuna/manifest.json',assetBase='../assets/audio/kizuna/';
   let manifest={sounds:{}},adminConfig={enabled:true,masterVolume:.75,vibrationEnabled:true,events:{}},active=[],loaded=false;
-  const stored=()=>{try{return JSON.parse(localStorage.getItem(preferenceKey)||'{}')}catch{return{}}};
-  let preferences={enabled:false,volume:.8,decided:false,...stored()};
+  let preferences={enabled:false,volume:.8,decided:false};
   const clamp=value=>Math.max(0,Math.min(1,Number(value)||0));
   const init=async()=>{if(loaded)return manifest;try{const response=await fetch(manifestUrl,{cache:'no-cache'});if(response.ok)manifest=await response.json()}catch(error){console.warn('No se pudo cargar el manifiesto sonoro.',error)}loaded=true;return manifest};
   const eventConfig=key=>adminConfig.events?.[key]||{};
@@ -28,7 +27,7 @@ const KizunaSound=(()=>{
   const play=async(key,options={})=>{await init();const definition=manifest.sounds?.[key];if(!definition)return null;const config=eventConfig(key);if(!options.force&&(!preferences.enabled||!adminConfig.enabled||config.enabled===false))return null;if(options.exclusive)stop();const audio=new Audio(options.src||sourceFor(key));audio.preload='auto';audio.volume=clamp((options.volume??config.volume??definition.defaultVolume??.3)*adminConfig.masterVolume*preferences.volume);const item={key,audio};active.push(item);audio.onended=()=>{active=active.filter(entry=>entry!==item)};try{await audio.play();if((options.vibrate||key==='action_error'||key==='document_unlocked'||key==='folder_unlocked')&&adminConfig.vibrationEnabled&&navigator.vibrate)navigator.vibrate(options.vibrate||[18]);return audio}catch(error){active=active.filter(entry=>entry!==item);if(error?.name!=='NotAllowedError')console.warn(`No se pudo reproducir ${key}.`,error);return null}};
   const sequenceSounds=async(keys,gap=180)=>{for(const key of keys){const audio=await play(key,{force:true});if(audio)await new Promise(resolve=>{audio.addEventListener('ended',resolve,{once:true});setTimeout(resolve,(Number(manifest.sounds?.[key]?.duration)||1)*1000+gap)})}};
   const syncToggle=()=>{const button=document.querySelector('#sound-toggle');if(!button)return;button.setAttribute('aria-pressed',String(Boolean(preferences.enabled)));button.classList.toggle('active',Boolean(preferences.enabled));button.title=preferences.enabled?'Silenciar sonidos':'Activar sonidos';button.querySelector('b').textContent=preferences.enabled?'Sonido':'Silencio'};
-  const setPreferences=changes=>{preferences={...preferences,...changes,volume:clamp(changes.volume??preferences.volume),decided:true};localStorage.setItem(preferenceKey,JSON.stringify(preferences));syncToggle();return{...preferences}};
+  const setPreferences=changes=>{preferences={...preferences,...changes,volume:clamp(changes.volume??preferences.volume),decided:true};syncToggle();return{...preferences}};
   const applyAdminConfig=config=>{if(config)adminConfig={...adminConfig,...config,events:{...adminConfig.events,...(config.events||{})}};syncToggle()};
   const bindInterface=()=>{const actions=document.querySelector('#dashboard .header-actions');if(actions&&!document.querySelector('#sound-toggle')){const button=document.createElement('button');button.id='sound-toggle';button.type='button';button.innerHTML='<span aria-hidden="true">♪</span><b>Sonido</b>';actions.prepend(button)}const button=document.querySelector('#sound-toggle');if(button&&!button.dataset.soundBound){button.dataset.soundBound='true';button.onclick=()=>{const enabled=!preferences.enabled;setPreferences({enabled});if(enabled)play('access_authorized')}}syncToggle()};
   const showConsent=()=>{if(preferences.decided||document.querySelector('#sound-consent')||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;const panel=document.createElement('section');panel.id='sound-consent';panel.className='sound-consent';panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Preferencias de sonido');panel.innerHTML='<div><span aria-hidden="true">♪</span><p><strong>¿Activar la ambientación sonora?</strong><small>Sonidos suaves acompañarán aperturas, confirmaciones y nuevos archivos. Podrás silenciarlos en la cabecera.</small></p><button type="button" data-sound-consent="yes">Activar sonido</button><button type="button" data-sound-consent="no">Continuar en silencio</button></div>';document.body.appendChild(panel);panel.querySelector('[data-sound-consent="yes"]').onclick=()=>{setPreferences({enabled:true});panel.remove();play('access_authorized')};panel.querySelector('[data-sound-consent="no"]').onclick=()=>{setPreferences({enabled:false});panel.remove()}};
@@ -45,7 +44,7 @@ const ar03Cities=['01-Tokyo.png','02-Tokyo_barrios.png','03-Kyoto.png','04-Osaka
 const ar03Temples=['001-Fushimi Inari.png','002-Kiyomizu Dera.png','003-Kinkaku ji.png','004-Todai ji.png','005-Itsukushima.png','006-Senso ji.png','007-Meiji jingu.png','008-Kotoku in.png','009-Ginkaku ji.png','010-Tenryu ji.png','011-Kasuga taisha.png','012-nikko tosho gu.png','013-Hase dera.png','014-Yasaka shrine.png','015-Arashiyama bamboo grove.png','016-Heian jingu.png'];
 const supabaseUrl='https://vcwqkideizdrhzpbghkj.supabase.co';
 const supabaseKey='sb_publishable_h3pjxT8UPZkYqRhLskVdlA_m-ulI4EF';
-let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null,currentDisplayName='Destinatario autorizado';
+let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null,currentDisplayName='Destinatario autorizado',progressHydrated=false,progressSessionVersion=0;
 const recipientName=()=>currentDisplayName||'Destinatario autorizado';
 const updateRecipientName=()=>{
   const fullName=recipientName().trim();
@@ -68,22 +67,151 @@ updateCompletionHeader=done=>{
   const recipientValue=recipient?.querySelector('strong');
   if(recipientValue)recipientValue.textContent=recipientName().toLocaleUpperCase('es-ES');
 };
-const localState=()=>({read:JSON.parse(localStorage.getItem('kizuna-read')||'[]'),mailRead:Number(localStorage.getItem('kizuna-mail-read')||0),finalFileSeen:localStorage.getItem('kizuna-final-file-seen')==='true',completed:localStorage.getItem('kizuna-complete')==='true',finalFlowStage:localStorage.getItem('kizuna-final-flow-stage')||'',comicReadPages:JSON.parse(localStorage.getItem('kizuna-comic-read-pages')||'[]'),legalAccepted:localStorage.getItem('kizuna-legal-accepted')==='true',legalAcceptedAt:localStorage.getItem('kizuna-legal-accepted-at')||null,legalVersion:Number(localStorage.getItem('kizuna-legal-version')||1),loadingSeen:localStorage.getItem('kizuna-loading-seen')==='true',onboardingCompleted:localStorage.getItem('kizuna-onboarding-completed')==='true',onboardingCompletedAt:localStorage.getItem('kizuna-onboarding-completed-at')||null,onboardingVersion:Number(localStorage.getItem('kizuna-onboarding-version')||1),seenUnlocks:JSON.parse(localStorage.getItem('kizuna-seen-unlocks')||'[]')});
-const getState=()=>remoteState||localState();
+let transientProgressState=null;
+const transientState=()=>normalizeFinalState(transientProgressState||emptyProgressState());
+const emptyProgressState=()=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,comicReadPages:[],legalAccepted:false,legalAcceptedAt:null,legalVersion:1,loadingSeen:false,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:1,seenUnlocks:[]});
+const resetFinalDecisionState=state=>({
+  ...state,
+  albertoMessageRead:false,
+  albertoResponseAccepted:false,
+  albertoResponse:null,
+  albertoRespondedAt:null,
+  acceptanceEmailSentAt:null,
+  acceptanceEmailId:null
+});
+const normalizeFinalState=state=>{
+  const base={...(state||{})};
+  const done=[...new Set(Array.isArray(base.read)?base.read:[])].filter(Boolean);
+  const hasKtb14=done.includes('KTB-014');
+  const hasFinal=done.includes('FINAL-01');
+  if(!hasKtb14){
+    return resetFinalDecisionState({
+      ...base,
+      read:done.filter(id=>id!=='FINAL-01'),
+      completed:false,
+      finalFlowStage:'',
+      finalFileSeen:false,
+      finalAlertShown:false
+    });
+  }
+  if(!hasFinal){
+    const allowedStages=new Set(['verification','summary','complete','interrupted']);
+    const finalFlowStage=base.finalFlowStage==='closed'?'interrupted':allowedStages.has(base.finalFlowStage)?base.finalFlowStage:'';
+    return resetFinalDecisionState({
+      ...base,
+      read:done.filter(id=>id!=='FINAL-01'),
+      completed:false,
+      finalFlowStage,
+      finalFileSeen:false,
+      finalAlertShown:finalFlowStage==='interrupted'
+    });
+  }
+  return {
+    ...base,
+    read:done,
+    completed:true,
+    finalFlowStage:'closed',
+    finalFileSeen:true,
+    finalAlertShown:true
+  };
+};
+const getState=()=>normalizeFinalState(currentUser?(remoteState||emptyProgressState()):transientState());
 const read=()=>getState().read||[];
-const getFinalFlowStage=()=>{const state=getState(),done=state.read||[];if(state.finalFlowStage)return state.finalFlowStage;if(state.finalFileSeen||state.finalAlertShown)return'closed';if(done.includes('KTB-014'))return'verification';return''};
-const finalFlowPending=()=>read().includes('KTB-014')&&getFinalFlowStage()!=='closed';
-const finalFlowClosed=()=>getFinalFlowStage()==='closed';
-const persistRemote=async()=>{if(!supabaseClient||!currentUser||!remoteState)return;const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:currentUser.id,state:remoteState,updated_at:new Date().toISOString()});if(error)console.error('No se pudo guardar el progreso remoto.',error)};
+const finalFileRead=()=>{const done=read();return done.includes('KTB-014')&&done.includes('FINAL-01')};
+const getFinalFlowStage=()=>{const state=getState(),done=state.read||[];if(!done.includes('KTB-014'))return'';if(done.includes('FINAL-01'))return'closed';if(state.finalFlowStage==='interrupted'||state.finalAlertShown||state.finalFileSeen)return'interrupted';if(state.finalFlowStage&&state.finalFlowStage!=='closed')return state.finalFlowStage;return'verification'};
+// El cierre nunca debe decidirse con el estado local de una sesión anterior.
+// Esperamos a que Supabase haya cargado el progreso del usuario autenticado.
+const finalClosureAuthorized=()=>progressHydrated&&Boolean(currentUser&&remoteState)&&read().includes('KTB-014');
+const clearStaleFinalFlowDom=()=>{
+  if(finalClosureAuthorized())return;
+  document.querySelector('#final-file-alert')?.remove();
+  document.querySelector('#final-flow-exit-warning')?.remove();
+  const finalViewerContent=Boolean(document.querySelector('#doc-body .final-verification, #doc-body .final-message, #doc-body .final-public-transition'));
+  if(viewer.open&&(active==='KTB-014'||active==='FINAL-01'||finalViewerContent))viewer.close();
+};
+const finalFlowPending=()=>finalClosureAuthorized()&&getFinalFlowStage()!=='closed';
+const finalFlowClosed=()=>finalClosureAuthorized()&&getFinalFlowStage()==='closed';
+let allowKtb14ReadMutation=false,authoritativeRead=null;
+const enforceExplicitKtb14Read=state=>{
+  const normalized={...(state||{}),read:[...new Set(Array.isArray(state&&state.read)?state.read:[])].filter(Boolean)};
+  const current=[...new Set(Array.isArray(authoritativeRead)?authoritativeRead:(remoteState&&Array.isArray(remoteState.read)?remoteState.read:(!currentUser&&Array.isArray(transientState().read)?transientState().read:[])))].filter(Boolean);
+  if(!current.includes('KTB-014')&&normalized.read.includes('KTB-014')&&!allowKtb14ReadMutation){
+    console.warn('Lectura automática de KTB-014 bloqueada: requiere confirmación explícita.');
+    return {
+      ...normalized,
+      read:normalized.read.filter(id=>id!=='KTB-014'&&id!=='FINAL-01'),
+      completed:false,
+      finalFlowStage:'',
+      finalAlertShown:false,
+      finalFileSeen:false
+    };
+  }
+  return normalized;
+};
+const progressRowSortTime=row=>{
+  const value=row?.state?.adminSavedAt||row?.updated_at||'';
+  const time=Date.parse(value);
+  return Number.isFinite(time)?time:0;
+};
+const pickLatestProgressRow=rows=>(Array.isArray(rows)?[...rows]:[]).sort((a,b)=>progressRowSortTime(b)-progressRowSortTime(a))[0]||null;
+let progressWriteQueue=Promise.resolve();
+const persistRemote=stateToSave=>{
+  const nextState=stateToSave||remoteState;
+  if(!supabaseClient||!currentUser||!nextState)return Promise.resolve(nextState);
+  const userId=currentUser.id;
+  const sessionVersion=progressSessionVersion;
+  const requestedState=normalizeFinalState(enforceExplicitKtb14Read(nextState));
+  const write=async()=>{
+    if(sessionVersion!==progressSessionVersion||currentUser?.id!==userId){
+      throw new Error('Se descartó una escritura perteneciente a otra sesión.');
+    }
+    const {data:currentRow,error:currentError}=await supabaseClient
+      .from('expedient_progress')
+      .select('state')
+      .eq('user_id',userId)
+      .single();
+    if(currentError)throw currentError;
+    const serverRead=Array.isArray(currentRow?.state?.read)?currentRow.state.read:[];
+    const requestedRead=Array.isArray(requestedState.read)?requestedState.read:[];
+    const stateToPersist=normalizeFinalState({
+      ...requestedState,
+      read:[...new Set([...serverRead,...requestedRead])]
+    });
+    const {data,error}=await supabaseClient
+      .from('expedient_progress')
+      .upsert({user_id:userId,state:stateToPersist,updated_at:new Date().toISOString()},{onConflict:'user_id'})
+      .select('state,updated_at')
+      .single();
+    if(error){
+      console.error('No se pudo guardar el progreso remoto.',error);
+      throw error;
+    }
+    const savedState=normalizeFinalState({...emptyProgressState(),...(data?.state||{})});
+    const expectedRead=Array.isArray(stateToPersist.read)?stateToPersist.read:[];
+    const savedRead=Array.isArray(savedState.read)?savedState.read:[];
+    if(!expectedRead.every(id=>savedRead.includes(id))){
+      throw new Error('Supabase no devolvió todos los documentos confirmados.');
+    }
+    return savedState;
+  };
+  const pending=progressWriteQueue.then(write,write);
+  progressWriteQueue=pending.then(()=>undefined,()=>undefined);
+  return pending;
+};
+const supportedActivityEventTypes=new Set(['login','logout','document_confirmed','comic_page_read','supplementary_file_consulted','expedient_reset']);
+const normalizeActivityRecord=(eventType,details={})=>supportedActivityEventTypes.has(eventType)
+  ?{eventType,details}
+  :{eventType:'document_confirmed',details:{...details,activity_kind:eventType}};
 const recordActivity=async(eventType,documentId=null,details={})=>{
   if(!currentUser)return;
   try{
     const client=await getSupabase();
+    const activity=normalizeActivityRecord(eventType,details);
     const {data,error}=await client.from('expedient_activity_log').insert({
       user_id:currentUser.id,
-      event_type:eventType,
+      event_type:activity.eventType,
       document_id:documentId,
-      details
+      details:activity.details
     }).select('id').single();
     if(error)throw error;
     const canNotify=(eventType==='document_confirmed'&&documentId!=='ALBERTO')||(eventType==='supplementary_file_consulted'&&documentId==='FINAL-01');
@@ -93,10 +221,127 @@ const recordActivity=async(eventType,documentId=null,details={})=>{
     console.warn('No se pudo registrar la actividad del expediente.',error);
   }
 };
-const patchState=changes=>{if(remoteState){remoteState={...remoteState,...changes};return persistRemote()}const state={...localState(),...changes};localStorage.setItem('kizuna-read',JSON.stringify(state.read));localStorage.setItem('kizuna-mail-read',String(state.mailRead));localStorage.setItem('kizuna-final-file-seen',String(state.finalFileSeen));localStorage.setItem('kizuna-complete',String(state.completed));localStorage.setItem('kizuna-final-flow-stage',state.finalFlowStage||'');localStorage.setItem('kizuna-comic-read-pages',JSON.stringify(state.comicReadPages||[]));localStorage.setItem('kizuna-legal-accepted',String(Boolean(state.legalAccepted)));if(state.legalAcceptedAt)localStorage.setItem('kizuna-legal-accepted-at',state.legalAcceptedAt);else localStorage.removeItem('kizuna-legal-accepted-at');localStorage.setItem('kizuna-legal-version',String(state.legalVersion||1));localStorage.setItem('kizuna-loading-seen',String(Boolean(state.loadingSeen)));localStorage.setItem('kizuna-onboarding-completed',String(Boolean(state.onboardingCompleted)));if(state.onboardingCompletedAt)localStorage.setItem('kizuna-onboarding-completed-at',state.onboardingCompletedAt);else localStorage.removeItem('kizuna-onboarding-completed-at');localStorage.setItem('kizuna-onboarding-version',String(state.onboardingVersion||1));localStorage.setItem('kizuna-seen-unlocks',JSON.stringify(state.seenUnlocks||[]));return Promise.resolve()};
+const handleRecipientExit=async()=>{
+  const button=document.querySelector('#exit');
+  if(button){
+    button.disabled=true;
+    button.textContent='Cerrando sesión…';
+  }
+  try{
+    await progressWriteQueue;
+    await recordActivity('logout',null,{source:'private_access'});
+    const client=await getSupabase();
+    const {error}=await client.auth.signOut({scope:'local'});
+    if(error)throw error;
+    progressSessionVersion+=1;
+    currentUser=null;
+    remoteState=null;
+    progressHydrated=false;
+    location.replace('../index.html');
+  }catch(error){
+    console.error('No se pudo cerrar la sesión privada.',error);
+    if(button){
+      button.disabled=false;
+      button.textContent='Reintentar cierre';
+    }
+  }
+};
+const rememberAuthoritativeRead=state=>{
+  authoritativeRead=[...new Set(Array.isArray(state&&state.read)?state.read:[])].filter(Boolean);
+  return state;
+};
+const withKtb14ReadMutation=action=>{
+  const previous=allowKtb14ReadMutation;
+  allowKtb14ReadMutation=true;
+  try{return action()}finally{allowKtb14ReadMutation=previous}
+};
+const sanitizeReadChange=changes=>{
+  if(!changes||!Object.prototype.hasOwnProperty.call(changes,'read'))return changes;
+  const requested=[...new Set(Array.isArray(changes.read)?changes.read:[])].filter(Boolean);
+  const current=[...new Set(Array.isArray(authoritativeRead)?authoritativeRead:(remoteState&&Array.isArray(remoteState.read)?remoteState.read:(!currentUser&&Array.isArray(getState().read)?getState().read:[])))].filter(Boolean);
+  if(!current.includes('KTB-014')&&requested.includes('KTB-014')&&!allowKtb14ReadMutation){
+    console.warn('Lectura automática de KTB-014 bloqueada: requiere confirmación explícita.');
+    return {
+      ...changes,
+      read:requested.filter(id=>id!=='KTB-014'&&id!=='FINAL-01'),
+      completed:false,
+      finalFlowStage:'',
+      finalAlertShown:false,
+      finalFileSeen:false
+    };
+  }
+  return {...changes,read:requested};
+};
+const patchState=changes=>{
+  const hadRead=changes&&Object.prototype.hasOwnProperty.call(changes,'read');
+  changes=sanitizeReadChange(changes);
+  if(currentUser&&(!progressHydrated||!remoteState)){
+    console.warn('Se ha ignorado una escritura hasta terminar de recuperar el progreso de Supabase.');
+    return Promise.resolve(remoteState||emptyProgressState());
+  }
+  if(remoteState){
+    const previousState=remoteState;
+    const previousAuthoritativeRead=Array.isArray(authoritativeRead)?[...authoritativeRead]:null;
+    const nextState=normalizeFinalState({...remoteState,...changes});
+    remoteState=nextState;
+    if(hadRead)rememberAuthoritativeRead(nextState);
+    return persistRemote(nextState).then(savedState=>{
+      if(remoteState===nextState){
+        remoteState=rememberAuthoritativeRead(savedState);
+      }
+      return savedState;
+    }).catch(error=>{
+      if(remoteState===nextState){
+        remoteState=previousState;
+        authoritativeRead=previousAuthoritativeRead;
+      }
+      throw error;
+    });
+  }
+  const state=normalizeFinalState({...transientState(),...changes});
+  if(hadRead)rememberAuthoritativeRead(state);
+  transientProgressState=state;
+  return Promise.resolve(state);
+};
 const save=items=>patchState({read:items});
 const getSupabase=async()=>{if(supabaseClient)return supabaseClient;if(!window.supabase){if(!supabaseScript){supabaseScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)})}await supabaseScript}supabaseClient=window.supabase.createClient(supabaseUrl,supabaseKey);return supabaseClient};
-const loadRemoteProgress=async user=>{currentUser=user;const client=await getSupabase();const [{data,error},{data:profile,error:profileError}]=await Promise.all([client.from('expedient_progress').select('state').eq('user_id',user.id).maybeSingle(),client.from('expedient_profiles').select('display_name,email,is_active').eq('id',user.id).maybeSingle()]);if(error)throw error;if(profileError)console.warn('No se pudo leer el nombre del perfil.',profileError);if(profile?.is_active===false){await client.auth.signOut();throw new Error('Este acceso ha sido desactivado por la División de Archivos Temporales.')}currentDisplayName=profile?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Destinatario autorizado';updateRecipientName();if(data?.state){remoteState={read:[],mailRead:0,finalFileSeen:false,completed:false,finalFlowStage:'',comicReadPages:[],legalAccepted:false,legalAcceptedAt:null,legalVersion:1,loadingSeen:false,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:1,seenUnlocks:[],...data.state};return}remoteState=localState();await persistRemote()};
+const loadRemoteProgress=async user=>{
+  const sessionVersion=++progressSessionVersion;
+  currentUser=user;
+  progressHydrated=false;
+  remoteState=null;
+  transientProgressState=null;
+  authoritativeRead=null;
+  clearStaleFinalFlowDom();
+  const client=await getSupabase();
+  const [{data:progressRow,error},{data:profile,error:profileError}]=await Promise.all([
+    client.from('expedient_progress').select('state,updated_at').eq('user_id',user.id).maybeSingle(),
+    client.from('expedient_profiles').select('display_name,email,is_active').eq('id',user.id).maybeSingle()
+  ]);
+  if(error)throw error;
+  if(profileError)console.warn('No se pudo leer el nombre del perfil.',profileError);
+  if(sessionVersion!==progressSessionVersion||currentUser?.id!==user.id){
+    throw new Error('La sesión cambió mientras se recuperaba el progreso.');
+  }
+  if(profile?.is_active===false){
+    await client.auth.signOut();
+    throw new Error('Este acceso ha sido desactivado por la División de Archivos Temporales.');
+  }
+  if(!progressRow){
+    currentUser=null;
+    throw new Error('Supabase no ha devuelto el progreso del usuario. Ejecuta supabase-progress-rls.sql antes de continuar.');
+  }
+  currentDisplayName=profile?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Destinatario autorizado';
+  updateRecipientName();
+  remoteState=rememberAuthoritativeRead(normalizeFinalState({...emptyProgressState(),...(progressRow.state||{})}));
+  progressHydrated=true;
+  clearStaleFinalFlowDom();
+  const databaseRead=Array.isArray(progressRow.state?.read)?progressRow.state.read:[];
+  if(databaseRead.some(id=>!remoteState.read.includes(id))){
+    throw new Error('El resumen local no coincide con las lecturas devueltas por Supabase.');
+  }
+  return remoteState;
+};
 const recordComicPage=async page=>{
   const viewed=Array.isArray(getState().comicReadPages)?getState().comicReadPages:[];
   if(viewed.includes(page))return;
@@ -105,8 +350,29 @@ const recordComicPage=async page=>{
   await recordActivity('comic_page_read','AC-01',{read:comicReadPages.length,total:11,page});
 };
 const markFinalFileConsulted=async source=>{
-  if(!getState().finalFileSeen)await recordActivity('supplementary_file_consulted','FINAL-01',{source});
-  patchState({finalFileSeen:true});
+  const done=read();
+  if(done.includes('FINAL-01')){
+    await patchState({completed:true,finalFlowStage:'closed',finalFileSeen:true,finalAlertShown:true});
+    if(!read().includes('FINAL-01'))throw new Error('Supabase no confirmó la lectura de FINAL-01.');
+    return;
+  }
+  await patchState({
+    read:[...new Set([...done,'FINAL-01'])],
+    completed:true,
+    finalFlowStage:'closed',
+    finalFileSeen:true,
+    finalAlertShown:true,
+    // Un nuevo cierre abre un nuevo ciclo para la carta de Alberto. Haber
+    // respondido en una ejecución anterior no puede bloquear esta decisión.
+    albertoMessageRead:false,
+    albertoResponseAccepted:false,
+    albertoResponse:null,
+    albertoRespondedAt:null,
+    acceptanceEmailSentAt:null,
+    acceptanceEmailId:null
+  });
+  if(!read().includes('FINAL-01'))throw new Error('Supabase no confirmó la lectura de FINAL-01.');
+  await recordActivity('supplementary_file_consulted','FINAL-01',{source,closure_resumed:true});
 };
 const originalOpenComicViewer=openComicViewer;
 openComicViewer=page=>{
@@ -114,19 +380,11 @@ openComicViewer=page=>{
   if(available)void recordComicPage(Math.min(Math.max(1,page),available));
   return originalOpenComicViewer(page);
 };
-const originalOpenFinalLocatedFile=openFinalLocatedFile;
-openFinalLocatedFile=()=>{
-  if(!getState().finalFileSeen)void markFinalFileConsulted('direct_access');
-  return originalOpenFinalLocatedFile();
-};
 const isFolder=id=>id.startsWith('AR-');const fileFolder=id=>Object.keys(folders).find(key=>folders[key].files.some(file=>file.id===id));
-const nativeGetItem=Storage.prototype.getItem,nativeSetItem=Storage.prototype.setItem;
-Storage.prototype.getItem=function(key){if(this===localStorage&&remoteState&&key==='kizuna-read')return JSON.stringify(remoteState.read||[]);if(this===localStorage&&remoteState&&key==='kizuna-mail-read')return String(remoteState.mailRead||0);if(this===localStorage&&remoteState&&key==='kizuna-final-file-seen')return String(Boolean(remoteState.finalFileSeen));if(this===localStorage&&remoteState&&key==='kizuna-complete')return String(Boolean(remoteState.completed));return nativeGetItem.call(this,key)};
-Storage.prototype.setItem=function(key,value){if(this===localStorage&&remoteState&&key==='kizuna-read'){patchState({read:JSON.parse(value||'[]')});return}if(this===localStorage&&remoteState&&key==='kizuna-mail-read'){patchState({mailRead:Number(value||0)});return}if(this===localStorage&&remoteState&&key==='kizuna-final-file-seen'){patchState({finalFileSeen:value==='true'});return}if(this===localStorage&&remoteState&&key==='kizuna-complete'){if(value==='false')patchState({completed:false});return}return nativeSetItem.call(this,key,value)};
 setTimeout(()=>{
   // Sustituye el acceso local por la identidad real de Supabase cuando el
   // resto de la interfaz ya se ha inicializado.
-  document.querySelector('#access-form').onsubmit=async event=>{
+  const handleAccessSubmit=async event=>{
     event.preventDefault();
     const email=document.querySelector('#username').value.trim();
     const password=document.querySelector('#password').value;
@@ -137,17 +395,22 @@ setTimeout(()=>{
       const client=await getSupabase();
        const {data,error}=await client.auth.signInWithPassword({email,password});
        if(error)throw error;
-       await loadRemoteProgress(data.user);
+       const loadedProgress=await loadRemoteProgress(data.user);
        await recordActivity('login',null,{source:'private_access'});
        message.textContent='';
-      openDashboard();
+      openDashboard(loadedProgress);
     }catch(error){message.textContent='No se han podido verificar las credenciales de acceso.';console.error(error)}finally{submit.disabled=false}
   };
-  document.querySelector('#exit').onclick=async()=>{try{await recordActivity('logout',null,{source:'private_access'});if(supabaseClient)await supabaseClient.auth.signOut()}finally{currentUser=null;remoteState=null;location.href='../index.html'}};
   let finalSequenceActive=false,finalPopupPending=false;
+  function discardStaleFinalFlowUi(){
+    if(finalClosureAuthorized())return;
+    finalSequenceActive=false;finalPopupPending=false;
+    clearTimeout(pendingFinalAlertTimer);pendingFinalAlertTimer=0;
+    clearStaleFinalFlowDom();
+  }
   const originalStartFinale=startFinale,originalFinalAlert=showFinalFileAlert;
-  startFinale=(...args)=>{finalSequenceActive=true;finalPopupPending=true;return originalStartFinale(...args)};
-  showFinalFileAlert=()=>{if(finalSequenceActive||finalPopupPending)return;return originalFinalAlert()};
+  startFinale=(...args)=>{if(!finalClosureAuthorized())return;finalSequenceActive=true;finalPopupPending=true;return originalStartFinale(...args)};
+  showFinalFileAlert=()=>{if(!finalClosureAuthorized()||finalSequenceActive||finalPopupPending)return;return originalFinalAlert()};
   viewer.addEventListener('close',()=>{finalPopupPending=false});
   const showFinalExitWarning=()=>{
     document.querySelector('#final-flow-exit-warning')?.remove();
@@ -161,27 +424,31 @@ setTimeout(()=>{
     warning.querySelector('[data-final-stay]').onclick=()=>warning.remove();
     warning.querySelector('[data-final-leave]').onclick=()=>{warning.remove();finalSequenceActive=false;finalPopupPending=false;viewer.close();render()};
   };
-  readerCloseButton.onclick=async()=>{if(viewer.classList.contains('is-reader-fullscreen')||document.fullscreenElement===viewer){await exitReaderFullscreen();return}if(finalFlowPending()&&active==='KTB-014'){showFinalExitWarning();return}viewer.close()};
+  const handleReaderClose=async()=>{if(viewer.classList.contains('is-reader-fullscreen')||document.fullscreenElement===viewer){await exitReaderFullscreen();return}if(finalFlowPending()&&active==='KTB-014'){showFinalExitWarning();return}viewer.close()};
   window.addEventListener('beforeunload',event=>{if(!finalFlowPending())return;event.preventDefault();event.returnValue=''});
   const openGuaranteedFinalAlert=()=>{
+    if(!finalClosureAuthorized()){discardStaleFinalFlowUi();return}
     if(getState().finalAlertShown)return;
     patchState({finalAlertShown:true});
-    createFinalDiscoveryAlert(async()=>{await markFinalFileConsulted('final_alert');openFinalLocatedFile()});
+    createFinalDiscoveryAlert(openFinalLocatedFile);
   };
   const originalShowFinaleMessage=showFinaleMessage;
   showFinaleMessage=()=>{
+    if(!finalClosureAuthorized()){discardStaleFinalFlowUi();return}
     originalShowFinaleMessage();
     if(finalVerificationButton.dataset.stage==='complete')finalVerificationButton.onclick=()=>{
       finalVerificationButton.hidden=true;
       finalVerificationButton.dataset.ready='false';
       finalSequenceActive=false;finalPopupPending=false;
       viewer.close();
-      patchState({completed:true,finalFlowStage:'closed',finalFileSeen:false});
+      patchState({completed:false,finalFlowStage:'interrupted',finalAlertShown:true,finalFileSeen:false});
       setTimeout(()=>{render();openGuaranteedFinalAlert()},180);
     };
   };
-  openDashboard=()=>{
-    const done=read(),state=getState(),consulted=sequence.filter(id=>done.includes(id)),total=sequence.length;
+  openDashboard=loadedProgress=>{
+    const state=normalizeFinalState(loadedProgress||remoteState||emptyProgressState());
+    const done=Array.isArray(state.read)?[...state.read]:[];
+    const consulted=sequence.filter(id=>done.includes(id)),total=sequence.length;
     const completed=finalFlowClosed();
     const pendingClosure=finalFlowPending();
     const reviewed=completed?total:consulted.length;
@@ -232,18 +499,18 @@ setTimeout(()=>{
     const schedule=(delay,action)=>timers.push(setTimeout(()=>{if(!finished)action()},delay));
     const showCompletion=()=>{
       if(finished)return;
-      finished=true;timers.forEach(clearTimeout);setProgress(100);patchState({loadingSeen:true});
+      finished=true;timers.forEach(clearTimeout);setProgress(100);
       live.hidden=true;caseBlock.hidden=true;show(recipient);show(summary);show(closing);show(routing);
       continueButton.innerHTML=`${completed?'Consultar expediente archivado':pendingClosure?'Continuar cierre':reviewed?'Continuar expediente':'Iniciar consulta'} <b>→</b>`;
       continueButton.hidden=false;skip.hidden=true;
     };
     const advance=()=>{
       loading.hidden=true;
-      if(getState().legalAccepted){gate.hidden=true;dash.hidden=false;render();maybeStartExpedientTour()}
+      if(getState().legalAccepted){gate.hidden=true;dash.hidden=false;render({focusNext:true});maybeStartExpedientTour()}
       else{dash.hidden=true;gate.hidden=false}
     };
     continueButton.onclick=advance;
-    skip.hidden=!state.loadingSeen;
+    skip.hidden=false;
     skip.onclick=showCompletion;
     masterProgress.style.width='0';
     schedule(100,()=>setProgress(12));
@@ -258,13 +525,42 @@ setTimeout(()=>{
     schedule(5150,()=>{show(routing);setProgress(98)});
     schedule(5700,showCompletion);
   };
-  mark.onclick=()=>{
-    // El avance visual nunca debe depender de una escritura auxiliar en Supabase.
-    // Conservamos el identificador porque una actualización remota puede volver a
-    // renderizar la interfaz mientras se registra la actividad.
-    const id=active,done=read(),alreadyRead=done.includes(id);
-    if(!alreadyRead)queueCollectionAdvance(id,[...done,id]);
-    if(!alreadyRead){done.push(id);void Promise.resolve(save(done)).catch(error=>console.warn('No se pudo sincronizar la lectura.',error))}
+  mark.onclick=async()=>{
+    // La interfaz solo avanza cuando Supabase confirma que el documento forma
+    // parte de state.read para el usuario autenticado.
+    const id=active,done=[...read()],alreadyRead=done.includes(id);
+    if(id==='FINAL-01'){
+      if(alreadyRead)return;
+      mark.disabled=true;
+      mark.textContent='Registrando lectura…';
+      try{
+        await showFinalPublicTransition();
+      }catch(error){
+        console.error('No se pudo registrar la lectura de FINAL-01.',error);
+        mark.disabled=false;
+        mark.textContent='Error al guardar · Reintentar';
+      }
+      return;
+    }
+    if(!alreadyRead){
+      const nextRead=[...done,id];
+      mark.disabled=true;
+      mark.textContent='Guardando en Supabase…';
+      try{
+        const savedState=await (id==='KTB-014'?withKtb14ReadMutation(()=>save(nextRead)):save(nextRead));
+        if(!Array.isArray(savedState?.read)||!savedState.read.includes(id)){
+          throw new Error(`Supabase no confirmó la lectura de ${id}.`);
+        }
+        queueCollectionAdvance(id,nextRead);
+      }catch(error){
+        console.error('No se pudo sincronizar la lectura.',error);
+        mark.disabled=false;
+        mark.textContent='Error al guardar · Reintentar';
+        return;
+      }
+      mark.disabled=false;
+      mark.textContent='Lectura confirmada';
+    }
     if(alreadyRead){viewer.close();render();return}
     if(id.startsWith('AR'))void recordActivity('document_confirmed',id,{source:'recovered_file'}).catch(error=>console.warn('No se pudo registrar la actividad.',error));
     if(id.startsWith('AR03-')){if(ar03Complete())openAr03();else if(id==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(id.startsWith('AR03-C-')?'cities':'temples');return}
@@ -280,6 +576,18 @@ setTimeout(()=>{
   };
 },0);
 const progressKeys=[...Array.from({length:14},(_,i)=>`KTB-${String(i+1).padStart(3,'0')}`),...Object.values(folders).flatMap(folder=>folder.files.map(file=>file.id)),'AR03-CARTA',...ar03Cities.map((_,i)=>`AR03-C-${i}`),...ar03Temples.map((_,i)=>`AR03-T-${i}`),...ar01Tickets.map(ticket=>ticket.id),'AR06-PROTOCOL'];
+const adminDocumentGroups=[
+  {title:'Secuencia principal KTB',note:'Documentos obligatorios del expediente en orden de consulta.',ids:[...Array.from({length:6},(_,i)=>`KTB-${String(i+1).padStart(3,'0')}`)]},
+  {title:'AR-01 · Documentación operativa',note:'Registros internos y billetes recuperados antes de KTB-007.',ids:[...folders['AR-01'].files.map(file=>file.id),...ar01Tickets.map(ticket=>ticket.id),'KTB-007']},
+  {title:'AR-02 · Planificación de la expedición',note:'Itinerario y mapa vinculados a KTB-008.',ids:[...folders['AR-02'].files.map(file=>file.id),'KTB-008']},
+  {title:'AR-03 · Registros geográficos',note:'Carta, ciudades y templos vinculados a KTB-009.',ids:['AR03-CARTA',...ar03Cities.map((_,i)=>`AR03-C-${i}`),...ar03Temples.map((_,i)=>`AR03-T-${i}`),'KTB-009']},
+  {title:'AR-04 · Archivos culturales',note:'Guías culturales vinculadas a KTB-010.',ids:[...folders['AR-04'].files.map(file=>file.id),'KTB-010']},
+  {title:'AR-05 · Archivos personales',note:'Cartas personales vinculadas a KTB-011.',ids:[...folders['AR-05'].files.map(file=>file.id),'KTB-011']},
+  {title:'AR-06 · Datos recuperados del dispositivo',note:'Protocolo y registros del dispositivo vinculados a KTB-012.',ids:['AR06-PROTOCOL',...folders['AR-06'].files.map(file=>file.id),'KTB-012']},
+  {title:'Cierre de secuencia',note:'Últimos documentos antes de la verificación final.',ids:['KTB-013','KTB-014']},
+  {title:'Documento no catalogado',note:'FINAL-01 solo puede quedar leído si KTB-014 está confirmado.',ids:['FINAL-01'],final:true}
+];
+const adminProgressKeys=[...adminDocumentGroups.flatMap(group=>group.ids)];
 const name=id=>isFolder(id)?`Carpeta ${id} · ${folderDetails[id][0]}`:`Documento ${id}`;
 const folderCompleted=(id,done=read())=>{if(!isFolder(id))return false;const update=id==='AR-03'?'KTB-009':folders[id]?.update;return Boolean(update&&done.includes(update))};
 const folderCardProgress=(id,done=read())=>{
@@ -315,15 +623,24 @@ const queueCollectionAdvance=(id,done)=>{
     return;
   }
   const match=id.match(/^AR03-([CT])-(\d+)$/);
-  if(!match)return;
-  const type=match[1]==='C'?'cities':'temples',items=type==='cities'?ar03Cities:ar03Temples,current=Number(match[2]);
-  const following=items.findIndex((_,index)=>index>current&&!done.includes(`AR03-${match[1]}-${index}`));
-  pendingCollectionAdvance={collection:type,selector:following>=0?`[data-index="${following}"]`:'.ticket-batch-summary'};
+  if(match){
+    const type=match[1]==='C'?'cities':'temples',items=type==='cities'?ar03Cities:ar03Temples,current=Number(match[2]);
+    const following=items.findIndex((_,index)=>index>current&&!done.includes(`AR03-${match[1]}-${index}`));
+    pendingCollectionAdvance={collection:type,selector:following>=0?`[data-index="${following}"]`:'.ticket-batch-summary'};
+    return;
+  }
+  const folderId=fileFolder(id);
+  if(!folderId)return;
+  const files=folders[folderId].files,current=files.findIndex(file=>file.id===id);
+  const following=files.findIndex((file,index)=>index>current&&!done.includes(file.id));
+  pendingCollectionAdvance={
+    collection:`folder:${folderId}`,
+    selector:following>=0?`[data-file="${files[following].id}"]`:'.folder-index footer'
+  };
 };
 const revealCollectionAdvance=collection=>{
   if(!pendingCollectionAdvance||pendingCollectionAdvance.collection!==collection)return;
   const pending=pendingCollectionAdvance;pendingCollectionAdvance=null;
-  if(!window.matchMedia('(max-width: 1024px)').matches)return;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     const target=document.querySelector(`#doc-body ${pending.selector}`);if(!target)return;
     target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center',inline:'nearest'});
@@ -474,7 +791,14 @@ const syncReaderChrome=()=>{
   const comicImage=document.querySelector('#doc-body>.image-inspector img[src*="/AC-01/Pagina-"]');
   const comicPage=Number(document.querySelector('#doc-body')?.dataset.comicPage||0);
   const comicPages=Number(document.querySelector('#doc-body')?.dataset.comicPages||0);
-  if(active!==readerChromeActive||mark.style.display!=='none'){readerCanConfirm=mark.style.display!=='none';readerChromeActive=active}
+  const finalFileDocument=active==='FINAL-01';
+  if(finalFileDocument){
+    readerCanConfirm=true;
+    readerChromeActive=active;
+  }else if(active!==readerChromeActive||mark.style.display!=='none'){
+    readerCanConfirm=mark.style.display!=='none';
+    readerChromeActive=active;
+  }
   readerReturnToFolder=ar01Tickets.some(ticket=>ticket.id===active)?'tickets':active==='AR01-BILLETES'?'AR-01':active==='AR03-CARTA'||active.startsWith('AR03-T-')?'temples':active.startsWith('AR03-C-')?'cities':active==='AR03-cities'||active==='AR03-temples'?'AR-03':folders[active]?null:fileFolder(active)||null;
   const folderView=Boolean(folders[active]||active==='AR-03'||active==='AR01-BILLETES'||active==='AR03-cities'||active==='AR03-temples');
   readerContent.classList.toggle('has-image',hasImage);
@@ -490,11 +814,72 @@ const syncReaderChrome=()=>{
   readerBackExpedient.hidden=finalVerificationButton.dataset.locked==='true';
   const alreadyRead=Boolean(active&&read().includes(active));
   if(readerCanConfirm&&!alreadyRead)mark.textContent='Confirmar lectura';
+  mark.hidden=!(readerCanConfirm&&!alreadyRead);
   mark.style.display=readerCanConfirm&&!alreadyRead?'inline-block':'none';
+  if(finalFileDocument){
+    mark.disabled=false;
+    mark.dataset.documentId='FINAL-01';
+    mark.setAttribute('aria-label',alreadyRead?'Lectura de FINAL-01 confirmada':'Confirmar lectura de FINAL-01');
+  }else{
+    delete mark.dataset.documentId;
+    mark.removeAttribute('aria-label');
+  }
   readerBackFolder.hidden=!readerReturnToFolder;
   readerStatus.classList.toggle('is-confirmed',readerCanConfirm&&alreadyRead);
   readerStatus.textContent=!readerCanConfirm?'CONSULTA INTERNA':alreadyRead?'LECTURA CONFIRMADA':'PENDIENTE DE CONFIRMACIÓN';
 };
+const showFinalPublicTransition=async()=>{
+  document.querySelector('#final-public-transition')?.remove();
+  const finalRegistration=finalFileRead()?Promise.resolve():markFinalFileConsulted('confirm_button');
+  const transition=document.createElement('section');
+  transition.id='final-public-transition';
+  transition.className='final-public-transition';
+  transition.setAttribute('role','dialog');
+  transition.setAttribute('aria-modal','true');
+  transition.setAttribute('aria-labelledby','final-public-transition-title');
+  transition.innerHTML=`<article class="final-public-transition-card"><p>PROTOCOLO DE CIERRE · REANUDADO</p><h2 id="final-public-transition-title">Cierre<br><em>restablecido.</em></h2><ol aria-live="polite"><li>Documento no catalogado examinado y registrado fuera del inventario.</li><li>El documento se ha enviado a su buzón y podrá volver a leerlo desde allí.</li><li>Bloqueo de cierre resuelto. Expediente archivado.</li><li>Redirigiendo a la web pública…</li></ol><div class="final-public-transition-progress" aria-hidden="true"><i></i></div><p class="final-public-transition-note">La sesión permanecerá activa.</p><button type="button">Ir ahora a la web pública <span>→</span></button></article>`;
+  viewer.appendChild(transition);
+  requestAnimationFrame(()=>transition.classList.add('is-visible'));
+  let redirected=false;
+  const redirect=async()=>{
+    if(redirected)return;
+    redirected=true;
+    try{
+      // Este guardado define un nuevo ciclo de decisión. No navegamos hasta
+      // que Supabase haya eliminado cualquier respuesta del cierre anterior.
+      await finalRegistration;
+    }catch(error){
+      console.warn('No se pudo completar el registro de FINAL-01 antes de salir.',error);
+      redirected=false;
+      const button=transition.querySelector('button');
+      button.disabled=false;
+      button.innerHTML='Reintentar salida a la web pública <span>→</span>';
+      return;
+    }
+    location.replace('../index.html');
+  };
+  transition.querySelector('button').onclick=()=>{
+    const button=transition.querySelector('button');
+    button.disabled=true;
+    button.textContent='Guardando cierre…';
+    void redirect();
+  };
+  setTimeout(redirect,10000);
+};
+// FINAL-01 tiene un cierre propio. Lo interceptamos antes que los manejadores
+// genéricos y los microeventos para que ninguna capa pueda cancelar su salida.
+mark.addEventListener('click',event=>{
+  if(active!=='FINAL-01'||finalFileRead())return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  mark.disabled=true;
+  mark.textContent='Registrando lectura…';
+  void showFinalPublicTransition().catch(error=>{
+    console.error('No se pudo completar la salida de FINAL-01.',error);
+    mark.disabled=false;
+    mark.textContent='Confirmar lectura';
+  });
+},true);
 const enhanceDocumentImages=()=>{
   document.querySelectorAll('#doc-body>img:not([data-inspected])').forEach(img=>{
     img.dataset.inspected='true';
@@ -543,9 +928,9 @@ const documentImageObserver=new MutationObserver(()=>enhanceDocumentImages());do
 const allowed=id=>{const index=sequence.indexOf(id);return index===0||read().includes(sequence[index-1])};const roman=value=>{const table=[[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];let result='';for(const [number,symbol] of table){while(value>=number){result+=symbol;value-=number}}return result};
 const mailboxButton=document.createElement('button'),mailbox=document.createElement('aside'),publicReturnButton=document.createElement('button');mailboxButton.id='mailbox-toggle';mailboxButton.type='button';mailboxButton.textContent='Buzón';mailboxButton.style.cssText='border:1px solid #7e1b19;background:#f6f0e2;color:#7e1b19;padding:10px;font:9px var(--mono);cursor:pointer';mailbox.id='mailbox';mailbox.style.cssText='display:none;position:fixed;right:5vw;top:82px;z-index:30;width:min(450px,calc(100vw - 32px));max-height:72vh;overflow:auto;background:#f6f0e2;color:#202726;border:1px solid #8b887d;box-shadow:12px 14px 30px #0004;padding:22px';publicReturnButton.id='return-public-site';publicReturnButton.type='button';publicReturnButton.textContent='Volver a la web pública';publicReturnButton.onclick=()=>{location.href='../index.html'};const headerActions=document.querySelector('.header-actions');headerActions?.prepend(mailboxButton);headerActions?.insertBefore(publicReturnButton,document.querySelector('#exit'));dash.appendChild(mailbox);
 const mailboxMessages=()=>{const done=read(),items=[];for(let i=1;i<=14;i++){const id=`KTB-${String(i).padStart(3,'0')}`;if(!done.includes(id))continue;items.push({id:id,subject:`Lectura confirmada · ${id}`,body:`La consulta del documento ${id} ha sido registrada correctamente. La secuencia autorizada ha sido actualizada.`,order:i})}if(done.includes('KTB-003'))items.push({id:'AC-01',subject:'Archivo complementario localizado',body:'Durante la reconstrucción del expediente se ha localizado el Archivo Complementario AC-01. Su contenido permanece en proceso de clasificación.',order:3.2});if(done.includes('KTB-006'))items.push({id:'AR-01',subject:'Acceso a Archivo Recuperado 01',body:'La documentación operativa ha quedado disponible para su consulta conforme al protocolo de custodia.',order:6.2});if(done.includes('KTB-011'))items.push({id:'AR-06',subject:'Acceso a datos recuperados',body:'Se ha autorizado la consulta de los datos recuperados del dispositivo asociado al expediente.',order:11.2});if(finalFlowClosed())items.push({id:'KTB-014-FINAL',subject:'Expediente archivado',body:'La consulta ha finalizado. El expediente PROJECT JAPAN ha sido archivado con integridad documental preservada.',order:14.2});if(done.includes('AR01-BILLETES'))items.push({id:'AR01-BILLETES',subject:'Registros de transporte verificados',body:'Todos los billetes recuperados de AR-01 han sido confirmados y archivados.',order:6.5});if(ar03Complete())items.push({id:'AR03',subject:'Registros geográficos completados',body:'Las guías de ciudades y las entradas de templos han sido incorporadas al expediente.',order:8.5});if(finalFlowClosed())items.push({id:'FINAL-01',subject:'ATENCIÓN · Archivo localizado',body:'Se ha localizado un archivo durante la verificación final del expediente. Clasificación: No catalogado. Estado: Pendiente de revisión.',order:100,urgent:true});return items.sort((a,b)=>b.order-a.order)};
-const renderMailbox=()=>{const items=mailboxMessages(),seen=Number(localStorage.getItem('kizuna-mail-read')||0),unread=Math.max(0,items.length-seen);mailboxButton.textContent=`Buzón${unread?` · ${unread}`:''}`;mailbox.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #b4ae9f;padding-bottom:14px"><div><p style="margin:0;color:#7e1b19;font:10px var(--mono);letter-spacing:.1em">SISTEMA DE NOTIFICACIONES</p><h3 style="margin:6px 0 0;font:31px var(--serif)">Buzón del expediente</h3></div><button id="mailbox-close" style="border:0;background:none;font:25px var(--serif);color:#7e1b19;cursor:pointer">×</button></div><p style="font:10px/1.6 var(--mono)">${items.length} comunicaciones registradas · más recientes primero</p>${items.map((item,index)=>`<details style="border-top:1px solid ${item.urgent?'#7e1b19':'#c5bdaa'};padding:13px 0;${item.urgent?'background:#f4dfd5;margin:0 -10px;padding:15px 10px;border-left:4px solid #7e1b19':''}"><summary style="cursor:pointer;list-style:none;font:600 13px var(--serif)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${item.urgent||index<unread?'#7e1b19':'#9a998f'};margin-right:8px"></span>${item.subject}<small style="display:block;margin:5px 0 0 16px;font:9px var(--mono);color:#7e1b19">DIVISIÓN DE ARCHIVOS TEMPORALES · ${item.id}</small></summary><p style="margin:12px 0 0 16px;font:12px/1.65 var(--mono)">${item.body}</p>${item.id==='FINAL-01'?'<button id="final-file-from-mail" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Consultar archivo</button>':''}</details>`).join('')||'<p>No hay comunicaciones registradas.</p>'}`;document.querySelector('#mailbox-close').onclick=()=>mailbox.style.display='none';const finalButton=document.querySelector('#final-file-from-mail');if(finalButton)finalButton.onclick=async()=>{mailbox.style.display='none';await markFinalFileConsulted('mailbox');openFinalLocatedFile()}};
-mailboxButton.onclick=()=>{const opening=mailbox.style.display==='none';if(opening){renderMailbox();mailbox.style.display='block';localStorage.setItem('kizuna-mail-read',mailboxMessages().length);renderMailbox();updateMailboxIndicator()}else mailbox.style.display='none'};
-const updateMailboxIndicator=()=>{const unread=Math.max(0,mailboxMessages().length-Number(localStorage.getItem('kizuna-mail-read')||0));mailboxButton.textContent=`Buzón${unread?` · ${unread} nuevo${unread===1?'':'s'}`:''}`;mailboxButton.style.background=unread?'#7e1b19':'#f6f0e2';mailboxButton.style.color=unread?'#fff':'#7e1b19';mailboxButton.style.boxShadow=unread?'0 0 0 4px #7e1b1930':'none'};
+const renderMailbox=()=>{const items=mailboxMessages(),seen=Number(getState().mailRead||0),unread=Math.max(0,items.length-seen);mailboxButton.textContent=`Buzón${unread?` · ${unread}`:''}`;mailbox.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #b4ae9f;padding-bottom:14px"><div><p style="margin:0;color:#7e1b19;font:10px var(--mono);letter-spacing:.1em">SISTEMA DE NOTIFICACIONES</p><h3 style="margin:6px 0 0;font:31px var(--serif)">Buzón del expediente</h3></div><button id="mailbox-close" style="border:0;background:none;font:25px var(--serif);color:#7e1b19;cursor:pointer">×</button></div><p style="font:10px/1.6 var(--mono)">${items.length} comunicaciones registradas · más recientes primero</p>${items.map((item,index)=>`<details style="border-top:1px solid ${item.urgent?'#7e1b19':'#c5bdaa'};padding:13px 0;${item.urgent?'background:#f4dfd5;margin:0 -10px;padding:15px 10px;border-left:4px solid #7e1b19':''}"><summary style="cursor:pointer;list-style:none;font:600 13px var(--serif)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${item.urgent||index<unread?'#7e1b19':'#9a998f'};margin-right:8px"></span>${item.subject}<small style="display:block;margin:5px 0 0 16px;font:9px var(--mono);color:#7e1b19">DIVISIÓN DE ARCHIVOS TEMPORALES · ${item.id}</small></summary><p style="margin:12px 0 0 16px;font:12px/1.65 var(--mono)">${item.body}</p>${item.id==='FINAL-01'?'<button id="final-file-from-mail" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Consultar archivo</button>':''}</details>`).join('')||'<p>No hay comunicaciones registradas.</p>'}`;document.querySelector('#mailbox-close').onclick=()=>mailbox.style.display='none';const finalButton=document.querySelector('#final-file-from-mail');if(finalButton)finalButton.onclick=()=>{mailbox.style.display='none';openFinalLocatedFile()}};
+mailboxButton.onclick=()=>{const opening=mailbox.style.display==='none';if(opening){renderMailbox();mailbox.style.display='block';patchState({mailRead:mailboxMessages().length}).finally(()=>{renderMailbox();updateMailboxIndicator()})}else mailbox.style.display='none'};
+const updateMailboxIndicator=()=>{const unread=Math.max(0,mailboxMessages().length-Number(getState().mailRead||0));mailboxButton.textContent=`Buzón${unread?` · ${unread} nuevo${unread===1?'':'s'}`:''}`;mailboxButton.style.background=unread?'#7e1b19':'#f6f0e2';mailboxButton.style.color=unread?'#fff':'#7e1b19';mailboxButton.style.boxShadow=unread?'0 0 0 4px #7e1b1930':'none'};
 
 const expedientTourSteps=[
   {selector:'#mailbox-toggle',eyebrow:'COMUNICACIONES',title:'Tu buzón privado',text:'Aquí aparecerán los avisos y registros que la División de Archivos Temporales envíe durante la consulta.'},
@@ -604,15 +989,39 @@ const maybeStartExpedientTour=()=>{clearTimeout(expedientTourTimer);if(!getState
 const privateStyle=document.createElement('style');privateStyle.textContent=`.dashboard>header{position:sticky;top:0;z-index:40;padding:8px 5vw;background:#f6f0e2!important;isolation:isolate;box-shadow:0 1px 0 #b4ae9f}.dashboard>header .access-brand img{width:44px;height:44px}.case-head{position:sticky;top:61px;z-index:30;padding:20px 10vw!important;min-height:140px;align-items:center;background:#e6dac2!important;isolation:isolate;box-shadow:0 8px 16px #8f80661c}.case-head h1{font-size:48px}.case-head .system-line{margin:0 0 8px}.case-head .case-id{margin:7px 0 0;font-size:8px}.case-head dl{gap:28px}.case-list{position:relative;z-index:1;padding-top:34px}.header-actions{display:flex;align-items:center;gap:15px}.header-actions .sync-clock{margin:0}#return-public-site{border-color:#202726;color:#202726}@media(max-width:750px){.case-head{top:61px;padding:17px 7vw!important;min-height:0}.case-head h1{font-size:40px}.case-head dl{margin-top:17px}.header-actions{gap:5px}.header-actions button{padding:8px 6px;font-size:7px}.sync-clock{display:none!important}}`;document.head.appendChild(privateStyle);setInterval(()=>{if(!dash.hidden)updateMailboxIndicator()},600);updateMailboxIndicator();
 const mobileCaseHeaderStyle=document.createElement('style');mobileCaseHeaderStyle.textContent=`@media(max-width:600px){.dashboard{overflow-x:hidden}.dashboard>header{min-height:50px;padding:5px 10px!important;gap:8px}.dashboard>header .access-brand{min-width:0;gap:7px}.dashboard>header .access-brand img{width:34px;height:34px}.dashboard>header .access-brand span{overflow:hidden;font-size:11px;letter-spacing:.12em;text-overflow:ellipsis;white-space:nowrap}.dashboard>header .access-brand small{display:none}.dashboard>header .header-actions{flex:0 0 auto;margin-left:auto;gap:4px!important}.dashboard>header .header-actions button{display:grid;place-items:center;height:38px;min-width:42px;padding:4px 6px!important;line-height:1.15}.dashboard>header #mailbox-toggle{max-width:62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dashboard>header #return-public-site,.dashboard>header #exit{width:44px;font-size:0!important}.dashboard>header #return-public-site::after{content:'WEB';font:7px var(--mono);letter-spacing:.04em}.dashboard>header #exit::after{content:'SALIR';font:7px var(--mono);letter-spacing:.04em}.case-head{top:49px!important}}@media(max-width:360px){.dashboard>header .access-brand span{font-size:9px}.dashboard>header #mailbox-toggle{max-width:54px}.dashboard>header #return-public-site,.dashboard>header #exit{width:40px;min-width:40px}}`;document.head.appendChild(mobileCaseHeaderStyle);
 function createFinalDiscoveryAlert(onOpen){document.querySelector('#final-file-alert')?.remove();const alert=document.createElement('section');alert.id='final-file-alert';alert.className='final-discovery-alert';alert.setAttribute('role','dialog');alert.setAttribute('aria-modal','true');alert.setAttribute('aria-labelledby','final-discovery-title');alert.innerHTML=`<div class="final-discovery-card"><div class="final-discovery-scan" aria-hidden="true"></div><section class="final-discovery-closing" aria-live="polite"><p>VERIFICACIÓN FINAL · ARCHIVO CENTRAL</p><h2>Cerrando<br><em>expediente.</em></h2><div class="final-discovery-progress"><i></i><strong>100 %</strong></div><ol><li>Integridad documental confirmada</li><li>Secuencia temporal archivada</li><li>Comprobando registros residuales…</li></ol></section><section class="final-discovery-result" aria-live="assertive"><header><div><p>INCIDENCIA DURANTE EL CIERRE</p><h2 id="final-discovery-title">Archivo fuera<br><em>de inventario.</em></h2></div><span>FINAL-01</span></header><p>Se ha detectado un registro que no forma parte de la secuencia autorizada del expediente.</p><dl><div><dt>CLASIFICACIÓN</dt><dd>No catalogado</dd></div><div><dt>ORIGEN</dt><dd>No verificado</dd></div><div><dt>RELACIÓN</dt><dd>Desconocida</dd></div><div><dt>ESTADO</dt><dd>Pendiente de revisión</dd></div></dl><div class="final-discovery-seal">NO INCLUIR<br>EN EL EXPEDIENTE</div><footer><p>¿Desea examinar el archivo localizado?</p><button id="final-file-alert-open" type="button">Examinar FINAL-01 <span>→</span></button></footer></section></div>`;document.body.appendChild(alert);const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;setTimeout(()=>alert.classList.add('is-scanning'),reduced?20:700);setTimeout(()=>{alert.classList.add('is-detected');document.querySelector('#final-file-alert-open')?.focus()},reduced?60:2350);document.querySelector('#final-file-alert-open').onclick=async()=>{alert.remove();await onOpen()}}
-function openFinalLocatedFile(){clearFinalFlow();active='FINAL-01';next.style.display='none';mark.style.display='none';document.querySelector('#doc-type').textContent='DIVISIÓN DE ARCHIVOS TEMPORALES / VERIFICACIÓN FINAL';document.querySelector('#doc-title').textContent='Archivo localizado';document.querySelector('#doc-body').innerHTML='<img src="../assets/documents/FINAL-01-email-interno.png" alt="Correo interno recuperado de José" style="display:block;width:100%;height:auto;border:1px solid #8b887d">';if(!viewer.open)viewer.showModal()}
-function showFinalFileAlert(){if(!finalFlowClosed()||getState().finalFileSeen||viewer.open||document.querySelector('#final-file-alert'))return;createFinalDiscoveryAlert(async()=>{await markFinalFileConsulted('final_alert');openFinalLocatedFile()})}
+function openFinalLocatedFile(){clearFinalFlow();active='FINAL-01';next.style.display='none';readerCanConfirm=true;readerChromeActive='';mark.hidden=finalFileRead();mark.style.display=finalFileRead()?'none':'inline-block';mark.disabled=false;mark.textContent='Confirmar lectura';document.querySelector('#doc-type').textContent='DIVISIÓN DE ARCHIVOS TEMPORALES / VERIFICACIÓN FINAL';document.querySelector('#doc-title').textContent='Archivo localizado';document.querySelector('#doc-body').innerHTML='<img src="../assets/documents/FINAL-01-email-interno.png" alt="Correo interno recuperado de José" style="display:block;width:100%;height:auto;border:1px solid #8b887d">';if(!viewer.open)viewer.showModal();syncReaderChrome();requestAnimationFrame(()=>{if(active==='FINAL-01')syncReaderChrome()})}
+function showFinalFileAlert(){if(!finalFlowClosed()||finalFileRead()||viewer.open||document.querySelector('#final-file-alert'))return;createFinalDiscoveryAlert(openFinalLocatedFile)}
+createFinalDiscoveryAlert=function(onOpen){
+  if(!finalClosureAuthorized()){discardStaleFinalFlowUi();return}
+  document.querySelector('#final-file-alert')?.remove();
+  void patchState({completed:false,finalFlowStage:'interrupted',finalAlertShown:true,finalFileSeen:false});
+  const alert=document.createElement('section');
+  alert.id='final-file-alert';alert.className='final-discovery-alert';alert.setAttribute('role','dialog');alert.setAttribute('aria-modal','true');alert.setAttribute('aria-labelledby','final-discovery-title');
+  alert.innerHTML=`<div class="final-discovery-card"><div class="final-discovery-scan" aria-hidden="true"></div><div class="final-discovery-noise" aria-hidden="true"></div><div class="final-discovery-signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><section class="final-discovery-closing" aria-live="polite"><p>VERIFICACIÓN FINAL · ARCHIVO CENTRAL</p><h2>Cerrando<br><em>expediente.</em></h2><div class="final-discovery-progress"><i></i><strong>92 %</strong></div><ol><li>Integridad documental confirmada</li><li>Secuencia temporal preparada para archivo</li><li>Consultando inventario residual…</li></ol><div class="final-discovery-anomaly" aria-hidden="true"><span>SEÑAL INTERRUMPIDA</span><strong>CIERRE<br>INTERRUMPIDO</strong><small>REGISTRO FUERA DE INVENTARIO</small></div></section><section class="final-discovery-result" aria-live="assertive"><header><div><p>CIERRE INTERRUMPIDO · INCIDENCIA FINAL</p><h2 id="final-discovery-title">El expediente<br><em>no puede cerrarse.</em></h2></div><span>FINAL-01</span></header><p>Un registro no catalogado ha interrumpido el protocolo de cierre. Es obligatorio examinarlo y confirmar su lectura antes de poder archivar el expediente.</p><dl><div><dt>CLASIFICACIÓN</dt><dd>No catalogado</dd></div><div><dt>ORIGEN</dt><dd>No verificado</dd></div><div><dt>RELACIÓN</dt><dd>Fuera de inventario</dd></div><div><dt>ESTADO DEL CIERRE</dt><dd>BLOQUEADO</dd></div></dl><div class="final-discovery-seal">CIERRE<br>INTERRUMPIDO</div><footer><p>FINAL-01 requiere revisión para reanudar el Archivo Central.</p><button id="final-file-alert-open" type="button">Examinar incidencia <span>→</span></button></footer></section></div>`;
+  // El protocolo de cierre ya no pertenece al lector. Se presenta sobre el
+  // expediente general y solo vuelve a abrir el visor al examinar FINAL-01.
+  document.body.appendChild(alert);
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(()=>alert.classList.add('is-scanning'),reduced?20:300);
+  setTimeout(()=>{
+    alert.classList.add('is-interrupted');
+    const progressLabel=alert.querySelector('.final-discovery-progress strong');
+    const statusLine=alert.querySelector('.final-discovery-closing li:last-child');
+    if(progressLabel)progressLabel.textContent='ERROR';
+    if(statusLine)statusLine.textContent='Registro fuera de inventario detectado';
+  },reduced?35:1750);
+  setTimeout(()=>alert.classList.add('is-signal-lost'),reduced?45:2550);
+  setTimeout(()=>{alert.classList.add('is-detected');document.querySelector('#final-file-alert-open')?.focus()},reduced?60:3600);
+  document.querySelector('#final-file-alert-open').onclick=async()=>{alert.remove();await onOpen()};
+};
+showFinalFileAlert=function(){if(!finalClosureAuthorized()||getFinalFlowStage()!=='interrupted'||finalFileRead()||viewer.open||document.querySelector('#final-file-alert'))return;createFinalDiscoveryAlert(openFinalLocatedFile)};
 function openDashboard(){access.hidden=true;loading.hidden=false;const log=document.querySelector('#auth-log');log.innerHTML='<p>Comprobando expediente…</p><div style="height:8px;background:#d3c8b4"><i id="auth-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.7s ease"></i></div><p>Sincronizando registros…</p><p>Integridad documental: <strong>100 %</strong></p>';setTimeout(()=>document.querySelector('#auth-progress').style.width='100%',80);setTimeout(()=>{loading.hidden=true;gate.hidden=false},2100)}
 function updateCompletionHeader(done){const head=document.querySelector('.case-head'),old=document.querySelector('#completion-record');if(old)old.remove();head.style.position='';if(!finalFlowClosed()){head.style.setProperty('padding-bottom','20px','important');head.style.minHeight='140px';return}head.style.setProperty('padding-bottom','100px','important');head.style.minHeight='245px';const record=document.createElement('section');record.id='completion-record';record.style.cssText='position:absolute;left:10vw;right:10vw;bottom:18px;border-top:1px solid #9b8870;padding-top:12px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 20px;color:#7e1b19;font:9px/1.65 "DM Mono",monospace;letter-spacing:.03em';record.innerHTML=`<span>PROJECT JAPAN<br><strong style="font-size:11px">✔ FINALIZADO · EXPEDIENTE ARCHIVADO</strong></span><span>DESTINATARIO<br><strong style="font-size:11px">JOSÉ CUADRADO</strong></span><span>FECHA DE ARCHIVO<br><strong style="font-size:11px">${new Date().toLocaleDateString('es-ES')}</strong></span><span>INTEGRIDAD<br><strong style="font-size:11px">100 %</strong></span>`;head.appendChild(record)}
 let pendingFinalAlertTimer=0;
-function render(){
+function render(options={}){
   const done=read(),visible=sequence.filter(id=>!nestedKtb.has(id));
-  const completed=progressKeys.filter(id=>done.includes(id)).length;
-  const integrity=Math.round(completed/progressKeys.length*100);
+  const completed=sequence.filter(id=>done.includes(id)).length;
+  const integrity=finalFlowClosed()?100:Math.round(completed/sequence.length*100);
   const ktbRead=done.filter(id=>id.startsWith('KTB-')).length;
   const level=Math.max(1,ktbRead-5);
   const comicPages=Array.from({length:11},(_,i)=>`KTB-${String(i+4).padStart(3,'0')}`).filter(id=>done.includes(id)).length;
@@ -621,7 +1030,7 @@ function render(){
   const unlockCandidates=visible.filter(id=>allowed(id)&&!done.includes(id)&&!folderCompleted(id,done));
   if(done.includes('KTB-003'))unlockCandidates.push('AC-01');
   const newUnlocks=done.length&&!finalFlowClosed()?unlockCandidates.filter(id=>!seenUnlocks.includes(id)):[];
-  const stageLabels={verification:'PASO 1 DE 3 · VERIFICACIÓN FINAL',summary:'PASO 2 DE 3 · ACTA DE CIERRE',complete:'PASO 3 DE 3 · ARCHIVADO'};
+  const stageLabels={verification:'VERIFICACIÓN FINAL EN CURSO',summary:'VERIFICACIÓN FINAL EN CURSO',complete:'VERIFICACIÓN FINAL EN CURSO',interrupted:'CIERRE BLOQUEADO · FINAL-01 PENDIENTE'};
   const resumeBanner=pending?`<section class="final-flow-resume"><div><p>CIERRE OBLIGATORIO EN CURSO</p><h3>El expediente todavía no está archivado.</h3><span>${stageLabels[stage]||stageLabels.verification}. Continúa desde el punto guardado.</span></div><button type="button" data-final-resume>Continuar cierre →</button></section>`:'';
   const newUnlockNotice=newUnlocks.length?`<section class="new-unlock-notice" role="status" aria-live="polite" aria-atomic="true"><div><p>NUEVO ACCESO AUTORIZADO</p><h3>${newUnlocks.length===1?(isFolder(newUnlocks[0])?'Nueva carpeta recuperada':'Nuevo documento disponible'):`${newUnlocks.length} nuevos registros disponibles`}</h3><span>${newUnlocks.length===1?`${newUnlocks[0]} ya puede consultarse.`:'La secuencia del expediente se ha actualizado.'}</span></div><button type="button" data-unlock-target="${newUnlocks[0]}">Localizar ${isFolder(newUnlocks[0])?'carpeta':'documento'} <span>↓</span></button><button type="button" class="new-unlock-dismiss" aria-label="Cerrar aviso">×</button></section>`:'';
   const supplementary=done.includes('KTB-003')?`<article class="document complementary ${newUnlocks.includes('AC-01')?'is-new-unlock':''}" data-document-id="AC-01">${newUnlocks.includes('AC-01')?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">○ AC-01</span><h3>ARCHIVO COMPLEMENTARIO<br>AC-01</h3><p><strong>Estado:</strong> Recuperado<br><strong>Tipo:</strong> Registro ilustrado<br><strong>Origen:</strong> No catalogado<br><strong>Relación:</strong> Pendiente de clasificación<br><strong>Páginas recuperadas:</strong> ${comicPages} / 11</p><button data-id="AC-01">CONSULTAR</button></article>`:'';
@@ -646,10 +1055,30 @@ function render(){
     document.querySelector('.new-unlock-dismiss')?.addEventListener('click',event=>event.currentTarget.closest('.new-unlock-notice')?.remove());
   }
   document.querySelectorAll('[data-final-resume]').forEach(button=>button.onclick=resumeFinalFlow);
-  clearTimeout(pendingFinalAlertTimer);
-  if(finalFlowClosed()&&!getState().finalFileSeen){
-    pendingFinalAlertTimer=setTimeout(showFinalFileAlert,350);
+  if(options.focusNext===true&&!finalFlowClosed()){
+    const targetId=visible.find(id=>{
+      if(!allowed(id))return false;
+      if(isFolder(id)){
+        const updateId=id==='AR-03'?'KTB-009':folders[id]?.update;
+        return !updateId||!done.includes(updateId);
+      }
+      return !done.includes(id);
+    });
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const card=targetId?document.querySelector(`[data-document-id="${targetId}"]`):null;
+      if(!card)return;
+      card.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'center'});
+      card.classList.add('is-new-unlock-located');
+      setTimeout(()=>card.classList.remove('is-new-unlock-located'),2600);
+    }));
   }
+  // Nunca abras el protocolo final como efecto secundario de renderizar la
+  // pantalla. Si existe un cierre interrumpido, la tarjeta y el aviso de
+  // continuación ya permiten retomarlo de forma explícita. Esto evita que un
+  // estado restaurado (o una sincronización tardía) superponga el modal de
+  // cierre al iniciar sesión o al consultar cualquier otro documento.
+  clearTimeout(pendingFinalAlertTimer);
+  pendingFinalAlertTimer=0;
 }
 // Las tarjetas se reconstruyen al sincronizar progreso, permisos y microeventos.
 // Un único manejador delegado evita que un botón recién renderizado quede sin
@@ -662,7 +1091,7 @@ document.querySelector('#documents').addEventListener('click',event=>{
 });
 function textFor(id){if(id==='AC-01')return ['Archivo complementario AC-01','Estado: Recuperado. Tipo: Registro ilustrado. Origen: No catalogado.','La relación de este registro con la expedición permanece pendiente de clasificación.'];if(id==='KTB-014')return ['Cierre de expediente','La secuencia ha sido completada. Los recuerdos han sido preservados y la línea temporal mantiene una integridad del 100 %.','No se requieren más intervenciones.'];if(isFolder(id))return [`${id} · ${folderDetails[id][0]}`,folderDetails[id][1],'Archivo recuperado parcialmente. El contenido debe consultarse respetando el orden de la secuencia temporal.'];return [`Documento ${id}`,'Registro validado por la División de Archivos Temporales. Este documento forma parte de una secuencia personal de continuidad.','La lectura atenta de cada página ayuda a que las historias importantes sucedan exactamente como deben.']}
 const nextRequiredDocument=(id,buttonId)=>{const confirmed=read().includes(id);return `<aside class="folder-next-phase ${confirmed?'is-complete':''}"><div class="folder-next-symbol" aria-hidden="true">${confirmed?'✓':'↗'}</div><div class="folder-next-copy"><p>${confirmed?'DOCUMENTO DE CONTINUIDAD':'FASE SIGUIENTE DESBLOQUEADA'}</p><h4><span>${id}</span> Actualización del expediente</h4><small>${confirmed?'La lectura de este documento ya está confirmada. Puedes volver a consultarlo.':'Para continuar es obligatorio consultar y confirmar la lectura de este nuevo documento.'}</small></div><div class="folder-next-state"><span>${confirmed?'ARCHIVADO':'NUEVO'}</span><strong>${confirmed?'LECTURA CONFIRMADA':'LECTURA PENDIENTE'}</strong></div><button id="${buttonId}" type="button">${confirmed?'Revisar':'Consultar'} ${id} <span>→</span></button></aside>`};
-function openFolder(folderId){active=folderId;readerReturnToFolder=null;readerCanConfirm=false;next.style.display='none';document.querySelector('#doc-type').textContent='CARPETA DE ARCHIVOS RECUPERADOS / ACCESO AUTORIZADO';document.querySelector('#doc-title').textContent=`${folderId} · ${folders[folderId].title}`;const done=read(),files=folders[folderId].files,seenCount=files.filter(file=>done.includes(file.id)).length;const list=files.map((file,index)=>{const unlocked=index===0||done.includes(files[index-1].id),seen=done.includes(file.id);return `<button class="folder-file ${seen?'is-read':unlocked?'is-ready':'is-locked'}" data-file="${file.id}" ${unlocked?'':'disabled'}><span class="folder-file-number">${String(index+1).padStart(2,'0')}</span><span class="folder-file-copy"><strong>${file.title}</strong><small>${seen?'LECTURA CONFIRMADA':unlocked?'DISPONIBLE':'BLOQUEADO HASTA COMPLETAR EL ANTERIOR'}</small></span><span class="folder-file-action">${seen?'REVISAR':unlocked?'ABRIR':'⌕'}</span></button>`}).join('');const complete=files.every(file=>done.includes(file.id)),update=folders[folderId].update;document.querySelector('#doc-body').innerHTML=`<section class="folder-index"><header><div><p class="system-line">ÍNDICE DE LA CARPETA</p><h3>${folders[folderId].title}</h3></div><p><strong>${seenCount}</strong> de ${files.length}<span>documentos leídos</span></p></header><p class="folder-intro">Los documentos internos deben consultarse siguiendo el orden autorizado.</p><div class="folder-file-list">${list}</div><footer>${complete?nextRequiredDocument(update,'folder-update'):'<p>La actualización permanecerá sellada hasta completar todos los documentos.</p>'}</footer></section>`;mark.style.display='none';if(!viewer.open)viewer.showModal();document.querySelectorAll('.folder-file:not([disabled])').forEach(button=>button.onclick=()=>openFolderFile(folderId,button.dataset.file));const updateButton=document.querySelector('#folder-update');if(updateButton)updateButton.onclick=()=>openDoc(update)}
+function openFolder(folderId){active=folderId;readerReturnToFolder=null;readerCanConfirm=false;next.style.display='none';document.querySelector('#doc-type').textContent='CARPETA DE ARCHIVOS RECUPERADOS / ACCESO AUTORIZADO';document.querySelector('#doc-title').textContent=`${folderId} · ${folders[folderId].title}`;const done=read(),files=folders[folderId].files,seenCount=files.filter(file=>done.includes(file.id)).length;const list=files.map((file,index)=>{const unlocked=index===0||done.includes(files[index-1].id),seen=done.includes(file.id);return `<button class="folder-file ${seen?'is-read':unlocked?'is-ready':'is-locked'}" data-file="${file.id}" ${unlocked?'':'disabled'}><span class="folder-file-number">${String(index+1).padStart(2,'0')}</span><span class="folder-file-copy"><strong>${file.title}</strong><small>${seen?'LECTURA CONFIRMADA':unlocked?'DISPONIBLE':'BLOQUEADO HASTA COMPLETAR EL ANTERIOR'}</small></span><span class="folder-file-action">${seen?'REVISAR':unlocked?'ABRIR':'⌕'}</span></button>`}).join('');const complete=files.every(file=>done.includes(file.id)),update=folders[folderId].update;document.querySelector('#doc-body').innerHTML=`<section class="folder-index"><header><div><p class="system-line">ÍNDICE DE LA CARPETA</p><h3>${folders[folderId].title}</h3></div><p><strong>${seenCount}</strong> de ${files.length}<span>documentos leídos</span></p></header><p class="folder-intro">Los documentos internos deben consultarse siguiendo el orden autorizado.</p><div class="folder-file-list">${list}</div><footer>${complete?nextRequiredDocument(update,'folder-update'):'<p>La actualización permanecerá sellada hasta completar todos los documentos.</p>'}</footer></section>`;mark.style.display='none';if(!viewer.open)viewer.showModal();document.querySelectorAll('.folder-file:not([disabled])').forEach(button=>button.onclick=()=>openFolderFile(folderId,button.dataset.file));const updateButton=document.querySelector('#folder-update');if(updateButton)updateButton.onclick=()=>openDoc(update);revealCollectionAdvance(`folder:${folderId}`)}
 function openFolderFile(folderId,fileId){const file=folders[folderId].files.find(item=>item.id===fileId);active=fileId;readerReturnToFolder=folderId;readerCanConfirm=true;next.style.display='none';mark.style.display='inline-block';document.querySelector('#doc-type').textContent=`${folderId} / DOCUMENTO INTERNO`;document.querySelector('#doc-title').textContent=file.title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="../assets/documents/${folderId}/${file.src}" alt="${file.title}">`}
 function openFolderFile(folderId,fileId){const file=folders[folderId].files.find(item=>item.id===fileId);if(file.mosaic==='tickets'){openTicketMosaic();return}active=fileId;readerReturnToFolder=folderId;readerCanConfirm=true;next.style.display='none';mark.style.display='inline-block';document.querySelector('#doc-type').textContent=`${folderId} / DOCUMENTO INTERNO`;document.querySelector('#doc-title').textContent=file.title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="../assets/documents/${folderId}/${file.src}" alt="${file.title}">`}
 function openTicketMosaic(){
@@ -814,6 +1243,7 @@ function syncKtb(id,onComplete){
   },isFinal?3100:folder?2900:acPage?2850:2350);
 }
 function startFinale(resumeCompleted=false){
+  if(!finalClosureAuthorized()){discardStaleFinalFlowUi();return}
   void patchState({completed:false,finalFlowStage:resumeCompleted?'summary':'verification'});
   next.style.display='none';mark.style.display='none';setFinalFlowAction('summary','Ver acta de cierre →',showFinaleMessage,false);readerTools.hidden=true;readerContent.classList.remove('has-image','is-folder');
   document.querySelector('#doc-type').textContent='VERIFICACIÓN FINAL · ARCHIVO CENTRAL';
@@ -839,27 +1269,50 @@ function startFinale(resumeCompleted=false){
   },2650);
 }
 function showFinaleMessage(){
-  void patchState({completed:false,finalFlowStage:'complete'});
-  document.querySelector('#doc-type').textContent='KIZUNA TRAVEL BUREAU · ACTA DE CIERRE';
-  document.querySelector('#doc-title').textContent='PROJECT JAPAN · Expediente archivado';
-  document.querySelector('#doc-body').innerHTML=`<section class="final-message"><header><p class="system-line">ESTADO DEL EXPEDIENTE</p><h3>La consulta ha<br><em>terminado.</em></h3></header><dl><div><dt>DOCUMENTOS</dt><dd>71 de 71</dd></div><div><dt>INTEGRIDAD</dt><dd>100 %</dd></div><div><dt>AUTORIZACIÓN</dt><dd>NIVEL VIII</dd></div><div><dt>ESTADO</dt><dd>ARCHIVADO</dd></div></dl><div class="final-message-copy"><p>Durante las últimas semanas has recorrido un expediente que nunca debió existir.</p><p>Has leído documentos escritos antes de ser creados y has seguido el rastro de recuerdos que todavía no habían sucedido.</p><p>Y, aun así, has llegado exactamente al lugar al que debías llegar.</p><p>Gracias por confiar en nosotros. Ha sido un honor acompañarte durante esta expedición.</p></div><footer><strong>KIZUNA TRAVEL BUREAU</strong><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span></footer></section>`;
-  setFinalFlowAction('complete','Completar archivo →',()=>{viewer.close();render();setTimeout(showFinalFileAlert,180)},true);
+  if(!finalClosureAuthorized()){discardStaleFinalFlowUi();return}
+  void patchState({completed:false,finalFlowStage:'summary',finalAlertShown:false,finalFileSeen:false});
+  next.style.display='none';mark.style.display='none';readerTools.hidden=true;readerContent.classList.remove('has-image','is-folder');
+  document.querySelector('#doc-type').textContent='KIZUNA TRAVEL BUREAU · FIN DE LA SECUENCIA';
+  document.querySelector('#doc-title').textContent='KTB-014 · Lectura confirmada';
+  document.querySelector('#doc-body').innerHTML=`<section class="final-message"><header><div class="final-message-heading"><p class="system-line">SECUENCIA PRINCIPAL COMPLETADA</p><h3>La consulta ha<br><em>terminado.</em></h3><p class="final-message-kicker">ACTA PREVIA AL PROTOCOLO DE CIERRE</p></div><span class="final-message-index" aria-hidden="true">14</span></header><dl><div><dt>DOCUMENTOS</dt><dd>71 <small>de 71</small></dd></div><div><dt>INTEGRIDAD</dt><dd>100 %</dd></div><div><dt>AUTORIZACIÓN</dt><dd>NIVEL VIII</dd></div><div><dt>ESTADO</dt><dd>PENDIENTE<br>DE CIERRE</dd></div></dl><div class="final-message-copy"><p class="final-message-lead">Durante las últimas semanas has recorrido un expediente que nunca debió existir.</p><p>Has leído documentos escritos antes de ser creados y has seguido el rastro de recuerdos que todavía no habían sucedido.</p><p class="final-message-highlight">Y, aun así, has llegado exactamente al lugar al que debías llegar.</p><p class="final-message-closing">Gracias por confiar en nosotros.<br>Ha sido un honor acompañarte durante esta expedición.</p></div><footer><strong>KIZUNA TRAVEL BUREAU</strong><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span></footer></section>`;
+  setFinalFlowAction('summary','Iniciar cierre del expediente →',()=>{
+    finalVerificationButton.hidden=true;
+    finalVerificationButton.dataset.ready='false';
+    finalSequenceActive=false;finalPopupPending=false;
+    void patchState({completed:false,finalFlowStage:'interrupted',finalAlertShown:true,finalFileSeen:false});
+    viewer.close();
+    render();
+    requestAnimationFrame(()=>createFinalDiscoveryAlert(openFinalLocatedFile));
+  },true);
 }
+startFinale=function(){
+  if(!finalClosureAuthorized()){discardStaleFinalFlowUi();return}
+  if(finalFileRead()){void showFinalPublicTransition();return}
+  showFinaleMessage();
+};
 function resumeFinalFlow(){
+  if(!finalClosureAuthorized()){discardStaleFinalFlowUi();render();return}
   const stage=getFinalFlowStage();
   active='KTB-014';
-  if(!viewer.open)viewer.showModal();
-  if(stage==='complete')showFinaleMessage();
-  else startFinale(stage==='summary');
+  if(stage==='closed'){if(!viewer.open)viewer.showModal();void showFinalPublicTransition()}
+  else if(stage==='interrupted'){
+    if(viewer.open)viewer.close();
+    render();
+    requestAnimationFrame(()=>createFinalDiscoveryAlert(openFinalLocatedFile));
+  }else{
+    if(!viewer.open)viewer.showModal();
+    startFinale();
+  }
 }
 function showFinalLogo(){document.querySelector('#doc-type').textContent='';document.querySelector('#doc-title').textContent='KIZUNA';document.querySelector('#doc-body').innerHTML='<img style="display:block;width:130px;margin:0 auto 18px;border-radius:50%" src="../assets/kizuna-logo-official.png" alt="Kizuna Travel Bureau"><p style="text-align:center;font-size:20px">TRAVEL BUREAU</p><p style="text-align:center;margin-top:70px">Porque los mejores recuerdos nunca pertenecieron a un expediente. Siempre te pertenecieron a ti.</p>'}
-document.querySelector('#gate-consent').onchange=event=>document.querySelector('#gate-continue').disabled=!event.target.checked;document.querySelector('#gate-continue').onclick=()=>{patchState({legalAccepted:true});gate.hidden=true;dash.hidden=false;render()};document.querySelector('#access-form').onsubmit=event=>{event.preventDefault();const username=document.querySelector('#username').value.trim().toLowerCase(),password=document.querySelector('#password').value;if(username!=='jose.cuadrado'||password!=='kizuna2026')message.textContent='No se han podido verificar las credenciales de acceso.';else openDashboard()};document.querySelector('#exit').onclick=()=>{location.href='../index.html'};readerCloseButton.onclick=async()=>{if(viewer.classList.contains('is-reader-fullscreen')||document.fullscreenElement===viewer)await exitReaderFullscreen();else viewer.close()};mark.onclick=()=>{const done=read();if(!done.includes(active)){done.push(active);save(done)}if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}const parent=fileFolder(active);if(parent){openFolder(parent);return}if(active.startsWith('KTB-')){const id=active;syncKtb(id,()=>{if(id==='KTB-014')startFinale();else{viewer.close();render()}});return}viewer.close();render()};next.onclick=()=>{const index=sequence.indexOf(active);if(index<sequence.length-1&&allowed(sequence[index+1]))openDoc(sequence[index+1])};
+document.querySelector('#gate-consent').onchange=event=>document.querySelector('#gate-continue').disabled=!event.target.checked;document.querySelector('#gate-continue').onclick=()=>{patchState({legalAccepted:true});gate.hidden=true;dash.hidden=false;render()};document.querySelector('#access-form').onsubmit=event=>{event.preventDefault();const username=document.querySelector('#username').value.trim().toLowerCase(),password=document.querySelector('#password').value;if(username!=='jose.cuadrado'||password!=='kizuna2026')message.textContent='No se han podido verificar las credenciales de acceso.';else openDashboard()};document.querySelector('#exit').onclick=()=>{location.href='../index.html'};readerCloseButton.onclick=async()=>{if(viewer.classList.contains('is-reader-fullscreen')||document.fullscreenElement===viewer)await exitReaderFullscreen();else viewer.close()};mark.onclick=async()=>{if(active==='FINAL-01'){if(finalFileRead())return;mark.disabled=true;mark.textContent='Registrando lectura…';try{await showFinalPublicTransition()}catch(error){console.error('No se pudo registrar la lectura de FINAL-01.',error);mark.disabled=false;mark.textContent='Confirmar lectura'}return}const done=read();if(!done.includes(active)){done.push(active);active==='KTB-014'?withKtb14ReadMutation(()=>save(done)):save(done)}if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}const parent=fileFolder(active);if(parent){openFolder(parent);return}if(active.startsWith('KTB-')){const id=active;syncKtb(id,()=>{if(id==='KTB-014')startFinale();else{viewer.close();render()}});return}viewer.close();render()};next.onclick=()=>{const index=sequence.indexOf(active);if(index<sequence.length-1&&allowed(sequence[index+1]))openDoc(sequence[index+1])};
 
 document.querySelector('#gate-continue').onclick=async()=>{
   await patchState({legalAccepted:true,legalAcceptedAt:new Date().toISOString(),legalVersion:Number(getState().legalVersion||1)});
   await recordActivity('legal_terms_accepted',null,{version:Number(getState().legalVersion||1)});
-  gate.hidden=true;dash.hidden=false;render();maybeStartExpedientTour();
+  gate.hidden=true;dash.hidden=false;render({focusNext:true});maybeStartExpedientTour();
 };
+document.querySelector('#exit').onclick=handleRecipientExit;
 
 // Panel reservado para cuentas con el rol seguro app_metadata.role = admin.
 const adminPanel=document.createElement('main');
@@ -1342,7 +1795,21 @@ document.querySelector('#admin-shop-refresh').onclick=loadAdminProducts;
 [adminShopSearch,adminShopCategory,adminShopVisibility].forEach(control=>control.addEventListener(control.tagName==='INPUT'?'input':'change',renderAdminProductList));
 
 const isAdmin=user=>user?.app_metadata?.role==='admin';
-const safeState=state=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',legalAccepted:false,legalAcceptedAt:null,legalVersion:1,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:1,seenUnlocks:[],...(state||{})});
+const safeState=state=>normalizeFinalState({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:1,seenUnlocks:[],...(state||{})});
+const adminProgressSortTime=row=>{
+  const value=row?.state?.adminSavedAt||row?.updated_at||'';
+  const time=Date.parse(value);
+  return Number.isFinite(time)?time:0;
+};
+const pickLatestAdminProgress=rows=>(Array.isArray(rows)?[...rows]:[]).sort((a,b)=>adminProgressSortTime(b)-adminProgressSortTime(a))[0]||null;
+const resetClosingDocumentsForAdmin=state=>resetFinalDecisionState({
+  ...state,
+  read:[...new Set(Array.isArray(state?.read)?state.read:[])].filter(id=>id&&id!=='KTB-014'&&id!=='FINAL-01'),
+  completed:false,
+  finalFlowStage:'',
+  finalAlertShown:false,
+  finalFileSeen:false
+});
 const adminExit=async()=>{try{if(mailboxChannel&&supabaseClient){await supabaseClient.removeChannel(mailboxChannel);mailboxChannel=null}if(supabaseClient)await supabaseClient.auth.signOut()}finally{currentUser=null;remoteState=null;adminPanel.hidden=true;location.href='../index.html'}};
 document.querySelector('#admin-exit').onclick=adminExit;
 
@@ -1387,7 +1854,7 @@ const renderAdminEditorLegacy=(profile,state)=>{
   const reviewed=progressKeys.filter(id=>current.read.includes(id)).length;
   const integrity=Math.round(reviewed/progressKeys.length*100);
   editor.hidden=false;
-  editor.innerHTML=`<div class="admin-summary"><p class="system-line">DESTINATARIO SELECCIONADO</p><h2>${profile.display_name||profile.email}</h2><p>${profile.email}</p><p><strong>${reviewed}</strong> de ${progressKeys.length} registros confirmados · Integridad <strong>${integrity} %</strong></p></div><form id="admin-progress-form"><fieldset><legend>DOCUMENTOS Y REGISTROS CONFIRMADOS</legend><div class="admin-checklist">${progressKeys.map(id=>`<label><input type="checkbox" name="records" value="${id}" ${current.read.includes(id)?'checked':''}> ${id}${folders[id]?.title?` · ${folders[id].title}`:''}</label>`).join('')}</div></fieldset><p class="admin-note">Al desmarcar KTB-014 se reabre el expediente y se restaura el aviso final para una nueva revisión.</p><button>Guardar cambios</button><span id="admin-save-status" role="status"></span></form>`;
+  editor.innerHTML=`<div class="admin-summary"><p class="system-line">DESTINATARIO SELECCIONADO</p><h2>${profile.display_name||profile.email}</h2><p>${profile.email}</p><p><strong>${reviewed}</strong> de ${progressKeys.length} registros confirmados · Integridad <strong>${integrity} %</strong></p></div><form id="admin-progress-form"><fieldset><legend>DOCUMENTOS Y REGISTROS CONFIRMADOS</legend><div class="admin-checklist">${adminProgressKeys.map(id=>`<label><input type="checkbox" name="records" value="${id}" ${current.read.includes(id)?'checked':''}> ${id}${id==='FINAL-01'?' · Archivo localizado':folders[id]?.title?` · ${folders[id].title}`:''}</label>`).join('')}</div></fieldset><p class="admin-note">Al desmarcar KTB-014 se reabre el expediente y se restaura el aviso final para una nueva revisión.</p><button>Guardar cambios</button><span id="admin-save-status" role="status"></span></form>`;
   const activityLog=document.createElement('section');
   activityLog.id='admin-activity-log';
   activityLog.style.cssText='margin-top:36px;padding-top:22px;border-top:1px solid #c6bda9';
@@ -1402,7 +1869,7 @@ const renderAdminEditorLegacy=(profile,state)=>{
   const resetPanel=document.createElement('section');
   resetPanel.className='admin-reset-panel';
   resetPanel.style.cssText='margin-top:26px;padding:20px;border:1px solid #a84a42;background:#f5e1d8';
-  resetPanel.innerHTML='<p class="system-line" style="color:#7e1b19">REINICIO DE EXPEDIENTE</p><h3 style="margin:7px 0;font:24px var(--serif)">Limpiar expediente</h3><p style="max-width:620px">Elimina todos los documentos confirmados, avisos, páginas leídas del cómic y mensajes del destinatario. Esta acción no borra su cuenta ni su nombre.</p><button type="button" id="admin-reset-progress" style="background:#7e1b19;color:#fff;border:0;padding:13px 16px;font:10px var(--mono);cursor:pointer">Limpiar expediente</button><span id="admin-reset-status" role="status" style="margin-left:12px;font:11px var(--mono)"></span>';
+  resetPanel.innerHTML='<p class="system-line" style="color:#7e1b19">REINICIO DE EXPEDIENTE</p><h3 style="margin:7px 0;font:24px var(--serif)">Limpiar expediente</h3><p style="max-width:620px">Reinicia por completo la experiencia: documentos confirmados, carpetas, páginas del cómic, aviso legal, guía inicial, cierre final, carta de Alberto y respuesta registrada. No borra la cuenta, el nombre ni el correo del destinatario.</p><p style="max-width:620px;margin:10px 0 16px;color:#7e1b19;font:11px/1.6 var(--mono)">Después de usarlo, el usuario volverá a empezar desde KTB-001 y podrá responder otra vez a la carta final.</p><button type="button" id="admin-reset-progress" style="background:#7e1b19;color:#fff;border:0;padding:13px 16px;font:10px var(--mono);cursor:pointer">Limpiar expediente completo</button><span id="admin-reset-status" role="status" style="margin-left:12px;font:11px var(--mono)"></span>';
   editor.insertBefore(resetPanel,activityLog);
   document.querySelector('#admin-reset-progress').onclick=async()=>{
     const resetButton=document.querySelector('#admin-reset-progress');
@@ -1452,12 +1919,19 @@ const renderAdminEditorLegacy=(profile,state)=>{
     const status=document.querySelector('#admin-save-status');
     const selected=[...event.currentTarget.querySelectorAll('input[name="records"]:checked')].map(input=>input.value);
     const closing=selected.includes('KTB-014');
-    const nextState={...current,read:selected,completed:closing?current.completed:false,finalFlowStage:closing?(current.completed?'closed':current.finalFlowStage||'verification'):'',finalAlertShown:closing?current.finalAlertShown:false,finalFileSeen:closing?current.finalFileSeen:false};
+    const records=closing?selected:selected.filter(id=>id!=='KTB-014'&&id!=='FINAL-01');
+    const finalRead=closing&&records.includes('FINAL-01');
+    const closingStage=!closing?'':finalRead?'closed':current.finalFlowStage==='closed'?'interrupted':current.finalFlowStage||'verification';
+    const nextState=closing?normalizeFinalState({...current,read:records,completed:finalRead,finalFlowStage:closingStage,finalAlertShown:closingStage==='interrupted'||finalRead,finalFileSeen:finalRead}):normalizeFinalState(resetClosingDocumentsForAdmin({...current,read:records}));
     status.textContent='Guardando…';
-    const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:profile.id,state:nextState,updated_at:new Date().toISOString()});
-    if(error){status.textContent='No se pudieron guardar los cambios.';console.error(error);return}
-    status.textContent='Cambios guardados.';
-    renderAdminEditor(profile,nextState);
+    try{
+      const savedState=await saveAdminProgressState(profile.id,nextState);
+      status.textContent='Cambios guardados.';
+      renderAdminEditor(profile,savedState,'documents');
+    }catch(error){
+      status.textContent='No se pudieron guardar los cambios.';
+      console.error(error);
+    }
   };
   renderAdminActivity(profile.id);
 };
@@ -1474,7 +1948,8 @@ const renderAdminActivityLegacy=async userId=>{
     if(error)throw error;
     if(!data?.length){target.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3 style="margin:7px 0 16px;font:27px var(--serif)">Actividad reciente</h3><p>Aún no hay actividad registrada para este destinatario.</p>';return}
     const rows=data.map(item=>{
-      const title=item.event_type==='login'?'Inicio de sesión verificado':item.event_type==='logout'?'Cierre de sesión':item.event_type==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:item.event_type==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:item.event_type==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas leídas`:item.event_type==='supplementary_file_consulted'?'Archivo final consultado':item.event_type==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado confirmado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
+      const activityKind=item.details?.activity_kind||item.event_type;
+      const title=activityKind==='login'?'Inicio de sesión verificado':activityKind==='logout'?'Cierre de sesión':activityKind==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:activityKind==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:activityKind==='onboarding_completed'?'Guía inicial completada':activityKind==='onboarding_skipped'?'Guía inicial omitida':activityKind==='onboarding_reset'?'Guía inicial reactivada por administración':activityKind==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas leídas`:activityKind==='supplementary_file_consulted'?'Archivo final consultado':activityKind==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado confirmado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
       const date=new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'});
       return `<li style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:11px 0;border-top:1px solid #ddd1ba;font:13px var(--serif)"><strong>${title}</strong><small style="font:9px var(--mono);color:#7e1b19;white-space:nowrap">${date}</small></li>`;
     }).join('');
@@ -1487,6 +1962,7 @@ const renderAdminActivityLegacy=async userId=>{
 
 const adminEditorEscape=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const adminRecordTitle=id=>{
+  if(id==='FINAL-01')return 'Archivo localizado';
   if(id.startsWith('KTB-'))return `Documento ${id}`;
   for(const folder of Object.values(folders)){const file=folder.files.find(item=>item.id===id);if(file)return file.title}
   const ticket=ar01Tickets.find(item=>item.id===id);if(ticket)return ticket.title;
@@ -1589,6 +2065,41 @@ document.querySelector('#admin-communications-save').onclick=async()=>{
   }catch(error){console.error(error);status.textContent='No se han podido guardar las preferencias.'}finally{button.disabled=false}
 };
 
+const fetchAdminProgressState=async userId=>{
+  const {data,error}=await supabaseClient
+    .from('expedient_progress')
+    .select('state,updated_at')
+    .eq('user_id',userId)
+    .order('updated_at',{ascending:false})
+    .limit(25);
+  if(error)throw error;
+  return safeState(pickLatestAdminProgress(data)?.state);
+};
+const saveAdminProgressState=async(userId,nextState)=>{
+  const timestamp=new Date().toISOString();
+  const state=safeState({...nextState,adminSavedAt:timestamp});
+  const payload={state,updated_at:timestamp};
+  const {data:existing,error:existingError}=await supabaseClient
+    .from('expedient_progress')
+    .select('user_id')
+    .eq('user_id',userId)
+    .limit(1);
+  if(existingError)throw existingError;
+  if(existing?.length){
+    const {error}=await supabaseClient
+      .from('expedient_progress')
+      .update(payload)
+      .eq('user_id',userId);
+    if(error)throw error;
+    return state;
+  }
+  const {error:insertError}=await supabaseClient
+    .from('expedient_progress')
+    .insert({user_id:userId,...payload});
+  if(insertError)throw insertError;
+  return state;
+};
+
 const renderAdminEditor=(profile,state,initialTab='summary')=>{
   const editor=document.querySelector('#admin-editor'),current=safeState(state);
   const requestedTab=['summary','documents','activity','purchases','settings'].includes(initialTab)?initialTab:'summary';
@@ -1597,12 +2108,14 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   const ktbRead=progressKeys.filter(id=>id.startsWith('KTB-')&&selected.has(id)).length;
   const accessLevel=roman(Math.max(1,Math.min(8,ktbRead-5||1)));
   const displayName=adminEditorEscape(profile.display_name||profile.email),email=adminEditorEscape(profile.email);
-  const documents=progressKeys.map(id=>{
+  const documentRow=id=>{
     const read=selected.has(id),title=adminEditorEscape(adminRecordTitle(id));
     return `<label class="admin-document-row" data-status="${read?'read':'pending'}" data-search="${adminEditorEscape(`${id} ${title}`.toLowerCase())}" data-document-id="${id}"><span class="admin-document-code">${id}</span><span class="admin-document-title">${title}</span><span class="admin-document-state ${read?'is-read':''}">${read?'LEÍDO':'PENDIENTE'}</span><time class="admin-document-date">${read?'Registrado':'—'}</time><input type="checkbox" name="records" value="${id}" ${read?'checked':''}><i aria-hidden="true"></i></label>`;
-  }).join('');
+  };
+  const groupedDocuments=adminDocumentGroups.filter(group=>!group.final).map(group=>`<section class="admin-document-group"><header><div><p class="system-line">${adminEditorEscape(group.title)}</p><small>${adminEditorEscape(group.note)}</small></div><strong>${group.ids.filter(id=>selected.has(id)).length} de ${group.ids.length}</strong></header><div class="admin-document-grid">${group.ids.map(documentRow).join('')}</div></section>`).join('');
+  const finalDocument=documentRow('FINAL-01');
   editor.hidden=false;editor.className='admin-user-workspace';
-  editor.innerHTML=`<header class="admin-user-profile"><div><p class="system-line">DESTINATARIO SELECCIONADO</p><h2>${displayName}</h2><p>${email}</p></div><dl><div><dt>Expediente</dt><dd>KTB-EXP-2026-JP-00184</dd><span class="admin-user-badge ${isActive?'active':'inactive'}">${isActive?'CUENTA ACTIVA':'CUENTA DESACTIVADA'}</span></div><div><dt>Documentos</dt><dd>${reviewed} de ${total}</dd></div><div><dt>Progreso</dt><dd>${integrity} %</dd></div><div><dt>Última actividad</dt><dd id="admin-last-activity">Consultando…</dd></div></dl></header><nav class="admin-editor-tabs" role="tablist"><button type="button" class="active" data-editor-tab="summary">Resumen</button><button type="button" data-editor-tab="documents">Documentos</button><button type="button" data-editor-tab="activity">Actividad</button><button type="button" data-editor-tab="purchases">Productos comprados</button><button type="button" data-editor-tab="settings">Ajustes</button></nav><div class="admin-user-body"><div class="admin-user-main"><section class="admin-editor-panel" data-editor-panel="summary"><p class="system-line">RESUMEN DEL EXPEDIENTE</p><h3>Estado general</h3><div class="admin-overview-grid"><article><strong>${reviewed}</strong><span>Registros confirmados</span></article><article><strong>${total-reviewed}</strong><span>Registros pendientes</span></article><article><strong>${accessLevel}</strong><span>Nivel de acceso</span></article><article><strong>${integrity} %</strong><span>Integridad documental</span></article></div></section><section class="admin-editor-panel" data-editor-panel="documents" hidden><div class="admin-document-toolbar"><div class="admin-document-filters"><button type="button" class="active" data-record-filter="all">Todos</button><button type="button" data-record-filter="read">Leídos</button><button type="button" data-record-filter="pending">Pendientes</button></div><label><span>Buscar documento</span><input id="admin-document-search" type="search" placeholder="Buscar documento"></label></div><form id="admin-progress-form"><div class="admin-document-grid">${documents}</div><p class="admin-note">Al desmarcar KTB-014 se reabre el expediente y se restaura el aviso final para una nueva revisión.</p></form><details class="admin-identity-details"><summary>Identidad y acceso</summary><form id="admin-identity-form"><label>Nombre y apellidos<input name="displayName" required maxlength="80" value="${displayName}"></label><div><span>Estado de la cuenta</span><button type="button" id="admin-toggle-user" class="admin-account-toggle ${isActive?'active':''}" aria-pressed="${isActive}"><i></i>${isActive?'Cuenta activa':'Cuenta desactivada'}</button></div><button>Guardar identidad</button><span id="admin-identity-status" role="status"></span></form></details></section><section class="admin-editor-panel" data-editor-panel="activity" hidden><div id="admin-activity-log"><p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Cargando actividad…</p></div></section><section class="admin-editor-panel" data-editor-panel="purchases" hidden><div id="admin-purchases"><p class="system-line">TIENDA KIZUNA</p><h3>Productos comprados</h3><p>Cargando pedidos simulados…</p></div></section><section class="admin-editor-panel" data-editor-panel="settings" hidden><p class="system-line">AJUSTES DEL DESTINATARIO</p><h3>Acceso y seguridad</h3><p>Gestiona la identidad, el acceso y las acciones permanentes de este expediente.</p><button type="button" class="admin-open-identity">Editar identidad y acceso</button></section></div><aside class="admin-user-side"><section class="admin-progress-card"><p class="system-line">PROGRESO DEL EXPEDIENTE</p><strong>${integrity} %</strong><div><i style="width:${integrity}%"></i></div><dl><div><dt>${reviewed}</dt><dd>Documentos leídos</dd></div><div><dt>${total-reviewed}</dt><dd>Documentos pendientes</dd></div></dl><p>NIVEL DE ACCESO ACTUAL<br><b>${accessLevel}</b></p><button type="button" id="admin-save-progress">Guardar cambios</button><span id="admin-save-status" role="status"></span></section><section class="admin-activity-preview"><p class="system-line">ACTIVIDAD RECIENTE</p><div id="admin-activity-preview"><p>Cargando actividad…</p></div><button type="button" id="admin-view-all-activity">Ver actividad completa →</button></section><section class="admin-danger-zone"><p class="system-line">ZONA DE SEGURIDAD</p><p>Estas acciones afectan al acceso o al progreso guardado.</p><button type="button" id="admin-reset-progress">Limpiar expediente</button><button type="button" id="admin-side-toggle-user">${isActive?'Desactivar acceso':'Reactivar acceso'}</button><span id="admin-reset-status" role="status"></span></section></aside></div>`;
+  editor.innerHTML=`<header class="admin-user-profile"><div><p class="system-line">DESTINATARIO SELECCIONADO</p><h2>${displayName}</h2><p>${email}</p></div><dl><div><dt>Expediente</dt><dd>KTB-EXP-2026-JP-00184</dd><span class="admin-user-badge ${isActive?'active':'inactive'}">${isActive?'CUENTA ACTIVA':'CUENTA DESACTIVADA'}</span></div><div><dt>Documentos</dt><dd>${reviewed} de ${total}</dd></div><div><dt>Progreso</dt><dd>${integrity} %</dd></div><div><dt>Última actividad</dt><dd id="admin-last-activity">Consultando…</dd></div></dl></header><nav class="admin-editor-tabs" role="tablist"><button type="button" class="active" data-editor-tab="summary">Resumen</button><button type="button" data-editor-tab="documents">Documentos</button><button type="button" data-editor-tab="activity">Actividad</button><button type="button" data-editor-tab="purchases">Productos comprados</button><button type="button" data-editor-tab="settings">Ajustes</button></nav><div class="admin-user-body"><div class="admin-user-main"><section class="admin-editor-panel" data-editor-panel="summary"><p class="system-line">RESUMEN DEL EXPEDIENTE</p><h3>Estado general</h3><div class="admin-overview-grid"><article><strong>${reviewed}</strong><span>Registros confirmados</span></article><article><strong>${total-reviewed}</strong><span>Registros pendientes</span></article><article><strong>${accessLevel}</strong><span>Nivel de acceso</span></article><article><strong>${integrity} %</strong><span>Integridad documental</span></article></div></section><section class="admin-editor-panel" data-editor-panel="documents" hidden><div class="admin-document-toolbar"><div class="admin-document-filters"><button type="button" class="active" data-record-filter="all">Todos</button><button type="button" data-record-filter="read">Leídos</button><button type="button" data-record-filter="pending">Pendientes</button></div><label><span>Buscar documento</span><input id="admin-document-search" type="search" placeholder="Buscar documento"></label></div><form id="admin-progress-form">${groupedDocuments}<section class="admin-final-document"><p class="system-line">FINAL-01 · ARCHIVO LOCALIZADO</p>${finalDocument}<p class="admin-note">FINAL-01 depende de KTB-014: si KTB-014 no está confirmado, este documento se desmarca automáticamente.</p></section><p class="admin-note">Al desmarcar KTB-014 se reabre el expediente, se restablece el cierre final y también se desmarca FINAL-01.</p></form><details class="admin-identity-details"><summary>Identidad y acceso</summary><form id="admin-identity-form"><label>Nombre y apellidos<input name="displayName" required maxlength="80" value="${displayName}"></label><div><span>Estado de la cuenta</span><button type="button" id="admin-toggle-user" class="admin-account-toggle ${isActive?'active':''}" aria-pressed="${isActive}"><i></i>${isActive?'Cuenta activa':'Cuenta desactivada'}</button></div><button>Guardar identidad</button><span id="admin-identity-status" role="status"></span></form></details></section><section class="admin-editor-panel" data-editor-panel="activity" hidden><div id="admin-activity-log"><p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Cargando actividad…</p></div></section><section class="admin-editor-panel" data-editor-panel="purchases" hidden><div id="admin-purchases"><p class="system-line">TIENDA KIZUNA</p><h3>Productos comprados</h3><p>Cargando pedidos simulados…</p></div></section><section class="admin-editor-panel" data-editor-panel="settings" hidden><p class="system-line">AJUSTES DEL DESTINATARIO</p><h3>Acceso y seguridad</h3><p>Gestiona la identidad, el acceso y las acciones permanentes de este expediente.</p><button type="button" class="admin-open-identity">Editar identidad y acceso</button></section></div><aside class="admin-user-side"><section class="admin-progress-card"><p class="system-line">PROGRESO DEL EXPEDIENTE</p><strong>${integrity} %</strong><div><i style="width:${integrity}%"></i></div><dl><div><dt>${reviewed}</dt><dd>Documentos leídos</dd></div><div><dt>${total-reviewed}</dt><dd>Documentos pendientes</dd></div></dl><p>NIVEL DE ACCESO ACTUAL<br><b>${accessLevel}</b></p><button type="button" id="admin-save-progress">Guardar cambios</button><span id="admin-save-status" role="status"></span></section><section class="admin-activity-preview"><p class="system-line">ACTIVIDAD RECIENTE</p><div id="admin-activity-preview"><p>Cargando actividad…</p></div><button type="button" id="admin-view-all-activity">Ver actividad completa →</button></section><section class="admin-danger-zone"><p class="system-line">ZONA DE SEGURIDAD</p><p>Limpiar expediente reinicia documentos, carpetas, p\u00e1ginas del c\u00f3mic, aviso legal, gu\u00eda inicial, cierre final, carta de Alberto y respuesta registrada. La cuenta, el nombre y el correo se conservan.</p><p class="admin-reset-warning">El usuario volver\u00e1 a empezar desde KTB-001 y podr\u00e1 responder otra vez a la carta final.</p><button type="button" id="admin-reset-progress">Limpiar expediente completo</button><button type="button" id="admin-side-toggle-user">${isActive?'Desactivar acceso':'Reactivar acceso'}</button><span id="admin-reset-status" role="status"></span></section></aside></div>`;
 
   const documentsPanel=editor.querySelector('[data-editor-panel="documents"]'),settingsPanel=editor.querySelector('[data-editor-panel="settings"]');
   const identityDetails=editor.querySelector('.admin-identity-details'),dangerZone=editor.querySelector('.admin-danger-zone');
@@ -1623,7 +2136,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   settingsPanel.insertBefore(onboardingSettings,dangerZone);
   const albertoSettings=document.createElement('section'),expedientCompleted=Boolean(current.completed&&selected.has('KTB-014'));
   albertoSettings.className='admin-message-settings';
-  albertoSettings.innerHTML=`<p class="system-line">COMUNICACIÓN FINAL</p><h4>Mensaje de Alberto</h4><p>${expedientCompleted?current.albertoResponseAccepted===true?'La decisión final ya está registrada. Puedes restaurar el mensaje y repetir el flujo completo.':current.albertoMessageRead===true?'El destinatario ya ha leído el mensaje. Puedes volver a mostrarlo como pendiente.':'El mensaje está pendiente de lectura.':'Esta acción estará disponible cuando el expediente esté completado.'}</p><button type="button" id="admin-reset-alberto" ${expedientCompleted?'':'disabled'}>Restaurar mensaje y decisión final</button><span id="admin-alberto-status" role="status"></span>`;
+  albertoSettings.innerHTML=`<p class="system-line">COMUNICACIÓN FINAL</p><h4>Mensaje de Alberto</h4><p>${expedientCompleted?current.albertoResponseAccepted===true?'La decisión final ya está registrada. Esta acción solo vuelve a mostrar la carta y permite responderla otra vez. No reinicia documentos ni el expediente.':current.albertoMessageRead===true?'El destinatario ya ha leído el mensaje. Puedes volver a mostrarlo como pendiente.':'El mensaje está pendiente de lectura.':'Esta acción estará disponible cuando el expediente esté completado.'}</p><button type="button" id="admin-reset-alberto" ${expedientCompleted?'':'disabled'}>Reabrir carta final</button><span id="admin-alberto-status" role="status"></span>`;
   settingsPanel.insertBefore(albertoSettings,dangerZone);
   const saveActions=document.createElement('div');saveActions.className='admin-document-save';
   saveActions.append(editor.querySelector('#admin-save-progress'),editor.querySelector('#admin-save-status'));
@@ -1637,13 +2150,64 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   const viewAllActivity=document.querySelector('#admin-view-all-activity');if(viewAllActivity)viewAllActivity.onclick=()=>activateTab('activity');
   document.querySelector('.admin-open-identity').onclick=()=>{activateTab('settings');const details=document.querySelector('.admin-identity-details');details.open=true;details.scrollIntoView({behavior:'smooth',block:'center'})};
   let recordFilter='all';
-  const filterRecords=()=>{const query=document.querySelector('#admin-document-search').value.trim().toLowerCase();editor.querySelectorAll('.admin-document-row').forEach(row=>row.hidden=(recordFilter!=='all'&&row.dataset.status!==recordFilter)||!row.dataset.search.includes(query))};
+  const filterRecords=()=>{
+    const query=document.querySelector('#admin-document-search').value.trim().toLowerCase();
+    editor.querySelectorAll('.admin-document-row').forEach(row=>row.hidden=(recordFilter!=='all'&&row.dataset.status!==recordFilter)||!row.dataset.search.includes(query));
+    editor.querySelectorAll('.admin-document-group').forEach(group=>group.hidden=![...group.querySelectorAll('.admin-document-row')].some(row=>!row.hidden));
+    const finalSection=editor.querySelector('.admin-final-document'),finalRow=finalSection?.querySelector('.admin-document-row');
+    if(finalSection&&finalRow)finalSection.hidden=finalRow.hidden;
+  };
   editor.querySelectorAll('[data-record-filter]').forEach(button=>button.onclick=()=>{recordFilter=button.dataset.recordFilter;editor.querySelectorAll('[data-record-filter]').forEach(item=>item.classList.toggle('active',item===button));filterRecords()});
   document.querySelector('#admin-document-search').oninput=filterRecords;
-  editor.querySelectorAll('.admin-document-row input').forEach(input=>input.onchange=()=>{const row=input.closest('.admin-document-row');row.dataset.status=input.checked?'read':'pending';row.querySelector('.admin-document-state').textContent=input.checked?'LEÍDO':'PENDIENTE';row.querySelector('.admin-document-state').classList.toggle('is-read',input.checked);row.querySelector('.admin-document-date').textContent=input.checked?'Sin guardar':'—';filterRecords()});
+  const updateAdminDocumentRow=input=>{const row=input.closest('.admin-document-row');row.dataset.status=input.checked?'read':'pending';row.querySelector('.admin-document-state').textContent=input.checked?'LEÍDO':'PENDIENTE';row.querySelector('.admin-document-state').classList.toggle('is-read',input.checked);row.querySelector('.admin-document-date').textContent=input.checked?'Sin guardar':'—'};
+  const syncFinalDocumentControl=()=>{
+    const ktb14=editor.querySelector('input[name="records"][value="KTB-014"]'),final=editor.querySelector('input[name="records"][value="FINAL-01"]'),finalRow=final?.closest('.admin-document-row');
+    if(!ktb14||!final)return;
+    const locked=!ktb14.checked;
+    if(locked&&final.checked){final.checked=false;updateAdminDocumentRow(final)}
+    final.disabled=locked;
+    finalRow?.classList.toggle('is-dependent-disabled',locked);
+    const finalNote=editor.querySelector('.admin-final-document .admin-note');
+    if(finalNote)finalNote.textContent=locked?'FINAL-01 queda bloqueado hasta que KTB-014 esté confirmado.':'FINAL-01 puede marcarse porque KTB-014 ya está confirmado.';
+  };
+  editor.querySelectorAll('.admin-document-row input').forEach(input=>input.onchange=()=>{updateAdminDocumentRow(input);if(input.value==='KTB-014')syncFinalDocumentControl();filterRecords()});
+  syncFinalDocumentControl();
 
-  const saveProgress=async()=>{const status=document.querySelector('#admin-save-status'),button=document.querySelector('#admin-save-progress');const records=[...editor.querySelectorAll('input[name="records"]:checked')].map(input=>input.value),closing=records.includes('KTB-014'),wasCompleted=Boolean(current.completed),closingStage=closing?(wasCompleted?'closed':current.finalFlowStage||'verification'):'';const nextState={...current,read:records,completed:closing&&closingStage==='closed',finalFlowStage:closingStage,albertoMessageRead:closing&&wasCompleted?Boolean(current.albertoMessageRead):false,albertoResponseAccepted:closing&&wasCompleted?Boolean(current.albertoResponseAccepted):false,finalAlertShown:closing?current.finalAlertShown:false,finalFileSeen:closing?current.finalFileSeen:false};status.textContent='Guardando…';button.disabled=true;const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:profile.id,state:nextState,updated_at:new Date().toISOString()});if(error){status.textContent='No se pudieron guardar los cambios.';console.error(error);button.disabled=false;return}renderAdminEditor(profile,nextState)};
-  document.querySelector('#admin-save-progress').onclick=saveProgress;
+  const saveProgress=async()=>{
+    const status=editor.querySelector('#admin-save-status'),button=editor.querySelector('#admin-save-progress'),progressForm=editor.querySelector('#admin-progress-form');
+    if(!progressForm||!button)return;
+    let records=[...progressForm.querySelectorAll('input[name="records"]:checked')].map(input=>input.value);
+    const closing=records.includes('KTB-014'),wasCompleted=Boolean(current.completed);
+    let nextState;
+    if(!closing){
+      nextState=normalizeFinalState(resetClosingDocumentsForAdmin({...current,read:records}));
+    }else{
+      const finalRead=records.includes('FINAL-01');
+      const closingStage=finalRead?'closed':current.finalFlowStage==='closed'?'interrupted':current.finalFlowStage||'verification';
+      nextState=normalizeFinalState({
+        ...current,
+        read:records,
+        completed:finalRead,
+        finalFlowStage:closingStage,
+        albertoMessageRead:finalRead&&wasCompleted?Boolean(current.albertoMessageRead):false,
+        albertoResponseAccepted:finalRead&&wasCompleted?Boolean(current.albertoResponseAccepted):false,
+        finalAlertShown:closingStage==='interrupted'||finalRead,
+        finalFileSeen:finalRead
+      });
+    }
+    status.textContent='Guardando…';
+    button.disabled=true;
+    try{
+      const savedState=await saveAdminProgressState(profile.id,nextState);
+      renderAdminEditor(profile,savedState,requestedTab);
+    }catch(error){
+      status.textContent='No se pudieron guardar los cambios.';
+      console.error(error);
+      button.disabled=false;
+      return;
+    }
+  };
+  editor.querySelector('#admin-save-progress').onclick=saveProgress;
   const identityForm=document.querySelector('#admin-identity-form');
   identityForm.onsubmit=async event=>{
     event.preventDefault();
@@ -1662,30 +2226,34 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   };
   const toggleAccess=async()=>{const nextActive=!isActive;if(!confirm(nextActive?'¿Reactivar el acceso de este destinatario?':'¿Desactivar el acceso de este destinatario? No podrá iniciar sesión hasta que lo reactives.'))return;const buttons=[document.querySelector('#admin-toggle-user'),document.querySelector('#admin-side-toggle-user')];buttons.forEach(button=>button.disabled=true);try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'set-active',userId:profile.id,active:nextActive}});if(error)throw error;profile.is_active=data?.isActive===undefined?nextActive:data.isActive;renderAdminEditor(profile,current)}catch(error){console.error(error);buttons.forEach(button=>button.disabled=false);document.querySelector('#admin-identity-status').textContent=await functionErrorMessage(error)}};
   document.querySelector('#admin-toggle-user').onclick=toggleAccess;document.querySelector('#admin-side-toggle-user').onclick=toggleAccess;
-  document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!confirm(`¿Volver a mostrar el mensaje y la decisión final a ${profile.display_name||profile.email}?`))return;button.disabled=true;status.textContent='Restaurando mensaje…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:profile.id,state:nextState,updated_at:new Date().toISOString()});if(error){console.error(error);status.textContent='No se ha podido restaurar el mensaje.';button.disabled=false;return}renderAdminEditor(profile,nextState)};
+  document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!confirm(`¿Volver a mostrar el mensaje y la decisión final a ${profile.display_name||profile.email}?`))return;button.disabled=true;status.textContent='Restaurando mensaje…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};try{const savedState=await saveAdminProgressState(profile.id,nextState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent='No se ha podido restaurar el mensaje.';button.disabled=false}};
   document.querySelector('#admin-renew-legal').onclick=async()=>{
     const button=document.querySelector('#admin-renew-legal'),status=document.querySelector('#admin-legal-status');
     if(!confirm(`¿Crear una nueva versión de las bases para ${profile.display_name||profile.email}? Tendrá que aceptarlas de nuevo antes de acceder al expediente.`))return;
     button.disabled=true;status.textContent='Creando nueva versión…';
     const nextVersion=legalVersion+1,nextState={...current,legalAccepted:false,legalAcceptedAt:null,legalVersion:nextVersion,legalResetAt:new Date().toISOString()};
-    const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:profile.id,state:nextState,updated_at:new Date().toISOString()});
-    if(error){console.error(error);status.textContent='No se ha podido crear la nueva versión.';button.disabled=false;return}
-    const {error:activityError}=await supabaseClient.from('expedient_activity_log').insert({user_id:profile.id,event_type:'legal_terms_reset',document_id:null,details:{version:nextVersion,source:'administration'}});
-    if(activityError)console.warn('La versión se actualizó, pero no pudo registrarse en la actividad.',activityError);
-    renderAdminEditor(profile,nextState);
+    try{
+      const savedState=await saveAdminProgressState(profile.id,nextState);
+      const activity=normalizeActivityRecord('legal_terms_reset',{version:nextVersion,source:'administration'});
+      const {error:activityError}=await supabaseClient.from('expedient_activity_log').insert({user_id:profile.id,event_type:activity.eventType,document_id:null,details:activity.details});
+      if(activityError)console.warn('La versión se actualizó, pero no pudo registrarse en la actividad.',activityError);
+      renderAdminEditor(profile,savedState,'settings');
+    }catch(error){console.error(error);status.textContent='No se ha podido crear la nueva versión.';button.disabled=false}
   };
   document.querySelector('#admin-reset-onboarding').onclick=async()=>{
     const button=document.querySelector('#admin-reset-onboarding'),status=document.querySelector('#admin-onboarding-status');
     if(!confirm(`¿Volver a mostrar la guía inicial a ${profile.display_name||profile.email} en su próximo acceso?`))return;
     button.disabled=true;status.textContent='Preparando la guía…';
     const nextState={...current,onboardingCompleted:false,onboardingCompletedAt:null,onboardingResult:null,onboardingResetAt:new Date().toISOString(),onboardingVersion:Number(current.onboardingVersion||1)};
-    const {error}=await supabaseClient.from('expedient_progress').upsert({user_id:profile.id,state:nextState,updated_at:new Date().toISOString()});
-    if(error){console.error(error);status.textContent='No se ha podido reactivar la guía.';button.disabled=false;return}
-    const {error:activityError}=await supabaseClient.from('expedient_activity_log').insert({user_id:profile.id,event_type:'onboarding_reset',document_id:null,details:{version:Number(current.onboardingVersion||1),source:'administration'}});
-    if(activityError)console.warn('La guía se reactivó, pero no pudo registrarse en la actividad.',activityError);
-    renderAdminEditor(profile,nextState,'settings');
+    try{
+      const savedState=await saveAdminProgressState(profile.id,nextState);
+      const activity=normalizeActivityRecord('onboarding_reset',{version:Number(current.onboardingVersion||1),source:'administration'});
+      const {error:activityError}=await supabaseClient.from('expedient_activity_log').insert({user_id:profile.id,event_type:activity.eventType,document_id:null,details:activity.details});
+      if(activityError)console.warn('La guía se reactivó, pero no pudo registrarse en la actividad.',activityError);
+      renderAdminEditor(profile,savedState,'settings');
+    }catch(error){console.error(error);status.textContent='No se ha podido reactivar la guía.';button.disabled=false}
   };
-  document.querySelector('#admin-reset-progress').onclick=async()=>{const button=document.querySelector('#admin-reset-progress'),status=document.querySelector('#admin-reset-status');if(!confirm(`¿Limpiar por completo el expediente de ${profile.display_name||profile.email}? Esta acción no se puede deshacer.`))return;button.disabled=true;status.textContent='Limpiando expediente…';try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'reset-progress',userId:profile.id}});if(error)throw error;renderAdminEditor(profile,data?.state||safeState())}catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}};
+  document.querySelector('#admin-reset-progress').onclick=async()=>{const button=document.querySelector('#admin-reset-progress'),status=document.querySelector('#admin-reset-status');if(!confirm(`¿Limpiar por completo el expediente de ${profile.display_name||profile.email}? Se reiniciarán documentos, carpetas, páginas del cómic, aviso legal, guía inicial, cierre final, carta de Alberto y respuesta registrada. La cuenta, el nombre y el correo se conservan.`))return;button.disabled=true;status.textContent='Limpiando expediente…';try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'reset-progress',userId:profile.id}});if(error)throw error;const resetState=safeState(data?.state);const savedState=await saveAdminProgressState(profile.id,resetState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}};
   renderAdminActivity(profile.id);
   renderAdminPurchases(profile.id);
 };
@@ -1705,7 +2273,7 @@ const renderAdminActivity=async userId=>{
   const full=document.querySelector('#admin-activity-log'),preview=document.querySelector('#admin-activity-preview'),last=document.querySelector('#admin-last-activity');if(!full)return;
   try{const {data,error}=await supabaseClient.from('expedient_activity_log').select('event_type,document_id,details,created_at').eq('user_id',userId).order('created_at',{ascending:false});if(error)throw error;const items=data||[];if(last)last.textContent=items[0]?new Date(items[0].created_at).toLocaleDateString('es-ES'):'Sin actividad';
     const albertoResponses={japon:'Sí. Nos vamos a Japón.',ramen:'Acepto... pero quiero mucho ramen.',claro:'¿De verdad pensabas que iba a decir que no?'};
-    const activityTitle=item=>item.details?.activity_kind==='alberto_message_opened'?'Carta de Alberto abierta':item.details?.activity_kind==='alberto_response_submitted'?`Respuesta a la carta de Alberto · ${albertoResponses[item.details?.response]||'Respuesta registrada'}`:item.event_type==='login'?'Inicio de sesión verificado':item.event_type==='logout'?'Cierre de sesión':item.event_type==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:item.event_type==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:item.event_type==='onboarding_completed'?'Guía inicial completada':item.event_type==='onboarding_skipped'?'Guía inicial omitida':item.event_type==='onboarding_reset'?'Guía inicial reactivada por administración':item.event_type==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas`:item.event_type==='supplementary_file_consulted'?'Archivo final consultado':item.event_type==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
+    const activityTitle=item=>{const kind=item.details?.activity_kind||item.event_type;return kind==='alberto_message_opened'?'Carta de Alberto abierta':kind==='alberto_response_submitted'?`Respuesta a la carta de Alberto · ${albertoResponses[item.details?.response]||'Respuesta registrada'}`:kind==='login'?'Inicio de sesión verificado':kind==='logout'?'Cierre de sesión':kind==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:kind==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:kind==='onboarding_completed'?'Guía inicial completada':kind==='onboarding_skipped'?'Guía inicial omitida':kind==='onboarding_reset'?'Guía inicial reactivada por administración':kind==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas`:kind==='supplementary_file_consulted'?'Archivo final consultado':kind==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`};
     const row=item=>`<li><time>${new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})}</time><strong>${adminEditorEscape(activityTitle(item))}</strong></li>`;
     if(!items.length){full.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Aún no hay actividad registrada para este destinatario.</p>';if(preview)preview.innerHTML='<p>Sin actividad registrada.</p>';return}
     full.innerHTML=`<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p class="admin-activity-count">${items.length} registros</p><ol class="admin-activity-list">${items.map(row).join('')}</ol>`;if(preview)preview.innerHTML=`<ol class="admin-activity-list compact">${items.slice(0,3).map(row).join('')}</ol>`;
@@ -1736,14 +2304,14 @@ const openAdminDashboard=async()=>{
     const originalLabel=adminUserRefreshButton.textContent;
     if(refreshing){adminUserRefreshButton.disabled=true;adminUserRefreshButton.textContent='Actualizando…'}
     try{
-      const [{data:profile,error:profileError},{data:progress,error:progressError}]=await Promise.all([
+      const [{data:profile,error:profileError},progressState]=await Promise.all([
         supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').eq('id',userId).maybeSingle(),
-        supabaseClient.from('expedient_progress').select('state').eq('user_id',userId).maybeSingle()
+        fetchAdminProgressState(userId)
       ]);
-      if(profileError)throw profileError;if(progressError)throw progressError;if(!profile)throw new Error('El destinatario ya no está disponible.');
+      if(profileError)throw profileError;if(!profile)throw new Error('El destinatario ya no está disponible.');
       profiles=profiles.map(item=>item.id===profile.id?profile:item);
       const option=select.querySelector(`option[value="${profile.id}"]`);if(option)option.textContent=`${profile.display_name||profile.email} · ${profile.email}`;
-      renderAdminEditor(profile,progress?.state,requestedTab);
+      renderAdminEditor(profile,progressState,requestedTab);
       if(refreshing)adminUserRefreshButton.textContent='Actualizado ✓';
     }catch(error){console.error(error);if(refreshing)adminUserRefreshButton.textContent='Error al actualizar'}finally{
       adminUserRefreshButton.disabled=false;
@@ -1769,9 +2337,9 @@ setTimeout(()=>{
       if(error)throw error;
       if(isAdmin(data.user)){await client.auth.signOut();throw new Error('Las cuentas administrativas deben usar el acceso privado.')}
       currentUser=data.user;
-      await loadRemoteProgress(data.user);
+      const loadedProgress=await loadRemoteProgress(data.user);
       message.textContent='';
-      openDashboard();
+      openDashboard(loadedProgress);
     }catch(error){message.textContent='No se han podido verificar las credenciales de acceso.';console.error(error)}finally{submit.disabled=false}
   };
 
@@ -1787,7 +2355,7 @@ setTimeout(()=>{
       access.hidden=true;
       adminAccess.hidden=true;
       loading.hidden=true;
-      if(getState().legalAccepted){gate.hidden=true;dash.hidden=false;render();maybeStartExpedientTour()}
+      if(getState().legalAccepted){gate.hidden=true;dash.hidden=false;render({focusNext:true});maybeStartExpedientTour()}
       else{gate.hidden=false;dash.hidden=true}
     }catch(error){console.warn('No se pudo restaurar la sesión del expediente.',error);message.textContent='';access.hidden=false}
   };
@@ -1917,6 +2485,7 @@ setTimeout(async()=>{
   mark.onclick=async event=>{
     const id=active,alreadyRead=read().includes(id);
     if(mark.disabled)return;
+    if(id==='FINAL-01')return originalMarkHandler?.call(mark,event);
     if(!alreadyRead&&/^KTB-\d{3}$/.test(id)){
       mark.disabled=true;
       const success=await module.runConfirmation(id,{container:document.querySelector('#doc-body')});

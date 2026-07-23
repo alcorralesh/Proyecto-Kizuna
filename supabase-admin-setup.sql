@@ -68,6 +68,25 @@ using ((select public.is_archive_admin()));
 drop policy if exists "Admins can view every progress record" on public.expedient_progress;
 drop policy if exists "Admins can update every progress record" on public.expedient_progress;
 drop policy if exists "Admins can create every progress record" on public.expedient_progress;
+drop policy if exists "Users can view own progress" on public.expedient_progress;
+drop policy if exists "Users can update own progress" on public.expedient_progress;
+drop policy if exists "Users can create own progress" on public.expedient_progress;
+
+alter table public.expedient_progress enable row level security;
+grant select, insert, update on table public.expedient_progress to authenticated;
+
+create policy "Users can view own progress"
+on public.expedient_progress for select to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy "Users can update own progress"
+on public.expedient_progress for update to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+create policy "Users can create own progress"
+on public.expedient_progress for insert to authenticated
+with check ((select auth.uid()) = user_id);
 
 create policy "Admins can view every progress record"
 on public.expedient_progress for select to authenticated
