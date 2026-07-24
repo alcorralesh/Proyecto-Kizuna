@@ -1580,7 +1580,12 @@ body:has(#viewer[open]){overflow:hidden}
   .confirmation-action-copy h4{font-size:16px}
   .confirmation-action-copy>p:not(.system-line){font-size:6px!important}
   .confirmation-action-state{grid-column:3;justify-self:start;margin-top:-3px;padding:4px 5px;font-size:5px}
+  .confirmation-actions .confirmation-unlock>.confirmation-action-state{grid-column:3;justify-self:end}
   .confirmation-actions .confirmation-folder-symbol{width:47px;height:35px}
+}
+
+@media(min-width:701px) and (max-width:1100px) and (orientation:portrait){
+  #viewer:has(.confirmation-acta) .confirmation-actions .confirmation-unlock>.confirmation-action-state{grid-column:4;justify-self:end}
 }
 
 @media(orientation:landscape) and (min-width:601px) and (max-width:1000px) and (max-height:520px) and (pointer:coarse){
