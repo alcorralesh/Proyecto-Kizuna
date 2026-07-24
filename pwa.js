@@ -17,7 +17,7 @@
 
   const stylesheet=document.createElement('link');
   stylesheet.rel='stylesheet';
-  stylesheet.href=new URL('pwa.css?v=20260724-pwa01',baseUrl).href;
+  stylesheet.href=new URL('pwa.css?v=20260724-pwa02',baseUrl).href;
   document.head.appendChild(stylesheet);
 
   let installEvent=null;
