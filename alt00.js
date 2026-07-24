@@ -286,9 +286,6 @@ window.KizunaFinale=(()=>{
     // reducir movimiento: se eliminan animaciones, no el tiempo de lectura.
     await wait(options.preview?30000:7000);
     if(!credits.isConnected||opened)return;
-    anomaly.classList.remove('is-detected');
-    anomaly.classList.add('is-erased');
-    await delay(1300);
     if(credits.isConnected)exit.classList.add('is-visible');
   };
 
