@@ -788,6 +788,9 @@ body:has(#viewer[open]){overflow:hidden}
 .comic-page-bar i.is-recovered{border-color:#4e6e47;color:#fff}
 .comic-page-bar i.is-recovered:before{transform:scaleY(1)}
 .comic-page-bar span{position:relative;z-index:1;display:grid;place-items:center;height:100%;font:6px var(--mono)}
+.alt00-card .comic-page-bar{grid-template-columns:repeat(10,minmax(0,1fr))}
+.alt00-card{box-shadow:inset 5px 0 #97352e}
+.alt00-card .comic-card-header strong,.alt00-card .comic-card-progress strong{color:#8d241f}
 .comic-card>button{z-index:1;margin:18px 22px 22px;padding:11px 13px}
 @media(max-width:750px){.documents>.comic-card{grid-column:1;min-height:0}.comic-card:after{font-size:66px}.comic-card h3{font-size:32px}.comic-card-metadata{grid-template-columns:1fr}.comic-card-metadata div,.comic-card-metadata div:nth-child(-n+2){border-top:1px solid #d9cdb9;border-left:0}.comic-card-metadata div:first-child{border-top:0}.comic-page-bar{gap:2px}.comic-page-bar i{height:25px}.comic-card>button{width:calc(100% - 44px);min-height:44px}}
 

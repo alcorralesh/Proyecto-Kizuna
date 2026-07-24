@@ -1161,8 +1161,11 @@ function render(options={}){
   const resumeBanner=pending?`<section class="final-flow-resume"><div><p>CIERRE OBLIGATORIO EN CURSO</p><h3>El expediente todavía no está archivado.</h3><span>${stageLabels[stage]||stageLabels.verification}. Continúa desde el punto guardado.</span></div><button type="button" data-final-resume>Continuar cierre →</button></section>`:'';
   const newUnlockNotice=noticeUnlocks.length?`<section class="new-unlock-notice" role="status" aria-live="polite" aria-atomic="true"><div><p>NUEVO ACCESO AUTORIZADO</p><h3>${noticeUnlocks.length===1?(isFolder(noticeUnlocks[0])?'Nueva carpeta recuperada':'Nuevo documento disponible'):`${noticeUnlocks.length} nuevos registros disponibles`}</h3><span>${noticeUnlocks.length===1?`${noticeUnlocks[0]} ya puede consultarse.`:'La secuencia del expediente se ha actualizado.'}</span></div><button type="button" data-unlock-target="${noticeUnlocks[0]}">Localizar ${isFolder(noticeUnlocks[0])?'carpeta':'documento'} <span>↓</span></button><button type="button" class="new-unlock-dismiss" aria-label="Cerrar aviso">×</button></section>`:'';
   const comicPageBar=Array.from({length:11},(_,index)=>`<i class="${index<comicPages?'is-recovered':''}" aria-hidden="true"><span>${String(index+1).padStart(2,'0')}</span></i>`).join('');
+  const alt00Discovered=Boolean(getState().alt00Discovered);
+  const alt00PageBar=Array.from({length:10},(_,index)=>`<i class="is-recovered" aria-hidden="true"><span>${String(index+1).padStart(2,'0')}</span></i>`).join('');
   const acDiscoveryMarkup=revealingAc01?`<section class="comic-discovery-layer" role="status" aria-live="polite"><div class="comic-discovery-code">HALLAZGO ASOCIADO · AC-01</div><div class="comic-discovery-folder" aria-hidden="true"><i></i><span>ARCHIVO<br>COMPLEMENTARIO</span><b>AC-01</b></div><div class="comic-discovery-scan" aria-hidden="true"></div><p>INCORPORANDO REGISTRO AL EXPEDIENTE</p><button class="comic-discovery-skip" type="button">Mostrar archivo</button></section><span class="comic-reveal-stamp">NUEVO ARCHIVO<br>RECUPERADO</span>`:'';
   const supplementary=done.includes('KTB-003')?`<article class="document complementary comic-card ${revealingAc01?'is-new-unlock is-ac-reveal':''}" data-document-id="AC-01">${revealingAc01?'<span class="new-unlock-badge">NUEVO</span>':''}${acDiscoveryMarkup}<header class="comic-card-header"><span class="doc-no">○ AC-01</span><strong>REGISTRO ILUSTRADO</strong></header><h3>ARCHIVO COMPLEMENTARIO<br>AC-01</h3><dl class="comic-card-metadata"><div><dt>Estado</dt><dd>Recuperado</dd></div><div><dt>Tipo</dt><dd>Registro ilustrado</dd></div><div><dt>Origen</dt><dd>No catalogado</dd></div><div><dt>Relación</dt><dd>Pendiente de clasificación</dd></div></dl><section class="comic-card-progress"><div><span>PÁGINAS RECUPERADAS</span><strong>${comicPages} / 11</strong></div><div class="comic-page-bar" role="img" aria-label="${comicPages} de 11 páginas recuperadas">${comicPageBar}</div></section><button data-id="AC-01">CONSULTAR REGISTRO</button></article>`:'';
+  const alternative=alt00Discovered?`<article class="document complementary comic-card alt00-card" data-document-id="ALT-00"><header class="comic-card-header"><span class="doc-no">◇ ALT-00</span><strong>REGISTRO TEMPORAL</strong></header><h3>EXPEDIENTE ALTERNATIVO<br>ALT-00</h3><dl class="comic-card-metadata"><div><dt>Estado</dt><dd>Detectado</dd></div><div><dt>Tipo</dt><dd>Registro ilustrado</dd></div><div><dt>Origen</dt><dd>Protocolo Omega</dd></div><div><dt>Relación</dt><dd>Línea temporal descartada</dd></div></dl><section class="comic-card-progress"><div><span>PÁGINAS DISPONIBLES</span><strong>10 / 10</strong></div><div class="comic-page-bar" role="img" aria-label="10 de 10 páginas disponibles">${alt00PageBar}</div></section><button data-id="ALT-00">CONSULTAR REGISTRO</button></article>`:'';
   document.querySelector('#integrity').textContent=`${integrity} %`;
   document.querySelector('#integrity-fill').style.width=`${integrity}%`;
   document.querySelector('#authorization').textContent=`Nivel ${roman(level)}`;
@@ -1175,7 +1178,7 @@ function render(options={}){
     const status=isClosing?(stageLabels[stage]||stageLabels.verification):seen?'LECTURA CONFIRMADA':ok?'DISPONIBLE PARA CONSULTA':'AUTORIZACIÓN PENDIENTE';
     const folderProgress=isFolder(id)?folderCardProgressMarkup(id,done):'';
     return `<article class="document ${isFolder(id)?'folder-document':''} ${ok?'':'locked'} ${isClosing?'final-flow-card':''} ${newlyUnlocked?'is-new-unlock':''}" data-document-id="${id}">${newlyUnlocked?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">${isClosing?'◐ ':seen?'✓ ':ok?'○ ':'⌕ '}${id}</span><h3>${name(id)}</h3><p class="document-card-status">${status}</p>${folderProgress}<button type="button" data-id="${id}" ${ok?'':'disabled'} ${isClosing?'data-final-resume':''}>${ok?label:'Acceso restringido'}</button></article>`
-  }).join('')+supplementary;
+  }).join('')+supplementary+alternative;
   if(newUnlocks.length){
     void patchState({seenUnlocks:[...new Set([...seenUnlocks,...newUnlocks])]});
     requestAnimationFrame(()=>document.querySelectorAll('.is-new-unlock').forEach(card=>{
@@ -1308,7 +1311,23 @@ const renderArchiveWarning=(code,title,onAccept)=>{prepareRecoveryView(code,titl
 function openAr06Protocol(){renderArchiveWarning('AR-06','Autorización de acceso',()=>startAr06Recovery())}
 function startAr06Recovery(){const done=read();if(!done.includes('AR06-PROTOCOL')){done.push('AR06-PROTOCOL');save(done);void recordActivity('document_confirmed','AR06-PROTOCOL',{source:'recovered_file_protocol'})}folderRecoveryScreen('AR-06')}
 function showDoc(id){clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery');document.querySelector('.stamp').style.display='block';if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'){openAr03();return}if(folders[id]){openFolder(id);return}active=id;next.style.display='inline-block';mark.style.display='inline-block';const [title,...paras]=textFor(id);document.querySelector('#doc-type').textContent=isFolder(id)?'CARPETA DE ARCHIVOS RECUPERADOS / ACCESO AUTORIZADO':'DIVISIÓN DE ARCHIVOS TEMPORALES / ACCESO AUTORIZADO';document.querySelector('#doc-title').textContent=documentImages.has(id)?'Documento recuperado':title;document.querySelector('#doc-body').innerHTML=documentImages.has(id)?`<img style="display:block;width:100%;height:auto" src="../assets/documents/${id}.png" alt="Documento ${id}">`:paras.map(text=>`<p>${text}</p>`).join('')+(id==='KTB-014'?'<p><strong>EXPEDIENTE CERRADO<br>ARCHIVADO DEFINITIVAMENTE</strong></p>':'');mark.textContent=read().includes(id)?'Volver al expediente':isFolder(id)?'Cerrar carpeta y autorizar siguiente fase':window.KizunaMicroevents?.labelFor?.(id)||'Confirmar lectura';if(!viewer.open)viewer.showModal()}
-function openDoc(id){readerBackExpedient.disabled=false;const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');if(id!=='AC-01'){paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin=''}if(id==='AC-01'){openAcInfo();return}if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'||folders[id]){folderRecoveryScreen(id);return}if(id.startsWith('KTB-')){recoveryScreen(id);return}showDoc(id)}
+function openDoc(id){readerBackExpedient.disabled=false;const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');if(id!=='AC-01'){paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin=''}if(id==='AC-01'){openAcInfo();return}if(id==='ALT-00'){openAlt00Record();return}if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'||folders[id]){folderRecoveryScreen(id);return}if(id.startsWith('KTB-')){recoveryScreen(id);return}showDoc(id)}
+const persistPrivateAlt00State=async({kind,page})=>{
+  const previous=getState(),wasCompleted=Boolean(previous.alt00Completed),now=new Date().toISOString();
+  const alt00LastPage=Math.max(Number(previous.alt00LastPage)||1,Math.max(1,Math.min(10,Number(page)||1)));
+  await patchState({alt00Discovered:true,alt00DiscoveredAt:previous.alt00DiscoveredAt||now,alt00LastPage,alt00Completed:wasCompleted||kind==='completed',alt00CompletedAt:previous.alt00CompletedAt||(kind==='completed'?now:null)});
+  if(kind==='completed'&&!wasCompleted)await recordActivity('alt00_completed','ALT-00',{pages:10});
+};
+function openAlt00Record(){
+  if(!window.KizunaFinale)return;
+  const state=getState();
+  window.KizunaFinale.openComic({
+    assetBase:'../',
+    startPage:Math.max(1,Math.min(10,Number(state.alt00LastPage)||1)),
+    onSecretState:persistPrivateAlt00State,
+    onClose:()=>render()
+  });
+}
 function openAcInfo(){
   active='AC-01';
   next.style.display='none';

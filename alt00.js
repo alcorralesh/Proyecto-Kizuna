@@ -281,6 +281,14 @@ window.KizunaFinale=(()=>{
     requestAnimationFrame(()=>credits.classList.add('is-running'));
     await delay(3900);
     if(!credits.isConnected||opened)return;
+    if(!options.preview){
+      try{
+        await options.onSecretState?.({kind:'discovered',page:Math.max(1,Number(options.lastPage)||1)});
+      }catch(error){
+        console.warn('No se pudo registrar la detección de ALT-00.',error);
+      }
+    }
+    if(!credits.isConnected||opened)return;
     anomaly.classList.add('is-detected');
     // La anomalía debe seguir siendo descubrible aunque el sistema solicite
     // reducir movimiento: se eliminan animaciones, no el tiempo de lectura.
