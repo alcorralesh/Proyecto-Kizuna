@@ -20,9 +20,9 @@ body.kizuna-finale-open{overflow:hidden}
 #alberto-last-phrase{white-space:pre-wrap;font:500 clamp(31px,5vw,53px)/1.2 var(--serif,"EB Garamond",serif)}
 #alberto-finale-logo{width:132px;height:132px;margin-top:34px;object-fit:contain;border-radius:50%;opacity:0;transition:opacity 1.5s,transform 1.5s;transform:scale(.92)}
 #alberto-finale-logo.is-visible{opacity:1;transform:scale(1)}
-#alberto-system-note{max-width:470px;min-height:110px;margin:30px auto 0;color:#737975;white-space:pre-wrap;font:8px/1.8 var(--mono,"DM Mono",monospace);transition:opacity .45s}
+#alberto-system-note{max-width:520px;min-height:110px;margin:30px auto 0;color:#8b918d;white-space:pre-wrap;font:11px/1.85 var(--mono,"DM Mono",monospace);letter-spacing:.015em;transition:opacity .45s}
 #alberto-system-note.is-changing{opacity:0}
-#alberto-system-note.is-farewell{color:#c3beb6;font-size:10px;letter-spacing:.12em}
+#alberto-system-note.is-farewell{color:#c3beb6;font-size:12px;letter-spacing:.12em}
 .alt00-credits{position:relative;display:grid;grid-template-rows:auto minmax(0,1fr) auto;width:min(720px,calc(100vw - 38px));height:min(780px,calc(100dvh - 48px));overflow:hidden;border:1px solid #35413c;background:#060a08;box-shadow:0 30px 80px #000}
 .alt00-credits>header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:17px;padding:18px 22px;border-bottom:1px solid #2e3834;color:#817d75;font:7px var(--mono,"DM Mono",monospace);letter-spacing:.13em}
 .alt00-credits>header i{width:5px;height:5px;border-radius:50%;background:var(--alt-red);box-shadow:0 0 15px var(--alt-red)}
