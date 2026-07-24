@@ -219,7 +219,7 @@ body.quiz-open{overflow:hidden}
     box-sizing:border-box;
     display:grid;
     grid-template-columns:minmax(210px,.88fr) minmax(280px,1.12fr);
-    grid-template-rows:auto auto minmax(0,1fr);
+    grid-template-rows:42px auto minmax(0,1fr);
     gap:8px 24px;
     width:min(820px,100%);
     height:calc(100dvh - 16px);
@@ -228,7 +228,7 @@ body.quiz-open{overflow:hidden}
     padding:18px 24px;
     overflow:hidden;
   }
-  #alberto-decision>article>img{position:absolute;left:24px;top:16px;width:42px;height:42px;margin:0}
+  #alberto-decision>article>img{position:absolute;left:24px;top:18px;width:42px;height:42px;margin:0}
   #alberto-decision .alberto-decision-label{grid-column:1;grid-row:1;align-self:center;margin:0;padding-left:58px;text-align:left;font-size:7px}
   #alberto-decision h2{grid-column:1;grid-row:2;margin:0;text-align:left;font-size:clamp(29px,3.8vw,36px);line-height:.84}
   #alberto-decision .alberto-decision-copy{grid-column:1;grid-row:3;align-self:start;margin:5px 0 0;padding:12px 0 0;overflow:hidden}
