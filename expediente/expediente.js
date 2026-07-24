@@ -1308,7 +1308,7 @@ const renderArchiveWarning=(code,title,onAccept)=>{prepareRecoveryView(code,titl
 function openAr06Protocol(){renderArchiveWarning('AR-06','Autorización de acceso',()=>startAr06Recovery())}
 function startAr06Recovery(){const done=read();if(!done.includes('AR06-PROTOCOL')){done.push('AR06-PROTOCOL');save(done);void recordActivity('document_confirmed','AR06-PROTOCOL',{source:'recovered_file_protocol'})}folderRecoveryScreen('AR-06')}
 function showDoc(id){clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery');document.querySelector('.stamp').style.display='block';if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'){openAr03();return}if(folders[id]){openFolder(id);return}active=id;next.style.display='inline-block';mark.style.display='inline-block';const [title,...paras]=textFor(id);document.querySelector('#doc-type').textContent=isFolder(id)?'CARPETA DE ARCHIVOS RECUPERADOS / ACCESO AUTORIZADO':'DIVISIÓN DE ARCHIVOS TEMPORALES / ACCESO AUTORIZADO';document.querySelector('#doc-title').textContent=documentImages.has(id)?'Documento recuperado':title;document.querySelector('#doc-body').innerHTML=documentImages.has(id)?`<img style="display:block;width:100%;height:auto" src="../assets/documents/${id}.png" alt="Documento ${id}">`:paras.map(text=>`<p>${text}</p>`).join('')+(id==='KTB-014'?'<p><strong>EXPEDIENTE CERRADO<br>ARCHIVADO DEFINITIVAMENTE</strong></p>':'');mark.textContent=read().includes(id)?'Volver al expediente':isFolder(id)?'Cerrar carpeta y autorizar siguiente fase':window.KizunaMicroevents?.labelFor?.(id)||'Confirmar lectura';if(!viewer.open)viewer.showModal()}
-function openDoc(id){const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');if(id!=='AC-01'){paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin=''}if(id==='AC-01'){openAcInfo();return}if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'||folders[id]){folderRecoveryScreen(id);return}if(id.startsWith('KTB-')){recoveryScreen(id);return}showDoc(id)}
+function openDoc(id){readerBackExpedient.disabled=false;const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');if(id!=='AC-01'){paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin=''}if(id==='AC-01'){openAcInfo();return}if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'||folders[id]){folderRecoveryScreen(id);return}if(id.startsWith('KTB-')){recoveryScreen(id);return}showDoc(id)}
 function openAcInfo(){
   active='AC-01';
   next.style.display='none';
@@ -1353,41 +1353,53 @@ function syncKtb(id,onComplete){
   delete body.dataset.comicPages;
   const nextKtb=sequence.slice(sequence.indexOf(id)+1).find(item=>item.startsWith('KTB-'));
   const detail=isAcDiscovery
-    ?`<section class="confirmation-event confirmation-event-ac" id="confirmation-event"><p class="system-line">HALLAZGO ASOCIADO</p><div class="confirmation-event-head"><span>AC-01</span><div><h4>Archivo complementario localizado</h4><p>El registro existe, pero todavía no contiene páginas recuperadas.</p></div></div><div class="confirmation-meter"><i style="--confirmation-value:0%"></i></div><p class="confirmation-count"><strong>0</strong> de 11 páginas disponibles</p></section>`
+    ?`<article class="confirmation-action confirmation-event confirmation-event-ac" id="confirmation-event"><span class="confirmation-action-index">02</span><span class="confirmation-action-symbol">AC-01</span><div class="confirmation-action-copy"><p class="system-line">ARCHIVO COMPLEMENTARIO</p><h4>Registro ilustrado autorizado.</h4><p>AC-01 queda disponible e inicia la reconstrucción del cómic.</p><div class="confirmation-meter"><i style="--confirmation-value:0%"></i></div><p class="confirmation-count"><strong>0</strong> de 11 páginas recuperadas</p></div><strong class="confirmation-action-state">DISPONIBLE</strong></article>`
     :acPage
-      ?`<section class="confirmation-event confirmation-event-page" id="confirmation-event"><p class="system-line">ARCHIVO COMPLEMENTARIO AC-01</p><figure class="confirmation-preview"><div><img src="../assets/documents/AC-01/Pagina-${acPage}.png" alt="Vista previa de la página ${acPage} recuperada"><i aria-hidden="true"></i><span>RECONSTRUYENDO</span></div><figcaption>PÁGINA ${String(acPage).padStart(2,'0')} · AC-01</figcaption></figure><div class="confirmation-event-copy"><div class="confirmation-event-head"><span>${String(acPage).padStart(2,'0')}</span><div><h4>${isFinal?'Reconstrucción completada':'Nueva página reconstruida'}</h4><p>${isFinal?'La secuencia complementaria ya está disponible en su totalidad.':`La confirmación de ${id} ha incorporado una nueva página al archivo.`}</p></div></div><div class="confirmation-meter"><i style="--confirmation-value:${Math.round(acPage/11*100)}%"></i></div><p class="confirmation-count"><strong>${acPage}</strong> de 11 páginas disponibles</p></div></section>`
-      :`<section class="confirmation-event confirmation-event-next" id="confirmation-event"><p class="system-line">SECUENCIA ACTUALIZADA</p><div class="confirmation-event-head"><span>→</span><div><h4>${nextKtb?'Siguiente documento autorizado':'Registro completado'}</h4><p>${nextKtb?`${nextKtb} queda preparado para continuar la consulta.`:'La lectura ha quedado archivada correctamente.'}</p></div></div></section>`;
-  const unlock=folder?`<section class="confirmation-unlock" id="confirmation-unlock"><span class="confirmation-folder-symbol" aria-hidden="true"><i></i></span><div><p class="system-line">NUEVA FASE AUTORIZADA</p><h4>${folder} · ${folderDetails[folder][0]}</h4><p>${folderDetails[folder][1]}</p></div><strong>AUTORIZADO</strong></section>`:'';
-  body.innerHTML=`<section class="reading-confirmation ${isFinal?'is-final':''}" aria-live="polite"><header><p class="system-line">REGISTRO DE LECTURA · ${id}</p><h3>Confirmando<br><em>lectura.</em></h3></header><div class="confirmation-progress" aria-hidden="true"><i id="confirmation-progress"></i></div><ol class="confirmation-log"><li id="confirmation-step-1"><span></span>Verificando integridad de la consulta</li><li id="confirmation-step-2"><span></span>Registrando ${id} en el expediente</li><li id="confirmation-step-3"><span></span>Sincronizando nivel de autorización</li></ol><section class="confirmation-result" id="confirmation-result" hidden><div class="confirmation-seal"><span>LECTURA</span><strong>CONFIRMADA</strong></div><div><p class="system-line">REGISTRO COMPLETADO</p><h4>${id} ha quedado archivado.</h4><p>La secuencia autorizada se ha actualizado correctamente.</p></div></section>${detail}${unlock}<footer><p id="confirmation-final-note">Procesando cambios en el Archivo Central…</p></footer></section>`;
+      ?`<article class="confirmation-action confirmation-event confirmation-event-page" id="confirmation-event"><span class="confirmation-action-index">02</span><figure class="confirmation-preview confirmation-action-symbol"><div><img src="../assets/documents/AC-01/Pagina-${acPage}.png" alt="Vista previa de la página ${acPage} recuperada"><i aria-hidden="true"></i><span>RECONSTRUYENDO</span></div></figure><div class="confirmation-action-copy"><p class="system-line">ARCHIVO COMPLEMENTARIO · AC-01</p><h4>${isFinal?'Reconstrucción completada':'Nueva página reconstruida.'}</h4><p>${isFinal?'La secuencia complementaria está disponible en su totalidad.':`La página ${String(acPage).padStart(2,'0')} se ha incorporado al registro ilustrado.`}</p><div class="confirmation-meter"><i style="--confirmation-value:${Math.round(acPage/11*100)}%"></i></div><p class="confirmation-count"><strong>${acPage}</strong> de 11 páginas recuperadas</p></div><strong class="confirmation-action-state">${acPage} / 11</strong></article>`
+      :`<article class="confirmation-action confirmation-event confirmation-event-next" id="confirmation-event"><span class="confirmation-action-index">02</span><span class="confirmation-action-symbol">↻</span><div class="confirmation-action-copy"><p class="system-line">EXPEDIENTE SINCRONIZADO</p><h4>Nivel de autorización actualizado.</h4><p>Los permisos de consulta reflejan la lectura recién confirmada.</p></div><strong class="confirmation-action-state">VALIDADO</strong></article>`;
+  const unlock=folder
+    ?`<article class="confirmation-action confirmation-unlock" id="confirmation-unlock"><span class="confirmation-action-index">03</span><span class="confirmation-action-symbol confirmation-folder-symbol" aria-hidden="true"><i></i></span><div class="confirmation-action-copy"><p class="system-line">NUEVA FASE AUTORIZADA</p><h4>${folder} · ${folderDetails[folder][0]}</h4><p>${folderDetails[folder][1]}</p></div><strong class="confirmation-action-state">DISPONIBLE</strong></article>`
+    :isFinal
+      ?`<article class="confirmation-action confirmation-unlock confirmation-final-action" id="confirmation-unlock"><span class="confirmation-action-index">03</span><span class="confirmation-action-symbol">Ω</span><div class="confirmation-action-copy"><p class="system-line">PROTOCOLO FINAL AUTORIZADO</p><h4>Verificación del expediente.</h4><p>La secuencia principal está preparada para iniciar el cierre.</p></div><strong class="confirmation-action-state">DISPONIBLE</strong></article>`
+      :`<article class="confirmation-action confirmation-unlock confirmation-next-document" id="confirmation-unlock"><span class="confirmation-action-index">03</span><span class="confirmation-action-symbol">${nextKtb||'✓'}</span><div class="confirmation-action-copy"><p class="system-line">${nextKtb?'SIGUIENTE DOCUMENTO AUTORIZADO':'SECUENCIA COMPLETADA'}</p><h4>${nextKtb?`${nextKtb} queda disponible.`:'Registro actualizado.'}</h4><p>${nextKtb?'El siguiente documento puede consultarse al volver al expediente.':'No quedan documentos pendientes en esta fase.'}</p></div><strong class="confirmation-action-state">${nextKtb?'DISPONIBLE':'COMPLETO'}</strong></article>`;
+  body.innerHTML=`<section class="reading-confirmation confirmation-acta ${isFinal?'is-final':''}" aria-live="polite"><header><p class="system-line">REGISTRO DE LECTURA · ${id}</p><h3>Confirmando<br><em>lectura.</em></h3></header><div class="confirmation-progress" aria-hidden="true"><i id="confirmation-progress"></i></div><ol class="confirmation-log"><li id="confirmation-step-1"><span></span>Integridad verificada</li><li id="confirmation-step-2"><span></span>Registro incorporado</li><li id="confirmation-step-3"><span></span>Autorización sincronizada</li></ol><section class="confirmation-actions"><header><span>RESULTADOS INCORPORADOS</span><strong>3 ACTUALIZACIONES</strong></header><article class="confirmation-action confirmation-result" id="confirmation-result" hidden><span class="confirmation-action-index">01</span><div class="confirmation-action-symbol confirmation-seal"><span>LECTURA</span><strong>CONFIRMADA</strong></div><div class="confirmation-action-copy"><p class="system-line">REGISTRO COMPLETADO</p><h4>${id} ha quedado archivado.</h4><p>La secuencia autorizada se ha actualizado correctamente.</p></div><strong class="confirmation-action-state">ARCHIVADO</strong></article>${detail}${unlock}</section><footer><p id="confirmation-final-note">Procesando cambios en el Archivo Central…</p></footer></section>`;
   const progress=document.querySelector('#confirmation-progress'),result=document.querySelector('#confirmation-result'),event=document.querySelector('#confirmation-event'),unlockPanel=document.querySelector('#confirmation-unlock'),note=document.querySelector('#confirmation-final-note');
+  readerBackExpedient.disabled=true;
+  const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const pace=reducedMotion ? .12 : 1;
+  const later=(callback,delay)=>setTimeout(callback,Math.round(delay*pace));
   const steps=[1,2,3];
-  steps.forEach((step,index)=>setTimeout(()=>{
+  steps.forEach((step,index)=>later(()=>{
     if(!viewer.open)return;
     document.querySelector(`#confirmation-step-${step}`)?.classList.add('is-complete');
     if(progress)progress.style.width=`${(index+1)*25}%`;
   },300+index*420));
-  setTimeout(()=>{
+  later(()=>{
     if(!viewer.open)return;
     if(progress)progress.style.width='100%';
     result.hidden=false;
     requestAnimationFrame(()=>result.classList.add('is-visible'));
-  },1580);
-  setTimeout(()=>{
+  },1700);
+  later(()=>{
     if(!viewer.open)return;
     if(event?.querySelector('.confirmation-preview'))event.classList.add('is-scanning');
-  },1820);
-  setTimeout(()=>{
+  },2350);
+  later(()=>{
     if(!viewer.open)return;
     event?.classList.add('is-visible');
     event?.classList.remove('is-scanning');
     event?.querySelector('.confirmation-meter i')?.classList.add('is-filled');
-  },acPage?2450:2050);
-  setTimeout(()=>{
+  },acPage?3200:2850);
+  later(()=>{
     if(!viewer.open)return;
     unlockPanel?.classList.add('is-visible');
-    note.textContent=isFinal?'La verificación final ya puede comenzar.':folder?'La nueva fase queda disponible desde este momento.':'El expediente está preparado para continuar.';
+  },4050);
+  later(()=>{
+    if(!viewer.open)return;
+    readerBackExpedient.disabled=false;
+    note.textContent=isFinal?'La verificación final ya puede comenzar.':folder?'La nueva carpeta queda disponible desde este momento.':'El expediente está preparado para continuar.';
     if(isFinal)setFinalFlowAction('verification','Iniciar verificación final →',onComplete,true);
-  },isFinal?3100:folder?2900:acPage?2850:2350);
+  },4850);
 }
 function startFinale(resumeCompleted=false){
   if(!finalClosureAuthorized()){discardStaleFinalFlowUi();return}
