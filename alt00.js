@@ -6,7 +6,9 @@ window.KizunaFinale=(()=>{
   const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
   const pageName=page=>`Pagina-${String(page).padStart(2,'0')}.png`;
   const reducedMotion=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const delay=milliseconds=>wait(reducedMotion()?Math.min(90,milliseconds*.08):milliseconds);
+  // Reducir movimiento elimina transiciones, pero nunca debe eliminar el
+  // tiempo que necesita una persona para leer cada pantalla.
+  const delay=milliseconds=>wait(milliseconds);
   let activeOverlay=null;
 
   const removeActive=()=>{
@@ -50,7 +52,13 @@ window.KizunaFinale=(()=>{
           <h2 id="alt00-title">Expediente Alternativo 001</h2>
         </div>
         <div class="alt00-reader-counter"><span>PÁGINA</span><strong>01 / ${PAGE_TOTAL}</strong></div>
-        <button class="alt00-reader-zoom" type="button">Ampliar</button>
+        <nav class="alt00-reader-tools" aria-label="Controles de visualización">
+          <button type="button" data-alt00-action="out" aria-label="Reducir zoom">−</button>
+          <output>100 %</output>
+          <button type="button" data-alt00-action="in" aria-label="Aumentar zoom">+</button>
+          <button type="button" data-alt00-action="fit">Ajustar</button>
+          <button type="button" data-alt00-action="full" aria-label="Pantalla completa">⛶</button>
+        </nav>
         <button class="alt00-reader-close" type="button" aria-label="Cerrar registro">×</button>
       </header>
       <main class="alt00-reader-stage">
@@ -70,13 +78,21 @@ window.KizunaFinale=(()=>{
     document.body.classList.add('alberto-overlay-open','kizuna-finale-open');
     const image=viewer.querySelector('img');
     const stage=viewer.querySelector('.alt00-reader-stage');
+    const figure=viewer.querySelector('figure');
     const counter=viewer.querySelector('.alt00-reader-counter strong');
     const previous=viewer.querySelector('.alt00-page-prev');
     const next=viewer.querySelector('.alt00-page-next');
-    const zoom=viewer.querySelector('.alt00-reader-zoom');
+    const zoomOutput=viewer.querySelector('.alt00-reader-tools output');
+    const zoomOut=viewer.querySelector('[data-alt00-action="out"]');
+    const zoomIn=viewer.querySelector('[data-alt00-action="in"]');
+    const zoomFit=viewer.querySelector('[data-alt00-action="fit"]');
+    const fullscreen=viewer.querySelector('[data-alt00-action="full"]');
     const strip=viewer.querySelector('.alt00-page-strip');
     let page=Math.min(PAGE_TOTAL,Math.max(1,Number(startPage)||1));
-    let pointerStart=null;
+    let scale=1,fitScale=1,pinchStart=null,moved=false;
+    const pointers=new Map();
+    let fullscreenChange=()=>{};
+    let resizeTimer=0;
     let stateQueue=Promise.resolve();
 
     strip.innerHTML=Array.from({length:PAGE_TOTAL},(_,index)=>`<button type="button" data-alt00-page="${index+1}" aria-label="Ir a la página ${index+1}"><span>${String(index+1).padStart(2,'0')}</span></button>`).join('');
@@ -85,6 +101,38 @@ window.KizunaFinale=(()=>{
       stateQueue=stateQueue
         .then(()=>onSecretState({kind,page,...extra}))
         .catch(error=>console.warn('No se pudo guardar el estado de ALT-00.',error));
+    };
+    const clampScale=value=>Math.min(3.5,Math.max(fitScale,value));
+    const updateZoom=()=>{
+      if(!image.naturalWidth)return;
+      const width=Math.round(image.naturalWidth*scale);
+      image.style.width=`${width}px`;
+      image.style.maxWidth='none';
+      image.style.maxHeight='none';
+      figure.style.width=`${width}px`;
+      figure.style.maxWidth='none';
+      zoomOutput.textContent=`${Math.round(scale/fitScale*100)} %`;
+      viewer.classList.toggle('is-zoomed',scale>fitScale*1.03);
+      zoomOut.disabled=scale<=fitScale*1.01;
+    };
+    const setScale=(value,clientX=stage.getBoundingClientRect().left+stage.clientWidth/2,clientY=stage.getBoundingClientRect().top+stage.clientHeight/2)=>{
+      if(!image.naturalWidth)return;
+      const previousScale=scale,nextScale=clampScale(value),rect=stage.getBoundingClientRect();
+      const focusX=stage.scrollLeft+clientX-rect.left,focusY=stage.scrollTop+clientY-rect.top;
+      scale=nextScale;
+      updateZoom();
+      stage.scrollLeft=focusX*(nextScale/previousScale)-(clientX-rect.left);
+      stage.scrollTop=focusY*(nextScale/previousScale)-(clientY-rect.top);
+    };
+    const fit=()=>{
+      if(!image.naturalWidth)return;
+      const mobile=matchMedia('(max-width:700px)').matches;
+      const widthScale=Math.max(.1,(stage.clientWidth-(mobile?12:36))/image.naturalWidth);
+      const heightScale=Math.max(.1,(stage.clientHeight-(mobile?16:36))/image.naturalHeight);
+      fitScale=mobile?widthScale:Math.min(1,widthScale,heightScale);
+      scale=fitScale;
+      updateZoom();
+      stage.scrollTo({top:0,left:0});
     };
     const paint=nextPage=>{
       page=Math.min(PAGE_TOTAL,Math.max(1,nextPage));
@@ -106,25 +154,68 @@ window.KizunaFinale=(()=>{
     };
     const close=()=>{
       document.removeEventListener('keydown',keyboard);
+      document.removeEventListener('fullscreenchange',fullscreenChange);
+      window.removeEventListener('resize',resize);
+      clearTimeout(resizeTimer);
       viewer.classList.add('is-closing');
       setTimeout(()=>{viewer.remove();onClose()},reducedMotion()?0:230);
     };
-    image.onload=()=>viewer.classList.add('is-page-ready');
+    image.onload=()=>{fit();viewer.classList.add('is-page-ready')};
     previous.onclick=()=>paint(page-1);
     next.onclick=()=>page===PAGE_TOTAL?close():paint(page+1);
     strip.querySelectorAll('button').forEach(button=>button.onclick=()=>paint(Number(button.dataset.alt00Page)));
     viewer.querySelector('.alt00-reader-close').onclick=close;
-    zoom.onclick=()=>{const expanded=viewer.classList.toggle('is-zoomed');zoom.textContent=expanded?'Ajustar':'Ampliar';stage.scrollTo({top:0,left:0})};
-    stage.addEventListener('pointerdown',event=>{pointerStart={x:event.clientX,y:event.clientY};stage.setPointerCapture?.(event.pointerId)});
-    stage.addEventListener('pointerup',event=>{
-      if(!pointerStart)return;
-      const horizontal=event.clientX-pointerStart.x,vertical=event.clientY-pointerStart.y;
-      pointerStart=null;
-      if(Math.abs(horizontal)>70&&Math.abs(horizontal)>Math.abs(vertical)*1.4){
-        if(horizontal<0&&page<PAGE_TOTAL)paint(page+1);
-        if(horizontal>0&&page>1)paint(page-1);
+    zoomOut.onclick=()=>setScale(scale/1.25);
+    zoomIn.onclick=()=>setScale(scale*1.25);
+    zoomFit.onclick=fit;
+    fullscreen.onclick=async()=>{
+      if(document.fullscreenElement){await document.exitFullscreen();return}
+      if(viewer.requestFullscreen){
+        try{await viewer.requestFullscreen();return}catch(error){console.warn('Pantalla completa nativa no disponible; se activa el modo inmersivo.',error)}
+      }
+      const immersive=viewer.classList.toggle('is-immersive');
+      fullscreen.classList.toggle('active',immersive);
+      fullscreen.setAttribute('aria-pressed',String(immersive));
+      setTimeout(fit,50);
+    };
+    fullscreenChange=()=>{const active=document.fullscreenElement===viewer;fullscreen.classList.toggle('active',active);fullscreen.setAttribute('aria-pressed',String(active));setTimeout(fit,50)};
+    document.addEventListener('fullscreenchange',fullscreenChange);
+    const resize=()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(fit,120)};
+    window.addEventListener('resize',resize);
+    stage.addEventListener('wheel',event=>{if(!event.ctrlKey)return;event.preventDefault();setScale(scale*(event.deltaY<0?1.16:.86),event.clientX,event.clientY)},{passive:false});
+    const pointerDistance=points=>Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);
+    const pointerCenter=points=>({x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2});
+    stage.addEventListener('pointerdown',event=>{
+      const point={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,scrollX:stage.scrollLeft,scrollY:stage.scrollTop};
+      pointers.set(event.pointerId,point);moved=false;stage.setPointerCapture?.(event.pointerId);
+      if(pointers.size===2){const points=[...pointers.values()].slice(0,2);pinchStart={distance:Math.max(1,pointerDistance(points)),scale};viewer.classList.add('is-pinching')}
+    });
+    stage.addEventListener('pointermove',event=>{
+      const point=pointers.get(event.pointerId);if(!point)return;
+      point.x=event.clientX;point.y=event.clientY;
+      const points=[...pointers.values()].slice(0,2);
+      if(points.length===2&&pinchStart){
+        event.preventDefault();moved=true;const center=pointerCenter(points);
+        setScale(pinchStart.scale*pointerDistance(points)/pinchStart.distance,center.x,center.y);
+      }else{
+        const dx=event.clientX-point.startX,dy=event.clientY-point.startY;
+        if(Math.hypot(dx,dy)>5)moved=true;
+        if(moved){event.preventDefault();stage.scrollLeft=point.scrollX-dx;stage.scrollTop=point.scrollY-dy}
       }
     });
+    const releasePointer=event=>{
+      const point=pointers.get(event.pointerId);
+      if(point&&pointers.size===1&&scale<=fitScale*1.03){
+        const horizontal=event.clientX-point.startX,vertical=event.clientY-point.startY;
+        if(Math.abs(horizontal)>85&&Math.abs(horizontal)>Math.abs(vertical)*1.5){
+          if(horizontal<0&&page<PAGE_TOTAL)paint(page+1);
+          if(horizontal>0&&page>1)paint(page-1);
+        }
+      }
+      pointers.delete(event.pointerId);pinchStart=null;viewer.classList.remove('is-pinching');
+    };
+    stage.addEventListener('pointerup',releasePointer);
+    stage.addEventListener('pointercancel',releasePointer);
     const keyboard=event=>{
       if(!viewer.isConnected){document.removeEventListener('keydown',keyboard);return}
       if(event.key==='ArrowRight'&&page<PAGE_TOTAL)paint(page+1);
@@ -251,32 +342,32 @@ window.KizunaFinale=(()=>{
     await delay(500);
     if(skipped)return overlay;
     await typeText(terminal,'Procesando respuesta...');
-    await delay(520);
-    terminal.textContent+='\n\nRespuesta registrada.';
-    await delay(620);
-    terminal.textContent+='\n\nActualizando estado del expediente...';
     await delay(900);
+    terminal.textContent+='\n\nRespuesta registrada.';
+    await delay(1100);
+    terminal.textContent+='\n\nActualizando estado del expediente...';
+    await delay(1500);
     if(skipped)return overlay;
     terminal.hidden=true;state.hidden=false;
     await delay(600);oldState.classList.add('is-erased');
     await delay(650);newState.textContent='ACEPTADO';newState.classList.add('is-visible');
-    await delay(850);stamp.hidden=false;requestAnimationFrame(()=>stamp.classList.add('is-visible'));
-    await delay(1150);
+    await delay(1000);stamp.hidden=false;requestAnimationFrame(()=>stamp.classList.add('is-visible'));
+    await delay(1900);
     if(skipped)return overlay;
     state.hidden=true;stamp.hidden=true;
     await typeText(phrase,'Porque los mejores recuerdos...',38);
-    await delay(650);phrase.textContent+='\n...todavía están por escribirse.';
-    await delay(900);logo.hidden=false;requestAnimationFrame(()=>logo.classList.add('is-visible'));
-    await delay(1200);
+    await delay(900);phrase.textContent+='\n...todavía están por escribirse.';
+    await delay(2600);logo.hidden=false;requestAnimationFrame(()=>logo.classList.add('is-visible'));
+    await delay(1900);
     await typeText(note,'Registro interno actualizado.\n\nEl destinatario ha aceptado la expedición.\n\nNo se requieren más intervenciones.',16);
-    await delay(1350);
+    await delay(4200);
     if(skipped)return overlay;
     note.classList.add('is-changing');
     await delay(380);
     note.textContent='Buen viaje.';
     note.classList.remove('is-changing');
     note.classList.add('is-farewell');
-    await delay(1500);
+    await delay(2600);
     if(!skipped)showCredits(overlay,settings);
     return overlay;
   };
