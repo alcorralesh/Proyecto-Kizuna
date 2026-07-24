@@ -836,3 +836,27 @@ body:has(#viewer[open]){overflow:hidden}
   .dashboard>header #return-public-site{border-color:#5e665f;color:#27332f}
   .dashboard>header #exit{border-color:#a45d52;background:#f3e6da;color:#7e1b19}
 }
+
+.case-head.is-complete{min-height:245px;padding-bottom:100px!important}
+@media(max-width:1180px), (max-width:1400px) and (pointer:coarse){
+  .case-head.is-complete{min-height:0;padding-bottom:12px!important}
+  .case-head #completion-record{
+    position:relative!important;
+    left:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    width:100%;
+    margin-top:13px;
+    padding-top:10px!important;
+    gap:8px 14px!important;
+    font-size:7px!important;
+    line-height:1.55!important
+  }
+  .case-head #completion-record>span:first-child{grid-column:1/-1}
+  .case-head #completion-record strong{font-size:8px!important;line-height:1.45}
+}
+@media(max-width:600px){
+  .case-head #completion-record{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
