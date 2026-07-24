@@ -121,6 +121,14 @@ Deno.serve(async (request) => {
       acceptanceEmailSentAt: null,
       acceptanceEmailId: null,
       comicReadPages: [],
+      legalAccepted: false,
+      legalAcceptedAt: null,
+      legalVersion: 1,
+      loadingSeen: false,
+      onboardingCompleted: false,
+      onboardingCompletedAt: null,
+      onboardingVersion: 1,
+      seenUnlocks: [],
     }
     const { error: progressError } = await adminClient
       .from('expedient_progress')
@@ -159,13 +167,19 @@ Deno.serve(async (request) => {
   })
   if (error || !data.user) return response({ error: error?.message ?? 'No se pudo crear el usuario.' }, 400)
 
-  await adminClient.from('expedient_profiles').upsert({
+  const { error: profileCreateError } = await adminClient.from('expedient_profiles').upsert({
     id: data.user.id,
-    email: data.user.email,
-    display_name: normalizedName || data.user.email,
+    email: data.user.email ?? normalizedEmail,
+    display_name: normalizedName || data.user.email || normalizedEmail,
     is_active: true,
   })
-  await adminClient.from('expedient_progress').upsert({
+  if (profileCreateError) {
+    const { error: rollbackError } = await adminClient.auth.admin.deleteUser(data.user.id)
+    if (rollbackError) console.error('No se pudo revertir la cuenta incompleta:', rollbackError.message)
+    return response({ error: `No se pudo crear el perfil del destinatario: ${profileCreateError.message}` }, 400)
+  }
+
+  const { error: progressCreateError } = await adminClient.from('expedient_progress').upsert({
     user_id: data.user.id,
     state: {
       read: [],
@@ -181,8 +195,21 @@ Deno.serve(async (request) => {
       acceptanceEmailSentAt: null,
       acceptanceEmailId: null,
       comicReadPages: [],
+      legalAccepted: false,
+      legalAcceptedAt: null,
+      legalVersion: 1,
+      loadingSeen: false,
+      onboardingCompleted: false,
+      onboardingCompletedAt: null,
+      onboardingVersion: 1,
+      seenUnlocks: [],
     },
   })
+  if (progressCreateError) {
+    const { error: rollbackError } = await adminClient.auth.admin.deleteUser(data.user.id)
+    if (rollbackError) console.error('No se pudo revertir la cuenta incompleta:', rollbackError.message)
+    return response({ error: `No se pudo inicializar el expediente: ${progressCreateError.message}` }, 400)
+  }
 
   return response({ id: data.user.id, email: data.user.email })
 })

@@ -305,6 +305,14 @@ const patchState=changes=>{
 };
 const save=items=>patchState({read:items});
 const getSupabase=async()=>{if(supabaseClient)return supabaseClient;if(!window.supabase){if(!supabaseScript){supabaseScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)})}await supabaseScript}supabaseClient=window.supabase.createClient(supabaseUrl,supabaseKey);return supabaseClient};
+const recipientAccessErrorMessage=error=>{
+  const message=String(error?.message||'').trim();
+  const normalized=message.toLowerCase();
+  if(normalized.includes('cuenta existe')||normalized.includes('acceso ha sido desactivado'))return message;
+  if(normalized.includes('email not confirmed'))return 'La cuenta existe, pero el correo todavía no está confirmado.';
+  if(normalized.includes('banned'))return 'El acceso de este destinatario está desactivado en Administración.';
+  return 'No se han podido verificar las credenciales de acceso.';
+};
 const loadRemoteProgress=async user=>{
   const sessionVersion=++progressSessionVersion;
   currentUser=user;
@@ -314,10 +322,11 @@ const loadRemoteProgress=async user=>{
   authoritativeRead=null;
   clearStaleFinalFlowDom();
   const client=await getSupabase();
-  const [{data:progressRow,error},{data:profile,error:profileError}]=await Promise.all([
+  const [{data:loadedProgressRow,error},{data:profile,error:profileError}]=await Promise.all([
     client.from('expedient_progress').select('state,updated_at').eq('user_id',user.id).maybeSingle(),
     client.from('expedient_profiles').select('display_name,email,is_active').eq('id',user.id).maybeSingle()
   ]);
+  let progressRow=loadedProgressRow;
   if(error)throw error;
   if(profileError)console.warn('No se pudo leer el nombre del perfil.',profileError);
   if(sessionVersion!==progressSessionVersion||currentUser?.id!==user.id){
@@ -328,8 +337,21 @@ const loadRemoteProgress=async user=>{
     throw new Error('Este acceso ha sido desactivado por la División de Archivos Temporales.');
   }
   if(!progressRow){
-    currentUser=null;
-    throw new Error('Supabase no ha devuelto el progreso del usuario. Ejecuta supabase-progress-rls.sql antes de continuar.');
+    const initialState=emptyProgressState();
+    const {data:createdProgress,error:createProgressError}=await client
+      .from('expedient_progress')
+      .insert({user_id:user.id,state:initialState,updated_at:new Date().toISOString()})
+      .select('state,updated_at')
+      .single();
+    if(createProgressError){
+      await client.auth.signOut();
+      currentUser=null;
+      const policyHint=['42501','PGRST301'].includes(String(createProgressError.code||''))
+        ?' Comprueba las políticas de supabase-progress-rls.sql.'
+        :'';
+      throw new Error(`La cuenta existe, pero no se pudo inicializar su expediente.${policyHint}`);
+    }
+    progressRow=createdProgress;
   }
   currentDisplayName=profile?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Destinatario autorizado';
   updateRecipientName();
@@ -399,7 +421,7 @@ setTimeout(()=>{
        await recordActivity('login',null,{source:'private_access'});
        message.textContent='';
       openDashboard(loadedProgress);
-    }catch(error){message.textContent='No se han podido verificar las credenciales de acceso.';console.error(error)}finally{submit.disabled=false}
+    }catch(error){message.textContent=recipientAccessErrorMessage(error);console.error(error)}finally{submit.disabled=false}
   };
   let finalSequenceActive=false,finalPopupPending=false;
   function discardStaleFinalFlowUi(){
@@ -923,7 +945,7 @@ const enhanceDocumentImages=()=>{
 document.addEventListener('fullscreenchange',()=>setReaderFullscreenState(document.fullscreenElement===viewer));
 readerBackExpedient.onclick=()=>{viewer.close();render()};
 readerBackFolder.onclick=()=>{if(readerReturnToFolder==='tickets')openTicketMosaic();else if(readerReturnToFolder==='cities'||readerReturnToFolder==='temples')openAr03Mosaic(readerReturnToFolder);else if(readerReturnToFolder==='AR-03')openAr03();else if(readerReturnToFolder)openFolder(readerReturnToFolder)};
-viewer.addEventListener('close',()=>{clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery');readerReturnToFolder=null;readerCanConfirm=false;readerChromeActive='';comicPrevious.hidden=true;comicFollowing.hidden=true;const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin='';delete body.dataset.comicPage;delete body.dataset.comicPages;if(viewer.classList.contains('is-fallback-fullscreen')){viewer.classList.remove('is-fallback-fullscreen');document.body.style.overflow=readerPreviousBodyOverflow}if(document.fullscreenElement===viewer)document.exitFullscreen();setReaderFullscreenState(false)});
+viewer.addEventListener('close',()=>{clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery');readerReturnToFolder=null;readerCanConfirm=false;readerChromeActive='';comicPrevious.hidden=true;comicFollowing.hidden=true;const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin='';delete body.dataset.comicPage;delete body.dataset.comicPages;if(viewer.classList.contains('is-fallback-fullscreen')){viewer.classList.remove('is-fallback-fullscreen');document.body.style.overflow=readerPreviousBodyOverflow}if(document.fullscreenElement===viewer)document.exitFullscreen();setReaderFullscreenState(false)});
 const documentImageObserver=new MutationObserver(()=>enhanceDocumentImages());documentImageObserver.observe(document.querySelector('#doc-body'),{childList:true});document.addEventListener('keydown',event=>{if(!viewer.open)return;if(event.key==='ArrowLeft'&&!comicPrevious.hidden&&!comicPrevious.disabled){event.preventDefault();comicPrevious.click()}if(event.key==='ArrowRight'&&!comicFollowing.hidden&&!comicFollowing.disabled){event.preventDefault();comicFollowing.click()}});
 const allowed=id=>{const index=sequence.indexOf(id);return index===0||read().includes(sequence[index-1])};const roman=value=>{const table=[[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];let result='';for(const [number,symbol] of table){while(value>=number){result+=symbol;value-=number}}return result};
 const mailboxButton=document.createElement('button'),mailbox=document.createElement('aside'),publicReturnButton=document.createElement('button');mailboxButton.id='mailbox-toggle';mailboxButton.type='button';mailboxButton.textContent='Buzón';mailboxButton.style.cssText='border:1px solid #7e1b19;background:#f6f0e2;color:#7e1b19;padding:10px;font:9px var(--mono);cursor:pointer';mailbox.id='mailbox';mailbox.style.cssText='display:none;position:fixed;right:5vw;top:82px;z-index:30;width:min(450px,calc(100vw - 32px));max-height:72vh;overflow:auto;background:#f6f0e2;color:#202726;border:1px solid #8b887d;box-shadow:12px 14px 30px #0004;padding:22px';publicReturnButton.id='return-public-site';publicReturnButton.type='button';publicReturnButton.textContent='Volver a la web pública';publicReturnButton.onclick=()=>{location.href='../index.html'};const headerActions=document.querySelector('.header-actions');headerActions?.prepend(mailboxButton);headerActions?.insertBefore(publicReturnButton,document.querySelector('#exit'));dash.appendChild(mailbox);
@@ -1018,6 +1040,37 @@ showFinalFileAlert=function(){if(!finalClosureAuthorized()||getFinalFlowStage()!
 function openDashboard(){access.hidden=true;loading.hidden=false;const log=document.querySelector('#auth-log');log.innerHTML='<p>Comprobando expediente…</p><div style="height:8px;background:#d3c8b4"><i id="auth-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.7s ease"></i></div><p>Sincronizando registros…</p><p>Integridad documental: <strong>100 %</strong></p>';setTimeout(()=>document.querySelector('#auth-progress').style.width='100%',80);setTimeout(()=>{loading.hidden=true;gate.hidden=false},2100)}
 function updateCompletionHeader(done){const head=document.querySelector('.case-head'),old=document.querySelector('#completion-record');if(old)old.remove();head.style.position='';if(!finalFlowClosed()){head.style.setProperty('padding-bottom','20px','important');head.style.minHeight='140px';return}head.style.setProperty('padding-bottom','100px','important');head.style.minHeight='245px';const record=document.createElement('section');record.id='completion-record';record.style.cssText='position:absolute;left:10vw;right:10vw;bottom:18px;border-top:1px solid #9b8870;padding-top:12px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 20px;color:#7e1b19;font:9px/1.65 "DM Mono",monospace;letter-spacing:.03em';record.innerHTML=`<span>PROJECT JAPAN<br><strong style="font-size:11px">✔ FINALIZADO · EXPEDIENTE ARCHIVADO</strong></span><span>DESTINATARIO<br><strong style="font-size:11px">JOSÉ CUADRADO</strong></span><span>FECHA DE ARCHIVO<br><strong style="font-size:11px">${new Date().toLocaleDateString('es-ES')}</strong></span><span>INTEGRIDAD<br><strong style="font-size:11px">100 %</strong></span>`;head.appendChild(record)}
 let pendingFinalAlertTimer=0;
+let acRevealTimers=[];
+const clearAcRevealTimers=()=>{acRevealTimers.forEach(clearTimeout);acRevealTimers=[]};
+function revealComicCard(card){
+  if(!card)return;
+  clearAcRevealTimers();
+  const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const compact=matchMedia('(max-width:750px)').matches;
+  let finished=false;
+  const finish=()=>{
+    if(finished||!card.isConnected)return;
+    finished=true;
+    clearAcRevealTimers();
+    card.classList.add('is-ac-revealed');
+    card.querySelector('.comic-discovery-skip')?.setAttribute('disabled','');
+    acRevealTimers.push(setTimeout(()=>{
+      if(!card.isConnected)return;
+      card.classList.remove('is-ac-reveal','is-ac-scanning','is-ac-opening','is-ac-revealed');
+      card.querySelector('.comic-discovery-layer')?.remove();
+      card.querySelector('.comic-reveal-stamp')?.remove();
+    },reduced?20:620));
+  };
+  card.querySelector('.comic-discovery-skip')?.addEventListener('click',finish);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    if(!card.isConnected)return;
+    card.scrollIntoView({behavior:reduced?'auto':'smooth',block:'center'});
+    if(reduced){finish();return}
+    card.classList.add('is-ac-scanning');
+    acRevealTimers.push(setTimeout(()=>card.isConnected&&card.classList.add('is-ac-opening'),compact?520:760));
+    acRevealTimers.push(setTimeout(finish,compact?1250:1750));
+  }));
+}
 function render(options={}){
   const done=read(),visible=sequence.filter(id=>!nestedKtb.has(id));
   const completed=sequence.filter(id=>done.includes(id)).length;
@@ -1030,10 +1083,14 @@ function render(options={}){
   const unlockCandidates=visible.filter(id=>allowed(id)&&!done.includes(id)&&!folderCompleted(id,done));
   if(done.includes('KTB-003'))unlockCandidates.push('AC-01');
   const newUnlocks=done.length&&!finalFlowClosed()?unlockCandidates.filter(id=>!seenUnlocks.includes(id)):[];
+  const revealingAc01=newUnlocks.includes('AC-01');
+  const noticeUnlocks=revealingAc01?[]:newUnlocks;
   const stageLabels={verification:'VERIFICACIÓN FINAL EN CURSO',summary:'VERIFICACIÓN FINAL EN CURSO',complete:'VERIFICACIÓN FINAL EN CURSO',interrupted:'CIERRE BLOQUEADO · FINAL-01 PENDIENTE'};
   const resumeBanner=pending?`<section class="final-flow-resume"><div><p>CIERRE OBLIGATORIO EN CURSO</p><h3>El expediente todavía no está archivado.</h3><span>${stageLabels[stage]||stageLabels.verification}. Continúa desde el punto guardado.</span></div><button type="button" data-final-resume>Continuar cierre →</button></section>`:'';
-  const newUnlockNotice=newUnlocks.length?`<section class="new-unlock-notice" role="status" aria-live="polite" aria-atomic="true"><div><p>NUEVO ACCESO AUTORIZADO</p><h3>${newUnlocks.length===1?(isFolder(newUnlocks[0])?'Nueva carpeta recuperada':'Nuevo documento disponible'):`${newUnlocks.length} nuevos registros disponibles`}</h3><span>${newUnlocks.length===1?`${newUnlocks[0]} ya puede consultarse.`:'La secuencia del expediente se ha actualizado.'}</span></div><button type="button" data-unlock-target="${newUnlocks[0]}">Localizar ${isFolder(newUnlocks[0])?'carpeta':'documento'} <span>↓</span></button><button type="button" class="new-unlock-dismiss" aria-label="Cerrar aviso">×</button></section>`:'';
-  const supplementary=done.includes('KTB-003')?`<article class="document complementary ${newUnlocks.includes('AC-01')?'is-new-unlock':''}" data-document-id="AC-01">${newUnlocks.includes('AC-01')?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">○ AC-01</span><h3>ARCHIVO COMPLEMENTARIO<br>AC-01</h3><p><strong>Estado:</strong> Recuperado<br><strong>Tipo:</strong> Registro ilustrado<br><strong>Origen:</strong> No catalogado<br><strong>Relación:</strong> Pendiente de clasificación<br><strong>Páginas recuperadas:</strong> ${comicPages} / 11</p><button data-id="AC-01">CONSULTAR</button></article>`:'';
+  const newUnlockNotice=noticeUnlocks.length?`<section class="new-unlock-notice" role="status" aria-live="polite" aria-atomic="true"><div><p>NUEVO ACCESO AUTORIZADO</p><h3>${noticeUnlocks.length===1?(isFolder(noticeUnlocks[0])?'Nueva carpeta recuperada':'Nuevo documento disponible'):`${noticeUnlocks.length} nuevos registros disponibles`}</h3><span>${noticeUnlocks.length===1?`${noticeUnlocks[0]} ya puede consultarse.`:'La secuencia del expediente se ha actualizado.'}</span></div><button type="button" data-unlock-target="${noticeUnlocks[0]}">Localizar ${isFolder(noticeUnlocks[0])?'carpeta':'documento'} <span>↓</span></button><button type="button" class="new-unlock-dismiss" aria-label="Cerrar aviso">×</button></section>`:'';
+  const comicPageBar=Array.from({length:11},(_,index)=>`<i class="${index<comicPages?'is-recovered':''}" aria-hidden="true"><span>${String(index+1).padStart(2,'0')}</span></i>`).join('');
+  const acDiscoveryMarkup=revealingAc01?`<section class="comic-discovery-layer" role="status" aria-live="polite"><div class="comic-discovery-code">HALLAZGO ASOCIADO · AC-01</div><div class="comic-discovery-folder" aria-hidden="true"><i></i><span>ARCHIVO<br>COMPLEMENTARIO</span><b>AC-01</b></div><div class="comic-discovery-scan" aria-hidden="true"></div><p>INCORPORANDO REGISTRO AL EXPEDIENTE</p><button class="comic-discovery-skip" type="button">Mostrar archivo</button></section><span class="comic-reveal-stamp">NUEVO ARCHIVO<br>RECUPERADO</span>`:'';
+  const supplementary=done.includes('KTB-003')?`<article class="document complementary comic-card ${revealingAc01?'is-new-unlock is-ac-reveal':''}" data-document-id="AC-01">${revealingAc01?'<span class="new-unlock-badge">NUEVO</span>':''}${acDiscoveryMarkup}<header class="comic-card-header"><span class="doc-no">○ AC-01</span><strong>REGISTRO ILUSTRADO</strong></header><h3>ARCHIVO COMPLEMENTARIO<br>AC-01</h3><dl class="comic-card-metadata"><div><dt>Estado</dt><dd>Recuperado</dd></div><div><dt>Tipo</dt><dd>Registro ilustrado</dd></div><div><dt>Origen</dt><dd>No catalogado</dd></div><div><dt>Relación</dt><dd>Pendiente de clasificación</dd></div></dl><section class="comic-card-progress"><div><span>PÁGINAS RECUPERADAS</span><strong>${comicPages} / 11</strong></div><div class="comic-page-bar" role="img" aria-label="${comicPages} de 11 páginas recuperadas">${comicPageBar}</div></section><button data-id="AC-01">CONSULTAR REGISTRO</button></article>`:'';
   document.querySelector('#integrity').textContent=`${integrity} %`;
   document.querySelector('#integrity-fill').style.width=`${integrity}%`;
   document.querySelector('#authorization').textContent=`Nivel ${roman(level)}`;
@@ -1041,7 +1098,7 @@ function render(options={}){
   updateCompletionHeader(done);
   document.querySelector('#documents').innerHTML=newUnlockNotice+resumeBanner+visible.map(id=>{
     const ok=allowed(id),seen=done.includes(id)||folderCompleted(id,done),isClosing=id==='KTB-014'&&pending;
-    const newlyUnlocked=newUnlocks.includes(id);
+    const newlyUnlocked=!revealingAc01&&newUnlocks.includes(id);
     const label=isClosing?'Continuar cierre':isFolder(id)?'Abrir carpeta':'Abrir documento';
     const status=isClosing?(stageLabels[stage]||stageLabels.verification):seen?'LECTURA CONFIRMADA':ok?'DISPONIBLE PARA CONSULTA':'AUTORIZACIÓN PENDIENTE';
     const folderProgress=isFolder(id)?folderCardProgressMarkup(id,done):'';
@@ -1049,7 +1106,10 @@ function render(options={}){
   }).join('')+supplementary;
   if(newUnlocks.length){
     void patchState({seenUnlocks:[...new Set([...seenUnlocks,...newUnlocks])]});
-    requestAnimationFrame(()=>document.querySelectorAll('.is-new-unlock').forEach(card=>card.classList.add('is-new-unlock-visible')));
+    requestAnimationFrame(()=>document.querySelectorAll('.is-new-unlock').forEach(card=>{
+      if(card.matches('[data-document-id="AC-01"].is-ac-reveal'))revealComicCard(card);
+      else card.classList.add('is-new-unlock-visible');
+    }));
     const locate=document.querySelector('[data-unlock-target]');
     if(locate)locate.onclick=()=>{const card=document.querySelector(`[data-document-id="${locate.dataset.unlockTarget}"]`);card?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'center'});card?.classList.add('is-new-unlock-located');setTimeout(()=>card?.classList.remove('is-new-unlock-located'),1800)};
     document.querySelector('.new-unlock-dismiss')?.addEventListener('click',event=>event.currentTarget.closest('.new-unlock-notice')?.remove());
@@ -1176,8 +1236,23 @@ const renderArchiveWarning=(code,title,onAccept)=>{prepareRecoveryView(code,titl
 function openAr06Protocol(){renderArchiveWarning('AR-06','Autorización de acceso',()=>startAr06Recovery())}
 function startAr06Recovery(){const done=read();if(!done.includes('AR06-PROTOCOL')){done.push('AR06-PROTOCOL');save(done);void recordActivity('document_confirmed','AR06-PROTOCOL',{source:'recovered_file_protocol'})}folderRecoveryScreen('AR-06')}
 function showDoc(id){clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery');document.querySelector('.stamp').style.display='block';if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'){openAr03();return}if(folders[id]){openFolder(id);return}active=id;next.style.display='inline-block';mark.style.display='inline-block';const [title,...paras]=textFor(id);document.querySelector('#doc-type').textContent=isFolder(id)?'CARPETA DE ARCHIVOS RECUPERADOS / ACCESO AUTORIZADO':'DIVISIÓN DE ARCHIVOS TEMPORALES / ACCESO AUTORIZADO';document.querySelector('#doc-title').textContent=documentImages.has(id)?'Documento recuperado':title;document.querySelector('#doc-body').innerHTML=documentImages.has(id)?`<img style="display:block;width:100%;height:auto" src="../assets/documents/${id}.png" alt="Documento ${id}">`:paras.map(text=>`<p>${text}</p>`).join('')+(id==='KTB-014'?'<p><strong>EXPEDIENTE CERRADO<br>ARCHIVADO DEFINITIVAMENTE</strong></p>':'');mark.textContent=read().includes(id)?'Volver al expediente':isFolder(id)?'Cerrar carpeta y autorizar siguiente fase':window.KizunaMicroevents?.labelFor?.(id)||'Confirmar lectura';if(!viewer.open)viewer.showModal()}
-function openDoc(id){const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');if(id!=='AC-01'){paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin=''}if(id==='AC-01'){openAcInfo();return}if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'||folders[id]){folderRecoveryScreen(id);return}if(id.startsWith('KTB-')){recoveryScreen(id);return}showDoc(id)}
-function openAcInfo(){active='AC-01';next.style.display='none';mark.style.display='none';const pages=Array.from({length:11},(_,i)=>`KTB-${String(i+4).padStart(3,'0')}`).filter(id=>read().includes(id)).length;document.querySelector('#doc-type').textContent='DIVISIÓN DE ARCHIVOS TEMPORALES';document.querySelector('#doc-title').textContent='ARCHIVO COMPLEMENTARIO AC-01';document.querySelector('#doc-body').innerHTML=`<p style="color:#7e1b19;letter-spacing:.1em;font-size:12px"><strong>REGISTRO ILUSTRADO RECUPERADO</strong></p><section style="margin:28px 0;padding:22px;border:1px solid #8b887d;background:#f6eddd"><p><strong>Clasificación:</strong> No determinada<br><strong>Integridad:</strong> <span style="color:#356a41">100 %</span><br><strong>Páginas disponibles:</strong> ${pages} / 11</p><p><strong>Observación:</strong></p><p>Durante la reconstrucción del expediente se ha localizado un documento ilustrado que no figura en el inventario original.</p><p>Su contenido parece guardar relación con el expediente, aunque su procedencia no ha podido verificarse.</p></section>${pages?'<button id="ac-open-record">Abrir registro</button>':'<p style="color:#7e1b19"><strong>Registro en reconstrucción.</strong><br>La primera página se recuperará al confirmar el siguiente documento KTB.</p>'}`;if(!viewer.open)viewer.showModal();const open=document.querySelector('#ac-open-record');if(open)open.onclick=()=>openComicViewer(1)}
+function openDoc(id){const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');if(id!=='AC-01'){paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin=''}if(id==='AC-01'){openAcInfo();return}if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'||folders[id]){folderRecoveryScreen(id);return}if(id.startsWith('KTB-')){recoveryScreen(id);return}showDoc(id)}
+function openAcInfo(){
+  active='AC-01';
+  next.style.display='none';
+  mark.style.display='none';
+  const pages=Array.from({length:11},(_,i)=>`KTB-${String(i+4).padStart(3,'0')}`).filter(id=>read().includes(id)).length;
+  const pageBar=Array.from({length:11},(_,index)=>`<i class="${index<pages?'is-recovered':''}" aria-hidden="true"><span>${String(index+1).padStart(2,'0')}</span></i>`).join('');
+  const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');
+  paper.classList.add('is-ac-info-paper');
+  body.classList.add('is-ac-info');
+  document.querySelector('#doc-type').textContent='DIVISIÓN DE ARCHIVOS TEMPORALES · REGISTRO ILUSTRADO';
+  document.querySelector('#doc-title').textContent='ARCHIVO COMPLEMENTARIO AC-01';
+  body.innerHTML=`<section class="ac-record-info"><header><div><p>ARCHIVO COMPLEMENTARIO · AC-01</p><h3>Registro ilustrado<br><em>recuperado.</em></h3></div><span>ORIGEN<br><strong>NO CATALOGADO</strong></span></header><dl class="ac-info-metadata"><div><dt>CLASIFICACIÓN</dt><dd>No determinada</dd></div><div><dt>INTEGRIDAD</dt><dd class="is-valid">100 %</dd></div><div><dt>ESTADO</dt><dd>${pages?'Reconstrucción parcial':'En reconstrucción'}</dd></div><div><dt>PÁGINAS DISPONIBLES</dt><dd>${pages} / 11</dd></div></dl><section class="ac-info-progress"><div><p>PÁGINAS RECUPERADAS</p><strong>${pages} / 11</strong></div><div class="comic-page-bar" role="img" aria-label="${pages} de 11 páginas recuperadas">${pageBar}</div></section><aside class="ac-info-observation"><span>OBSERVACIÓN · ARCHIVO CENTRAL</span><p>Durante la reconstrucción del expediente se ha localizado un documento ilustrado que no figura en el inventario original.</p><p>Su contenido parece guardar relación con el expediente, aunque su procedencia no ha podido verificarse.</p></aside>${pages?`<footer class="ac-info-action"><div><span>REGISTRO DISPONIBLE</span><strong>${pages} ${pages===1?'página recuperada':'páginas recuperadas'}</strong></div><button id="ac-open-record" type="button">Abrir registro <b>→</b></button></footer>`:'<footer class="ac-info-awaiting"><span>01</span><div><p>PRÓXIMA RECUPERACIÓN</p><strong>KTB-004 incorporará la primera página</strong><small>Continúa la secuencia principal para iniciar la reconstrucción.</small></div></footer>'}</section>`;
+  if(!viewer.open)viewer.showModal();
+  const open=document.querySelector('#ac-open-record');
+  if(open)open.onclick=()=>openComicViewer(1);
+}
 function openComicViewer(page){const pages=Array.from({length:11},(_,i)=>`KTB-${String(i+4).padStart(3,'0')}`).filter(id=>read().includes(id)).length;if(!pages){openAcInfo();return}page=Math.min(Math.max(1,page),pages);active='AC-01';next.style.display='none';mark.style.display='none';const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');paper.style.width='min(1120px,calc(100% - 34px))';paper.style.maxWidth='1120px';paper.style.padding='42px';body.style.maxWidth='900px';body.style.margin='0 auto';document.querySelector('#doc-type').textContent='KIZUNA · DIVISIÓN DE ARCHIVOS TEMPORALES';document.querySelector('#doc-title').textContent='ARCHIVO COMPLEMENTARIO AC-01';document.querySelector('#doc-body').innerHTML=`<img src="../assets/documents/AC-01/Pagina-${page}.png" alt="Página ${page} del registro ilustrado" style="display:block;width:100%;height:auto;border:1px solid #8b887d"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px"><button id="comic-prev" ${page===1?'disabled':''}>← Página anterior</button><strong style="font:12px var(--mono)">PÁGINA ${page} / ${pages}<br><span style="font-size:9px;color:#7e1b19">${pages} DE 11 RECUPERADAS</span></strong><button id="comic-next" ${page===pages?'disabled':''}>Página siguiente →</button></div><button id="comic-back" style="margin-top:18px;background:#7e1b19;color:#fff;border:0;padding:14px 18px;font:11px var(--mono);cursor:pointer">Regresar al expediente</button>`;document.querySelector('#comic-prev').onclick=()=>openComicViewer(page-1);document.querySelector('#comic-next').onclick=()=>openComicViewer(page+1);document.querySelector('#comic-back').onclick=()=>{paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin='';viewer.close()};if(!viewer.open)viewer.showModal()}
 const confirmationFolderAfter=id=>{
   const index=sequence.indexOf(id),candidate=sequence[index+1];
@@ -2340,7 +2415,7 @@ setTimeout(()=>{
       const loadedProgress=await loadRemoteProgress(data.user);
       message.textContent='';
       openDashboard(loadedProgress);
-    }catch(error){message.textContent='No se han podido verificar las credenciales de acceso.';console.error(error)}finally{submit.disabled=false}
+    }catch(error){message.textContent=recipientAccessErrorMessage(error);console.error(error)}finally{submit.disabled=false}
   };
 
   const restoreRecipientSession=async()=>{
@@ -2408,6 +2483,8 @@ function openComicViewer(page){
   mark.style.display='none';
   const paper=document.querySelector('.paper');
   const body=document.querySelector('#doc-body');
+  paper.classList.remove('is-ac-info-paper');
+  body.classList.remove('is-ac-info');
   paper.style.width='';
   paper.style.maxWidth='';
   paper.style.padding='';
