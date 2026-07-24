@@ -770,3 +770,69 @@ body:has(#viewer[open]){overflow:hidden}
 .admin-alt00-settings #admin-play-finale span{display:grid;place-items:center;width:23px;height:23px;border:1px solid #17201c;border-radius:50%;font-size:8px}
 .admin-alt00-settings>small{position:relative;z-index:1;margin-left:13px;color:#8f968f;font:6px var(--mono);letter-spacing:.08em}
 @media(max-width:700px){.admin-alt00-heading{display:block}.admin-alt00-state{display:inline-block;margin:9px 0}.admin-alt00-settings #admin-play-finale{width:100%;justify-content:center}.admin-alt00-settings>small{display:block;margin:11px 0 0;text-align:center}}
+
+/* Cabecera privada de escritorio: controles homogéneos y con lectura clara.
+   La variante táctil compacta se mantiene en expediente.js. */
+@media(min-width:1181px) and (hover:hover) and (pointer:fine){
+  .dashboard>header .private-header-tools{gap:10px}
+  .dashboard>header .private-header-tools .header-actions{gap:10px}
+  .dashboard>header .private-header-tools button{
+    position:relative;
+    display:grid!important;
+    grid-template-columns:27px minmax(0,1fr);
+    align-items:center;
+    width:112px;
+    min-width:112px;
+    height:48px;
+    min-height:48px;
+    margin:0;
+    padding:7px 10px!important;
+    border:1px solid #9f8e76;
+    background:#f8f2e6;
+    color:#4a2521;
+    box-shadow:3px 3px 0 rgba(126,27,25,.08);
+    text-align:left;
+    transition:background .16s ease,color .16s ease,border-color .16s ease,transform .16s ease
+  }
+  .dashboard>header .private-header-tools button>span{
+    display:grid;
+    place-items:center;
+    width:25px!important;
+    height:25px!important;
+    border:1px solid currentColor;
+    border-radius:50%;
+    font:14px/1 var(--serif)
+  }
+  .dashboard>header .private-header-tools button>b{
+    overflow:hidden;
+    font:500 8px/1 var(--mono);
+    letter-spacing:.05em;
+    text-overflow:ellipsis;
+    white-space:nowrap
+  }
+  .dashboard>header .private-header-tools button:hover{
+    border-color:#7e1b19;
+    background:#7e1b19;
+    color:#fff;
+    transform:translateY(-1px)
+  }
+  .dashboard>header #sound-toggle{min-width:112px!important}
+  .dashboard>header #sound-toggle.active{
+    border-color:#202726!important;
+    background:#202726!important;
+    color:#f6f0e2!important
+  }
+  .dashboard>header #mailbox-toggle.has-unread{
+    border-color:#7e1b19;
+    box-shadow:inset 0 3px 0 #7e1b19,3px 3px 0 rgba(126,27,25,.08)
+  }
+  .dashboard>header #mailbox-toggle i{
+    position:absolute;
+    right:-6px;
+    top:-7px;
+    border:2px solid #f6f0e2;
+    background:#7e1b19
+  }
+  .dashboard>header #return-public-site{border-color:#5e665f;color:#27332f}
+  .dashboard>header #exit{border-color:#a45d52;background:#f3e6da;color:#7e1b19}
+}
