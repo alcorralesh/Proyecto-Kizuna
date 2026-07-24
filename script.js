@@ -1,5 +1,10 @@
 if(!window.kizunaStorage){const storageAssetsScript=document.createElement('script');storageAssetsScript.src='storage-assets.js';document.head.appendChild(storageAssetsScript)}
-const header=document.querySelector('.site-header');document.querySelector('.menu-toggle').addEventListener('click',()=>header.classList.toggle('open'));
+const header=document.querySelector('.site-header'),menuToggle=document.querySelector('.menu-toggle'),publicNav=header?.querySelector('nav');
+const setPublicMenu=open=>{header?.classList.toggle('open',open);menuToggle?.setAttribute('aria-expanded',String(open));if(menuToggle){menuToggle.setAttribute('aria-label',open?'Cerrar menú':'Abrir menú');menuToggle.textContent=open?'×':'☰'}};
+menuToggle?.setAttribute('aria-expanded','false');
+menuToggle?.addEventListener('click',()=>setPublicMenu(!header.classList.contains('open')));
+publicNav?.addEventListener('click',event=>{if(event.target.closest('a'))setPublicMenu(false)});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&header?.classList.contains('open')){setPublicMenu(false);menuToggle?.focus()}});
 let publicSupabaseClient=null,publicProgressState=null,publicUser=null;
 let publicSupabasePromise=null;
 const getPublicSupabase=async()=>{if(publicSupabaseClient)return publicSupabaseClient;if(!publicSupabasePromise)publicSupabasePromise=(async()=>{if(!window.supabase)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)});publicSupabaseClient=window.supabase.createClient('https://vcwqkideizdrhzpbghkj.supabase.co','sb_publishable_h3pjxT8UPZkYqRhLskVdlA_m-ulI4EF');return publicSupabaseClient})();return publicSupabasePromise};
