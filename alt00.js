@@ -231,6 +231,8 @@ window.KizunaFinale=(()=>{
 
   const showCredits=async(overlay,options)=>{
     const main=overlay.querySelector('main');
+    const skip=overlay.querySelector('.kizuna-finale-skip');
+    if(skip)skip.hidden=true;
     main.innerHTML=`
       <section class="alt00-credits" aria-label="Créditos del expediente">
         <header><span>CIERRE DEL EXPEDIENTE</span><i></i><strong>KIZUNA</strong></header>
