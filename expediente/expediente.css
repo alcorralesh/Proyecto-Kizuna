@@ -1033,3 +1033,94 @@ body:has(#viewer[open]){overflow:hidden}
   #auth-continue,#auth-skip{grid-column:1}
   #auth-continue{align-self:end;width:100%;margin:5px 0 0}
 }
+
+@media(max-width:600px){
+  #auth-loading.auth-fixed-terminal>.access-card.auth-loading-card{
+    align-self:stretch;
+    display:flex;
+    flex-direction:column;
+    height:100%;
+    min-height:0
+  }
+  #auth-loading.auth-fixed-terminal #auth-log{
+    flex:1;
+    align-content:start;
+    min-height:0;
+    overflow:auto;
+    scrollbar-width:thin;
+    scrollbar-color:#7e1b19 #dfd4c0
+  }
+  #auth-loading.auth-fixed-terminal .auth-live-message{
+    min-height:22px;
+    padding:5px 8px;
+    border:1px solid #c8bba5;
+    background:#f7f0e3;
+    color:#5f5a51
+  }
+  #auth-loading.auth-fixed-terminal .auth-live-message[hidden]{
+    display:block;
+    visibility:hidden
+  }
+  #auth-loading.auth-fixed-terminal .auth-case-message{display:none!important}
+  #auth-loading.auth-fixed-terminal .auth-recipient,
+  #auth-loading.auth-fixed-terminal .auth-state-summary,
+  #auth-loading.auth-fixed-terminal .auth-closing-message,
+  #auth-loading.auth-fixed-terminal .auth-routing-message{
+    opacity:1;
+    transform:none
+  }
+  #auth-loading.auth-fixed-terminal .auth-recipient h2,
+  #auth-loading.auth-fixed-terminal .auth-recipient dd,
+  #auth-loading.auth-fixed-terminal .auth-state-summary dd{
+    min-height:1.4em
+  }
+  #auth-loading.auth-fixed-terminal .auth-recipient h2{min-height:2em}
+  #auth-loading.auth-fixed-terminal .auth-recipient dd{min-height:2.8em}
+  #auth-loading.auth-fixed-terminal .is-typing::after{
+    content:'▋';
+    display:inline-block;
+    margin-left:2px;
+    color:#7e1b19;
+    animation:auth-terminal-cursor .65s steps(1,end) infinite
+  }
+  #auth-loading.auth-fixed-terminal .auth-closing-message{min-height:50px}
+  #auth-loading.auth-fixed-terminal .auth-routing-message{min-height:34px}
+  #auth-loading.auth-fixed-terminal .auth-expedient-progress i{transition:width .75s ease}
+  #auth-loading.auth-fixed-terminal #auth-skip{
+    width:100%;
+    min-height:48px;
+    margin:3px 0 0;
+    border:1px solid #7e1b19;
+    background:transparent;
+    text-align:center
+  }
+}
+@media(max-height:520px) and (min-width:601px) and (max-width:1180px) and (pointer:coarse){
+  #auth-loading.auth-fixed-terminal>.access-card.auth-loading-card{
+    grid-template-rows:auto auto auto 1fr auto auto
+  }
+  #auth-loading.auth-fixed-terminal #auth-log{grid-row:1/7;overflow:auto}
+  #auth-loading.auth-fixed-terminal #auth-continue{grid-row:5}
+  #auth-loading.auth-fixed-terminal #auth-skip{
+    grid-column:1;
+    grid-row:6;
+    width:100%;
+    min-height:34px;
+    margin:3px 0 0;
+    border:1px solid #7e1b19;
+    text-align:center
+  }
+  #auth-loading.auth-fixed-terminal .auth-case-message{display:none!important}
+  #auth-loading.auth-fixed-terminal .auth-recipient,
+  #auth-loading.auth-fixed-terminal .auth-state-summary,
+  #auth-loading.auth-fixed-terminal .auth-closing-message,
+  #auth-loading.auth-fixed-terminal .auth-routing-message{
+    opacity:1;
+    transform:none
+  }
+  #auth-loading.auth-fixed-terminal .auth-live-message[hidden]{
+    display:block;
+    visibility:hidden
+  }
+}
+@keyframes auth-terminal-cursor{50%{opacity:0}}

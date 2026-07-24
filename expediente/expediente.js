@@ -516,13 +516,47 @@ setTimeout(()=>{
     routing.innerHTML='Verificaci&oacute;n completada.<br><strong>El expediente est&aacute; preparado para su consulta.</strong>';
     const timers=[];
     let finished=false;
+    const compactAuth=matchMedia('(max-width:600px), (max-height:520px) and (min-width:601px) and (max-width:1180px) and (pointer:coarse)').matches;
+    const compactFields=compactAuth?[recipient.querySelector('h2'),...recipient.querySelectorAll('dd'),...summary.querySelectorAll('dd')]:[];
+    const compactValues=new Map(compactFields.map(field=>[field,field.textContent]));
+    const fillCompactFields=()=>{
+      if(!compactAuth)return;
+      compactValues.forEach((value,field)=>{field.textContent=value;field.classList.remove('is-typing')});
+      summary.querySelector('.auth-expedient-progress i').style.width=`${percentage}%`;
+    };
+    const typeCompactField=(field,duration=480)=>{
+      if(!compactAuth||!field)return;
+      const value=compactValues.get(field)||'';
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches){field.textContent=value;return}
+      const characters=Array.from(value);let index=0;
+      field.textContent='';field.classList.add('is-typing');
+      const timer=setInterval(()=>{
+        if(finished){clearInterval(timer);field.classList.remove('is-typing');return}
+        field.textContent=characters.slice(0,++index).join('');
+        if(index>=characters.length){clearInterval(timer);field.classList.remove('is-typing')}
+      },Math.max(28,Math.round(duration/Math.max(1,characters.length))));
+      timers.push(timer);
+    };
+    if(compactAuth){
+      loading.classList.add('auth-fixed-terminal');
+      caseBlock.hidden=true;
+      [recipient,summary,closing,routing].forEach(element=>{element.hidden=false;element.classList.add('is-visible')});
+      compactFields.forEach(field=>field.textContent='—');
+      summary.querySelector('.auth-expedient-progress i').style.width='0';
+      closing.innerHTML='<strong>RECUPERANDO REGISTRO…</strong><br>Esperando datos del Archivo Central.';
+      routing.innerHTML='VERIFICACIÓN EN CURSO<br><strong>Campos pendientes de confirmación.</strong>';
+    }else loading.classList.remove('auth-fixed-terminal');
     const show=element=>{element.hidden=false;requestAnimationFrame(()=>element.classList.add('is-visible'))};
     const setProgress=value=>masterProgress.style.width=`${value}%`;
-    const schedule=(delay,action)=>timers.push(setTimeout(()=>{if(!finished)action()},delay));
+    const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const schedule=(delay,action)=>timers.push(setTimeout(()=>{if(!finished)action()},reducedMotion?0:delay));
     const showCompletion=()=>{
       if(finished)return;
       finished=true;timers.forEach(clearTimeout);setProgress(100);
+      fillCompactFields();
       live.hidden=true;caseBlock.hidden=true;show(recipient);show(summary);show(closing);show(routing);
+      closing.innerHTML=closingMessage;
+      routing.innerHTML='Verificaci&oacute;n completada.<br><strong>El expediente est&aacute; preparado para su consulta.</strong>';
       continueButton.innerHTML=`${completed?'Consultar expediente archivado':pendingClosure?'Continuar cierre':reviewed?'Continuar expediente':'Iniciar consulta'} <b>→</b>`;
       continueButton.hidden=false;skip.hidden=true;
     };
@@ -546,6 +580,17 @@ setTimeout(()=>{
     schedule(4650,()=>{show(closing);setProgress(92)});
     schedule(5150,()=>{show(routing);setProgress(98)});
     schedule(5700,showCompletion);
+    if(compactAuth){
+      schedule(850,()=>typeCompactField(compactFields[0],560));
+      schedule(1450,()=>typeCompactField(compactFields[1],420));
+      schedule(1900,()=>typeCompactField(compactFields[2],620));
+      schedule(2500,()=>typeCompactField(compactFields[3],380));
+      schedule(3000,()=>typeCompactField(compactFields[4],430));
+      schedule(3500,()=>{typeCompactField(compactFields[5],320);summary.querySelector('.auth-expedient-progress i').style.width=`${percentage}%`});
+      schedule(3950,()=>typeCompactField(compactFields[6],280));
+      schedule(4350,()=>typeCompactField(compactFields[7],430));
+      schedule(4750,()=>{closing.innerHTML=closingMessage});
+    }
   };
   mark.onclick=async()=>{
     // La interfaz solo avanza cuando Supabase confirma que el documento forma
