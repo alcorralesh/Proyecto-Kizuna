@@ -1297,4 +1297,58 @@ body:has(#viewer[open]){overflow:hidden}
   #viewer:has(#doc-body.is-ac-info) .paper-foot .reader-actions button{width:100%;min-width:0;min-height:36px;padding:7px 10px;font-size:7px}
 }
 
+/* Navegación del cómic en lectura inmersiva. El pie se convierte en una capa
+   transparente y solo mantiene dos controles táctiles flotantes. */
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .paper-foot{
+  position:fixed;
+  inset:0;
+  z-index:24;
+  display:block!important;
+  min-height:0;
+  padding:0;
+  border:0;
+  background:transparent;
+  pointer-events:none
+}
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .reader-position,
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .reader-hint,
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .reader-actions>*:not(#comic-prev-fixed):not(#comic-next-fixed){display:none!important}
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .reader-actions{display:block}
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .paper-foot .reader-actions #comic-prev-fixed,
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .paper-foot .reader-actions #comic-next-fixed{
+  position:fixed;
+  top:50%;
+  z-index:26;
+  display:grid;
+  place-items:center;
+  width:56px;
+  min-width:56px;
+  height:72px;
+  min-height:72px;
+  margin:0;
+  padding:0;
+  border:1px solid #c9bea9;
+  border-radius:999px;
+  background:#101714dc;
+  box-shadow:0 7px 24px #0009;
+  color:#f4ead8;
+  font-size:0;
+  pointer-events:auto;
+  transform:translateY(-50%);
+  backdrop-filter:blur(7px);
+  -webkit-backdrop-filter:blur(7px)
+}
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) #comic-prev-fixed{left:max(12px,env(safe-area-inset-left))}
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) #comic-next-fixed{right:max(12px,env(safe-area-inset-right))}
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) #comic-prev-fixed::before,
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) #comic-next-fixed::before{font:42px/.7 var(--serif)}
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) #comic-prev-fixed::before{content:'‹'}
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) #comic-next-fixed::before{content:'›'}
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .paper-foot .reader-actions button:disabled{opacity:0;pointer-events:none}
+#viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .paper-foot .reader-actions button:not(:disabled):active{background:#7e1b19;transform:translateY(-50%) scale(.94)}
+@media(max-width:600px){
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .paper-foot .reader-actions #comic-prev-fixed,
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .paper-foot .reader-actions #comic-next-fixed{width:50px;min-width:50px;height:64px;min-height:64px}
+}
+
 @keyframes auth-terminal-cursor{50%{opacity:0}}
