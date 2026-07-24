@@ -17,7 +17,7 @@
 
   const stylesheet=document.createElement('link');
   stylesheet.rel='stylesheet';
-  stylesheet.href=new URL('pwa.css?v=20260724-pwa02',baseUrl).href;
+  stylesheet.href=new URL('pwa.css?v=20260724-pwa03',baseUrl).href;
   document.head.appendChild(stylesheet);
 
   let installEvent=null;
@@ -75,6 +75,8 @@
   };
 
   const install=async()=>{
+    const siteHeader=document.querySelector('.site-header');
+    if(siteHeader?.classList.contains('open'))siteHeader.querySelector('.menu-toggle')?.click();
     if(isIos()){showIosInstructions();return}
     if(!installEvent)return;
     installEvent.prompt();
@@ -89,7 +91,19 @@
     const button=makeButton('Instalar KIZUNA','kizuna-pwa-install');
     button.setAttribute('aria-label','Instalar KIZUNA como aplicación');
     button.addEventListener('click',install);
-    document.body.appendChild(button);
+    const navigation=document.querySelector('.site-header nav');
+    const footerLinks=document.querySelector('footer div');
+    if(navigation&&matchMedia('(max-width:850px)').matches){
+      button.classList.add('is-inline');
+      const privateLink=navigation.querySelector('.expedient-link');
+      navigation.insertBefore(button,privateLink||null);
+    }else if(footerLinks){
+      button.classList.add('is-inline','is-footer');
+      footerLinks.appendChild(button);
+    }else if(navigation){
+      button.classList.add('is-inline');
+      navigation.appendChild(button);
+    }else document.body.appendChild(button);
   };
 
   const applyUpdate=()=>{
