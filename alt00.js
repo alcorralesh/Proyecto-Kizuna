@@ -158,7 +158,13 @@ window.KizunaFinale=(()=>{
       window.removeEventListener('resize',resize);
       clearTimeout(resizeTimer);
       viewer.classList.add('is-closing');
-      setTimeout(()=>{viewer.remove();onClose()},reducedMotion()?0:230);
+      setTimeout(()=>{
+        viewer.remove();
+        if(!document.querySelector('.kizuna-cinematic-finale,#alt00-viewer')){
+          document.body.classList.remove('alberto-overlay-open','kizuna-finale-open');
+        }
+        onClose();
+      },reducedMotion()?0:230);
     };
     image.onload=()=>{fit();viewer.classList.add('is-page-ready')};
     previous.onclick=()=>paint(page-1);
