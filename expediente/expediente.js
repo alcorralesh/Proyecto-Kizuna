@@ -950,17 +950,26 @@ mark.addEventListener('click',event=>{
 const enhanceDocumentImages=()=>{
   document.querySelectorAll('#doc-body>img:not([data-inspected])').forEach(img=>{
     img.dataset.inspected='true';
-    let scale=1,dragging=false,pinchStart=null;
+    let scale=1,fitScale=1,fitMode=true,dragging=false,pinchStart=null;
     const pointers=new Map(),frame=document.createElement('div');
     frame.className='image-inspector';frame.tabIndex=0;
     img.replaceWith(frame);frame.appendChild(img);
     img.style.width='100%';img.style.height='auto';img.draggable=false;
-    const clamp=value=>Math.min(5,Math.max(1,value));
-    const update=()=>{img.style.width=`${scale*100}%`;readerZoom.textContent=`${Math.round(scale*100)} %`;frame.classList.toggle('is-zoomed',scale>1.01)};
+    const useLandscapePageFit=()=>window.matchMedia?.('(orientation: landscape) and (min-width: 601px) and (max-width: 1000px) and (max-height: 520px) and (pointer: coarse)').matches;
+    const calculateFitScale=()=>{
+      if(!useLandscapePageFit()||!img.naturalWidth||!img.naturalHeight||!frame.clientWidth||!frame.clientHeight)return 1;
+      return Math.min(1,Math.max(.12,((frame.clientHeight-8)/frame.clientWidth)*(img.naturalWidth/img.naturalHeight)));
+    };
+    const clamp=value=>Math.min(5,Math.max(Math.min(1,fitScale),value));
+    const update=()=>{img.style.width=`${scale*100}%`;readerZoom.textContent=`${Math.round(scale*100)} %`;frame.classList.toggle('is-fit-page',scale<.999);frame.classList.toggle('is-zoomed',scale>fitScale+.01)};
+    const fitPage=()=>{
+      fitScale=calculateFitScale();scale=fitScale;fitMode=true;update();
+      frame.scrollTo({left:0,top:0});
+    };
     const setScale=(nextScale,clientX,clientY)=>{
       nextScale=clamp(nextScale);if(Math.abs(nextScale-scale)<.001)return;
       const rect=frame.getBoundingClientRect(),viewX=(clientX??rect.left+frame.clientWidth/2)-rect.left,viewY=(clientY??rect.top+frame.clientHeight/2)-rect.top,contentX=frame.scrollLeft+viewX,contentY=frame.scrollTop+viewY,ratio=nextScale/scale;
-      scale=nextScale;update();frame.scrollLeft=contentX*ratio-viewX;frame.scrollTop=contentY*ratio-viewY;
+      fitMode=false;scale=nextScale;update();frame.scrollLeft=contentX*ratio-viewX;frame.scrollTop=contentY*ratio-viewY;
     };
     const distance=points=>Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y),center=points=>({x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2});
     const canDrag=()=>true;
@@ -969,7 +978,7 @@ const enhanceDocumentImages=()=>{
       const action=event.target.closest('[data-reader-action]')?.dataset.readerAction;if(!action)return;
       if(action==='in')setScale(scale+.25);
       if(action==='out')setScale(scale-.25);
-      if(action==='fit'){scale=1;update();frame.scrollTo({left:0,top:0,behavior:'smooth'})}
+      if(action==='fit')fitPage();
       if(action==='full'){
         try{
           if(document.fullscreenElement===viewer||viewer.classList.contains('is-fallback-fullscreen'))await exitReaderFullscreen();
@@ -981,8 +990,11 @@ const enhanceDocumentImages=()=>{
     frame.addEventListener('pointerdown',event=>{const point={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,scrollX:frame.scrollLeft,scrollY:frame.scrollTop};pointers.set(event.pointerId,point);frame.setPointerCapture?.(event.pointerId);if(pointers.size===2){const points=[...pointers.values()];pinchStart={distance:Math.max(1,distance(points)),scale};dragging=false}else if(canDrag())dragging=true});
     frame.addEventListener('pointermove',event=>{const point=pointers.get(event.pointerId);if(!point)return;point.x=event.clientX;point.y=event.clientY;if(pointers.size>=2&&pinchStart){event.preventDefault();const points=[...pointers.values()].slice(0,2),focus=center(points);setScale(pinchStart.scale*distance(points)/pinchStart.distance,focus.x,focus.y)}else if(dragging){event.preventDefault();frame.scrollLeft=point.scrollX-(event.clientX-point.startX);frame.scrollTop=point.scrollY-(event.clientY-point.startY)}});
     const releasePointer=event=>{pointers.delete(event.pointerId);pinchStart=null;restartDrag()};frame.addEventListener('pointerup',releasePointer);frame.addEventListener('pointercancel',releasePointer);
-    frame.addEventListener('dblclick',event=>{event.preventDefault();setScale(scale>1.01?1:2.5,event.clientX,event.clientY)});
+    frame.addEventListener('dblclick',event=>{event.preventDefault();if(scale>fitScale+.01)fitPage();else setScale(Math.max(1,fitScale+.75),event.clientX,event.clientY)});
     frame.addEventListener('wheel',event=>{event.preventDefault();if(event.ctrlKey)setScale(scale+(event.deltaY<0?.2:-.2),event.clientX,event.clientY);else{frame.scrollTop+=event.deltaY;frame.scrollLeft+=event.deltaX}},{passive:false});
+    const initialiseFit=()=>requestAnimationFrame(fitPage);
+    if(img.complete)initialiseFit();else img.addEventListener('load',initialiseFit,{once:true});
+    new ResizeObserver(()=>{if(fitMode)fitPage()}).observe(frame);
     update();
   });
   syncReaderChrome();
