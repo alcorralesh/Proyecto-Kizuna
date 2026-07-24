@@ -1570,7 +1570,7 @@ body:has(#viewer[open]){overflow:hidden}
 
 /* Acta unificada de confirmación. Las tres consecuencias comparten estructura,
    jerarquía y animación, aunque cambie el tipo de archivo incorporado. */
-#viewer .paper:has(.confirmation-acta)>.stamp{display:none!important}.confirmation-actions{margin:0 0 12px;border-top:3px solid #8d1f1b}.confirmation-actions>header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid #b9ad99;color:#6b6459;font:7px var(--mono);letter-spacing:.1em}.confirmation-actions>header strong{color:#8d1f1b;font-weight:500}.confirmation-actions .confirmation-action{display:grid;grid-template-columns:28px 62px minmax(0,1fr) auto;align-items:center;gap:13px;min-height:92px;margin:0;padding:11px 0;border:0;border-bottom:1px solid #b9ad99;background:transparent;color:#202726;opacity:0;transform:translateY(9px);transition:opacity .42s ease,transform .42s ease}.confirmation-actions .confirmation-action.is-visible{opacity:1;transform:none}.confirmation-action-index{align-self:start;padding-top:5px;color:#7e1b19;font:7px var(--mono);letter-spacing:.08em}.confirmation-action-symbol{display:grid;place-items:center;width:58px;height:58px;border:1px solid #8d1f1b;color:#8d1f1b;font:600 11px/1 var(--mono)}.confirmation-actions .confirmation-seal{box-sizing:border-box;width:58px;height:58px;padding:5px;border:3px double #8d1f1b;border-radius:50%;transform:rotate(-7deg) scale(1.3);opacity:0}.confirmation-actions .confirmation-result.is-visible .confirmation-seal{animation:confirmation-seal-in .55s cubic-bezier(.2,.9,.25,1.25) .12s forwards}.confirmation-action-copy{min-width:0}.confirmation-action-copy .system-line{margin:0 0 4px!important;color:#8d1f1b;font:6px var(--mono)!important;letter-spacing:.11em}.confirmation-action-copy h4,.confirmation-actions .confirmation-unlock h4{margin:0;color:#202726;font:600 18px/1.08 var(--serif)}.confirmation-action-copy>p:not(.system-line){margin:4px 0 0!important;color:#625b51;font:7px/1.4 var(--mono)!important}.confirmation-action-state,.confirmation-actions .confirmation-unlock>.confirmation-action-state{align-self:start;padding:5px 6px;border:1px solid #657854;color:#43603a;font:6px var(--mono);font-weight:500;letter-spacing:.08em;white-space:nowrap;transform:none}.confirmation-actions .confirmation-event-page{display:grid}.confirmation-actions .confirmation-preview{display:block;grid-column:auto;grid-row:auto;width:58px;height:58px;margin:0;border:1px solid #8d1f1b}.confirmation-actions .confirmation-preview>div{height:100%;border:0}.confirmation-actions .confirmation-preview figcaption{display:none}.confirmation-actions .confirmation-event-copy{grid-column:auto;grid-row:auto}.confirmation-actions .confirmation-meter{height:4px;margin-top:6px}.confirmation-actions .confirmation-count{margin-top:4px!important;font-size:6px!important}.confirmation-actions .confirmation-count strong{font-size:10px}.confirmation-actions .confirmation-unlock{display:grid}.confirmation-actions .confirmation-folder-symbol{width:52px;height:38px;border-color:#8d1f1b}.confirmation-actions .confirmation-folder-symbol:before{border-color:#8d1f1b}.confirmation-actions .confirmation-folder-symbol i{background:linear-gradient(110deg,transparent 43%,#8d1f1b 44% 47%,transparent 48%)}.confirmation-next-document .confirmation-action-symbol{font-size:8px}.confirmation-final-action .confirmation-action-symbol{font:600 25px var(--serif)}.confirmation-acta>footer{padding-top:0}.confirmation-acta>footer p{transition:color .3s}.confirmation-acta:has(.confirmation-unlock.is-visible)>footer p{color:#355e3a!important}
+#viewer .paper:has(.confirmation-acta)>.stamp{display:none!important}.confirmation-actions{margin:0 0 12px;border-top:3px solid #8d1f1b}.confirmation-actions>header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid #b9ad99;color:#6b6459;font:7px var(--mono);letter-spacing:.1em}.confirmation-actions>header strong{color:#8d1f1b;font-weight:500}.confirmation-actions .confirmation-action{display:grid;grid-template-columns:28px 62px minmax(0,1fr) auto;align-items:center;gap:13px;min-height:92px;margin:0;padding:11px 0;border:0;border-bottom:1px solid #b9ad99;background:transparent;color:#202726;opacity:0;transform:translateY(9px);transition:opacity .42s ease,transform .42s ease}.confirmation-actions .confirmation-action.is-visible{opacity:1;transform:none}.confirmation-action-index{align-self:start;padding-top:5px;color:#7e1b19;font:7px var(--mono);letter-spacing:.08em}.confirmation-action-symbol{display:grid;place-items:center;box-sizing:border-box;width:58px;height:58px;overflow:hidden;border:1px solid #8d1f1b;color:#8d1f1b;font:600 11px/1 var(--mono)}.confirmation-actions .confirmation-seal{box-sizing:border-box;width:58px;height:58px;padding:5px;border:3px double #8d1f1b;border-radius:50%;transform:rotate(-7deg) scale(1.3);opacity:0}.confirmation-actions .confirmation-result.is-visible .confirmation-seal{animation:confirmation-seal-in .55s cubic-bezier(.2,.9,.25,1.25) .12s forwards}.confirmation-action-copy{min-width:0}.confirmation-action-copy .system-line{margin:0 0 4px!important;color:#8d1f1b;font:6px var(--mono)!important;letter-spacing:.11em}.confirmation-action-copy h4,.confirmation-actions .confirmation-unlock h4{margin:0;color:#202726;font:600 18px/1.08 var(--serif)}.confirmation-action-copy>p:not(.system-line){margin:4px 0 0!important;color:#625b51;font:7px/1.4 var(--mono)!important}.confirmation-action-state,.confirmation-actions .confirmation-unlock>.confirmation-action-state{align-self:start;padding:5px 6px;border:1px solid #657854;color:#43603a;font:6px var(--mono);font-weight:500;letter-spacing:.08em;white-space:nowrap;transform:none}.confirmation-actions .confirmation-event-page{display:grid}.confirmation-actions .confirmation-preview{display:block;grid-column:auto;grid-row:auto;width:58px;height:58px;margin:0;overflow:hidden;border:1px solid #8d1f1b}.confirmation-actions .confirmation-preview>div{height:100%;max-height:100%;overflow:hidden;border:0}.confirmation-actions .confirmation-preview figcaption{display:none}.confirmation-actions .confirmation-event-copy{grid-column:auto;grid-row:auto}.confirmation-actions .confirmation-meter{height:4px;margin-top:6px}.confirmation-actions .confirmation-count{margin-top:4px!important;font-size:6px!important}.confirmation-actions .confirmation-count strong{font-size:10px}.confirmation-actions .confirmation-unlock{display:grid}.confirmation-actions .confirmation-folder-symbol{width:52px;height:38px;border-color:#8d1f1b}.confirmation-actions .confirmation-folder-symbol:before{border-color:#8d1f1b}.confirmation-actions .confirmation-folder-symbol i{background:linear-gradient(110deg,transparent 43%,#8d1f1b 44% 47%,transparent 48%)}.confirmation-next-document .confirmation-action-symbol{font-size:8px}.confirmation-final-action .confirmation-action-symbol{font:600 25px var(--serif)}.confirmation-acta>footer{padding-top:0}.confirmation-acta>footer p{transition:color .3s}.confirmation-acta:has(.confirmation-unlock.is-visible)>footer p{color:#355e3a!important}
 
 @media(max-width:700px){
   .confirmation-actions{margin-bottom:10px}
@@ -1587,25 +1587,27 @@ body:has(#viewer[open]){overflow:hidden}
   #viewer:has(.confirmation-acta) .reader-content .paper{overflow:hidden}
   #viewer:has(.confirmation-acta) .confirmation-acta{
     display:grid;
-    grid-template-columns:minmax(230px,.38fr) minmax(350px,.62fr);
+    grid-template-columns:minmax(250px,.4fr) minmax(0,.6fr);
     grid-template-rows:auto auto minmax(0,1fr) auto;
     gap:7px 16px;
   }
-  #viewer:has(.confirmation-acta) .confirmation-acta>header{grid-column:1;grid-row:1}
+  #viewer:has(.confirmation-acta) .confirmation-acta>header{grid-column:1;grid-row:1;min-width:0;overflow:hidden}
+  #viewer:has(.confirmation-acta) .confirmation-acta>header h3{max-width:100%;font-size:clamp(29px,3.45vw,33px);white-space:nowrap}
   #viewer:has(.confirmation-acta) .confirmation-progress{grid-column:1;grid-row:2}
   #viewer:has(.confirmation-acta) .confirmation-log{grid-column:1;grid-row:3;grid-template-columns:1fr;align-self:start;border-bottom:0}
   #viewer:has(.confirmation-acta) .confirmation-log li{min-height:29px;border-right:0;border-bottom:1px solid #c6baa6}
   #viewer:has(.confirmation-acta) .confirmation-log li:last-child{border-bottom:1px solid #c6baa6}
   #viewer:has(.confirmation-acta) .confirmation-actions{grid-column:2;grid-row:1/5;align-self:stretch;margin:0}
   #viewer:has(.confirmation-acta) .confirmation-actions>header{min-height:24px;padding:4px 0;font-size:5px}
-  #viewer:has(.confirmation-acta) .confirmation-actions .confirmation-action{grid-template-columns:20px 42px minmax(0,1fr) auto;gap:8px;min-height:57px;padding:6px 0}
+  #viewer:has(.confirmation-acta) .confirmation-actions .confirmation-action{grid-template-columns:20px 46px minmax(0,1fr) auto;gap:8px;min-height:62px;padding:6px 0}
   #viewer:has(.confirmation-acta) .confirmation-action-index{padding-top:3px;font-size:5px}
   #viewer:has(.confirmation-acta) .confirmation-action-symbol,
   #viewer:has(.confirmation-acta) .confirmation-actions .confirmation-seal,
-  #viewer:has(.confirmation-acta) .confirmation-actions .confirmation-preview{width:40px;height:40px}
-  #viewer:has(.confirmation-acta) .confirmation-actions .confirmation-seal{padding:3px;border-width:2px}
-  #viewer:has(.confirmation-acta) .confirmation-seal span{font-size:3px}
-  #viewer:has(.confirmation-acta) .confirmation-seal strong{font-size:5px}
+  #viewer:has(.confirmation-acta) .confirmation-actions .confirmation-preview{width:44px;height:44px}
+  #viewer:has(.confirmation-acta) .confirmation-actions .confirmation-preview>div{height:100%;max-height:100%}
+  #viewer:has(.confirmation-acta) .confirmation-actions .confirmation-seal{padding:4px;border:3px double #8d1f1b}
+  #viewer:has(.confirmation-acta) .confirmation-seal span{font-size:4px;letter-spacing:.12em}
+  #viewer:has(.confirmation-acta) .confirmation-seal strong{font-size:6px;line-height:1.15}
   #viewer:has(.confirmation-acta) .confirmation-action-copy .system-line{margin-bottom:2px!important;font-size:4px!important}
   #viewer:has(.confirmation-acta) .confirmation-action-copy h4{font-size:13px}
   #viewer:has(.confirmation-acta) .confirmation-action-copy>p:not(.system-line){margin-top:2px!important;font-size:4px!important;line-height:1.25!important}
@@ -1617,6 +1619,13 @@ body:has(#viewer[open]){overflow:hidden}
   #viewer:has(.confirmation-acta) .confirmation-actions .confirmation-folder-symbol:before{top:-7px;width:16px;height:7px}
   #viewer:has(.confirmation-acta) .confirmation-next-document .confirmation-action-symbol{font-size:6px}
   #viewer:has(.confirmation-acta) .confirmation-acta>footer{grid-column:1;grid-row:4;align-self:end}
+}
+
+@media(orientation:landscape) and (min-width:601px) and (max-width:760px) and (max-height:520px) and (pointer:coarse){
+  #viewer:has(.confirmation-acta) .confirmation-acta{grid-template-columns:minmax(205px,.4fr) minmax(0,.6fr);column-gap:12px}
+  #viewer:has(.confirmation-acta) .confirmation-acta>header h3{font-size:29px;line-height:.78;white-space:normal}
+  #viewer:has(.confirmation-acta) .confirmation-acta>header h3 br{display:block}
+  #viewer:has(.confirmation-acta) .confirmation-acta>header h3 em{margin-left:0}
 }
 
 /* Navegación del cómic en lectura inmersiva. El pie se convierte en una capa
