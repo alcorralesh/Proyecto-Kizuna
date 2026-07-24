@@ -1,9 +1,8 @@
 .kizuna-pwa-install,.kizuna-pwa-update,.kizuna-pwa-connection,.kizuna-pwa-sheet{font-family:"DM Mono",ui-monospace,monospace}
-.kizuna-pwa-install{position:fixed;z-index:1900;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));padding:11px 15px;border:1px solid #d8c7a9;background:#142923;color:#fffaf0;box-shadow:0 12px 35px #08120f55;font-size:10px;letter-spacing:.07em;cursor:pointer}
-.kizuna-pwa-install::before{content:"＋";margin-right:8px;color:#c9a35f}
-.kizuna-pwa-install.is-inline{position:static;z-index:auto;right:auto;bottom:auto;min-height:38px;margin:0;padding:10px 12px;border:1px solid #861816;background:transparent;color:#861816;box-shadow:none;font-size:8px;white-space:nowrap}
-.kizuna-pwa-install.is-inline::before{color:inherit}
-.kizuna-pwa-install.is-footer{min-height:0;padding:0 0 3px;border:0;border-bottom:1px solid currentColor;font-size:9px}
+.kizuna-pwa-install{position:fixed;z-index:1900;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));display:grid;grid-template-columns:27px minmax(0,1fr);align-items:center;width:126px;min-height:48px;padding:7px 10px 7px 8px;border:1px solid #781b19;outline:1px solid #ead9ba;outline-offset:-4px;background:#8b211f;color:#fff9ec;box-shadow:0 9px 0 #17231e22,0 18px 38px #08120f4d;font-size:8px;line-height:1.3;letter-spacing:.09em;text-align:left;text-transform:uppercase;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
+.kizuna-pwa-install::before{content:"↓";display:grid;place-items:center;width:25px;height:25px;border:1px solid #e6cfa7;border-radius:50%;color:#f3dfb8;font:16px/1 Georgia,serif}
+.kizuna-pwa-install:hover{background:#6f1817;box-shadow:0 6px 0 #17231e22,0 14px 30px #08120f55;transform:translateY(3px)}
+.kizuna-pwa-install:focus-visible{outline:2px solid #fff9ec;outline-offset:3px}
 .kizuna-pwa-connection{position:fixed;z-index:2800;left:50%;top:max(10px,env(safe-area-inset-top));display:flex;align-items:center;gap:13px;width:min(620px,calc(100% - 24px));padding:11px 14px;border:1px solid #b64637;background:#16110f;color:#efe4d2;box-shadow:0 12px 36px #0008;transform:translateX(-50%)}
 .kizuna-pwa-connection strong{flex:0 0 auto;color:#e26452;font-size:9px;letter-spacing:.13em}
 .kizuna-pwa-connection span{font-size:9px;line-height:1.5}
@@ -14,8 +13,8 @@
 .kizuna-pwa-sheet-card{width:min(500px,100%);padding:25px;border:1px solid #9e8a67;background:#eee3cc;color:#17221e;box-shadow:0 20px 70px #000a}
 .kizuna-pwa-kicker{margin:0 0 8px;color:#962a24;font-size:8px;letter-spacing:.14em}.kizuna-pwa-sheet h2{margin:0 0 20px;font:500 30px/1.05 "EB Garamond",Georgia,serif}.kizuna-pwa-sheet ol{margin:0;padding-left:22px}.kizuna-pwa-sheet li{margin:12px 0;font-size:11px;line-height:1.55}.kizuna-pwa-sheet p:not(.kizuna-pwa-kicker){margin:20px 0;color:#5e5b53;font-size:9px;line-height:1.6}.kizuna-pwa-sheet-close{width:100%;min-height:43px;border:0;background:#142923;color:#fff;font:9px "DM Mono",ui-monospace,monospace;letter-spacing:.08em;cursor:pointer}
 @media(max-width:620px){
-  .kizuna-pwa-install:not(.is-inline){right:10px;bottom:max(10px,env(safe-area-inset-bottom));font-size:8px}
-  .site-header nav .kizuna-pwa-install.is-inline{justify-content:flex-start;width:100%;min-height:42px;margin:5px 0;padding:9px 7px;border-width:1px 0;font-size:8px;text-align:left}
+  .kizuna-pwa-install{right:max(9px,env(safe-area-inset-right));bottom:max(9px,env(safe-area-inset-bottom));grid-template-columns:22px minmax(0,1fr);width:92px;min-height:42px;padding:6px 7px;font-size:6.5px;box-shadow:0 6px 0 #17231e22,0 12px 25px #08120f4d}
+  .kizuna-pwa-install::before{width:21px;height:21px;font-size:13px}
   .kizuna-pwa-update{grid-template-columns:1fr 1fr}.kizuna-pwa-update div{grid-column:1/3}.kizuna-pwa-update button{width:100%}
   .kizuna-pwa-connection{align-items:flex-start}.kizuna-pwa-connection span{font-size:8px}
 }
