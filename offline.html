@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#142923">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="KIZUNA">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/kizuna-app-icon-192.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <title>Sin conexión · KIZUNA</title>
+  <style>
+    *{box-sizing:border-box}body{min-height:100dvh;margin:0;display:grid;place-items:center;padding:24px;background:#14231e;color:#1d2924;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.offline-card{width:min(650px,100%);padding:clamp(28px,7vw,64px);border:1px solid #a89778;background:#eee4ce;box-shadow:14px 14px 0 #09110e}.brand{display:flex;align-items:center;gap:12px;color:#14231e;font:600 13px Georgia,serif;letter-spacing:.18em}.brand img{width:54px;height:54px;object-fit:contain}.eyebrow{margin:42px 0 10px;color:#9b2b25;font-size:9px;letter-spacing:.16em}.offline-card h1{margin:0;font:500 clamp(38px,10vw,68px)/.95 Georgia,serif}.offline-card>p:last-of-type{max-width:470px;margin:27px 0;color:#5e5a51;font-size:11px;line-height:1.75}.offline-card button{min-height:45px;padding:10px 19px;border:0;background:#982a24;color:#fff;font:600 9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;cursor:pointer}
+  </style>
+</head>
+<body>
+  <main class="offline-card">
+    <div class="brand"><img src="assets/kizuna-logo-official.png" alt="">KIZUNA TRAVEL BUREAU</div>
+    <p class="eyebrow">ARCHIVO CENTRAL · CONEXIÓN INTERRUMPIDA</p>
+    <h1>Sin conexión.</h1>
+    <p>La interfaz de KIZUNA está disponible, pero el acceso al expediente, los documentos y el progreso necesitan conexión directa con Supabase. No se ha guardado ninguna confirmación localmente.</p>
+    <button type="button" onclick="location.reload()">REINTENTAR CONEXIÓN →</button>
+  </main>
+  <script src="pwa.js?v=20260724-pwa01"></script>
+</body>
+</html>
