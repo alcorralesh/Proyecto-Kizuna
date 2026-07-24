@@ -757,3 +757,16 @@ body:has(#viewer[open]){overflow:hidden}
 @media(max-width:600px){.final-public-transition{padding:10px}.final-public-transition-card{padding:30px 23px 23px;box-shadow:7px 7px 0 #05090880}.final-public-transition-card>p{margin-bottom:16px;font-size:7px}.final-public-transition-card h2{margin-bottom:20px;font-size:39px}.final-public-transition-card ol{margin-bottom:18px}.final-public-transition-card li{padding:11px 5px 11px 21px;font-size:8px}.final-public-transition-card button{min-height:46px}}
 @media(max-height:560px) and (orientation:landscape){.final-public-transition-card{width:min(760px,100%);padding:22px 28px 18px}.final-public-transition-card>p{margin-bottom:9px}.final-public-transition-card h2{margin-bottom:12px;font-size:36px}.final-public-transition-card h2 br{display:none}.final-public-transition-card ol{grid-template-columns:repeat(2,1fr);margin-bottom:12px}.final-public-transition-card li{padding:8px 8px 8px 21px;border-right:1px solid #d7ccb9}.final-public-transition-progress{margin-bottom:12px}.final-public-transition-card button{min-height:42px}}
 @media(prefers-reduced-motion:reduce){.final-public-transition{transition:none}.final-public-transition-card li{opacity:1;transform:none;animation:none}.final-public-transition-progress i{animation:none}}
+
+/* Vista de prueba del cierre y estado secreto ALT-00. */
+.admin-alt00-settings{position:relative;overflow:hidden;border-color:#6d4b3f!important;background:linear-gradient(135deg,#171e1b 0 34%,#202a25 100%)!important;color:#efe4cf!important;box-shadow:inset 4px 0 #9f3028}
+.admin-alt00-settings::after{content:"Ω";position:absolute;right:20px;bottom:-38px;color:#efe4cf08;font:160px/1 var(--serif);pointer-events:none}
+.admin-alt00-heading{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+.admin-alt00-settings .system-line{color:#d2a95d!important}.admin-alt00-settings h4{color:#fff!important}
+.admin-alt00-settings>p{position:relative;z-index:1;max-width:680px;color:#c9c1b3!important}
+.admin-alt00-state{flex:0 0 auto;padding:8px 10px;border:1px solid #87755e;color:#c3b49c;font:7px var(--mono);letter-spacing:.1em}
+.admin-alt00-state.discovered{border-color:#b88c49;color:#e0b968}.admin-alt00-state.completed{border-color:#5e855e;color:#94bd82}
+.admin-alt00-settings #admin-play-finale{position:relative;z-index:1;display:inline-flex;align-items:center;gap:11px!important;border:1px solid #c1a05e!important;background:#c1a05e!important;color:#17201c!important}
+.admin-alt00-settings #admin-play-finale span{display:grid;place-items:center;width:23px;height:23px;border:1px solid #17201c;border-radius:50%;font-size:8px}
+.admin-alt00-settings>small{position:relative;z-index:1;margin-left:13px;color:#8f968f;font:6px var(--mono);letter-spacing:.08em}
+@media(max-width:700px){.admin-alt00-heading{display:block}.admin-alt00-state{display:inline-block;margin:9px 0}.admin-alt00-settings #admin-play-finale{width:100%;justify-content:center}.admin-alt00-settings>small{display:block;margin:11px 0 0;text-align:center}}
