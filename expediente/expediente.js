@@ -977,6 +977,16 @@ const enhanceDocumentImages=()=>{
     const distance=points=>Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y),center=points=>({x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2});
     const canDrag=()=>true;
     const restartDrag=()=>{const point=[...pointers.values()][0];dragging=Boolean(point&&canDrag());if(point){point.startX=point.x;point.startY=point.y;point.scrollX=frame.scrollLeft;point.scrollY=frame.scrollTop}};
+    const turnComicPageBySwipe=(event,point,wasSinglePointer)=>{
+      if(!wasSinglePointer||event.pointerType!=='touch'||point.pinching||scale>fitScale+.01)return false;
+      if(!viewer.classList.contains('is-reader-fullscreen')||!document.querySelector('#doc-body')?.dataset.comicPage)return false;
+      const deltaX=event.clientX-point.startX,deltaY=event.clientY-point.startY,elapsed=performance.now()-point.startedAt;
+      if(elapsed>850||Math.abs(deltaX)<58||Math.abs(deltaX)<Math.abs(deltaY)*1.25)return false;
+      const control=deltaX<0?comicFollowing:comicPrevious;
+      if(control.hidden||control.disabled)return false;
+      control.click();
+      return true;
+    };
     readerTools.onclick=async event=>{
       const action=event.target.closest('[data-reader-action]')?.dataset.readerAction;if(!action)return;
       if(action==='in')setScale(scale+.25);
@@ -990,9 +1000,9 @@ const enhanceDocumentImages=()=>{
         }catch(error){console.warn('Se utilizará el modo de pantalla completa compatible.',error);readerPreviousBodyOverflow=document.body.style.overflow;document.body.style.overflow='hidden';viewer.classList.add('is-fallback-fullscreen');setReaderFullscreenState(true)}
       }
     };
-    frame.addEventListener('pointerdown',event=>{const point={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,scrollX:frame.scrollLeft,scrollY:frame.scrollTop};pointers.set(event.pointerId,point);frame.setPointerCapture?.(event.pointerId);if(pointers.size===2){const points=[...pointers.values()];pinchStart={distance:Math.max(1,distance(points)),scale};dragging=false}else if(canDrag())dragging=true});
+    frame.addEventListener('pointerdown',event=>{const point={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,scrollX:frame.scrollLeft,scrollY:frame.scrollTop,startedAt:performance.now(),pinching:false};pointers.set(event.pointerId,point);frame.setPointerCapture?.(event.pointerId);if(pointers.size===2){const points=[...pointers.values()];points.forEach(item=>item.pinching=true);pinchStart={distance:Math.max(1,distance(points)),scale};dragging=false}else if(canDrag())dragging=true});
     frame.addEventListener('pointermove',event=>{const point=pointers.get(event.pointerId);if(!point)return;point.x=event.clientX;point.y=event.clientY;if(pointers.size>=2&&pinchStart){event.preventDefault();const points=[...pointers.values()].slice(0,2),focus=center(points);setScale(pinchStart.scale*distance(points)/pinchStart.distance,focus.x,focus.y)}else if(dragging){event.preventDefault();frame.scrollLeft=point.scrollX-(event.clientX-point.startX);frame.scrollTop=point.scrollY-(event.clientY-point.startY)}});
-    const releasePointer=event=>{pointers.delete(event.pointerId);pinchStart=null;restartDrag()};frame.addEventListener('pointerup',releasePointer);frame.addEventListener('pointercancel',releasePointer);
+    const releasePointer=event=>{const point=pointers.get(event.pointerId),wasSinglePointer=pointers.size===1;pointers.delete(event.pointerId);pinchStart=null;const turned=point&&turnComicPageBySwipe(event,point,wasSinglePointer);if(!turned)restartDrag()};frame.addEventListener('pointerup',releasePointer);frame.addEventListener('pointercancel',event=>{pointers.delete(event.pointerId);pinchStart=null;restartDrag()});
     frame.addEventListener('dblclick',event=>{event.preventDefault();if(scale>fitScale+.01)fitPage();else setScale(Math.max(1,fitScale+.75),event.clientX,event.clientY)});
     frame.addEventListener('wheel',event=>{event.preventDefault();if(event.ctrlKey)setScale(scale+(event.deltaY<0?.2:-.2),event.clientX,event.clientY);else{frame.scrollTop+=event.deltaY;frame.scrollLeft+=event.deltaX}},{passive:false});
     const initialiseFit=()=>requestAnimationFrame(fitPage);
