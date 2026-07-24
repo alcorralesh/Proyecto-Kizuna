@@ -1,5 +1,5 @@
-if(!document.querySelector('link[href="microevents.css"]')){const microeventsStyle=document.createElement('link');microeventsStyle.rel='stylesheet';microeventsStyle.href='microevents.css';document.head.appendChild(microeventsStyle)}
-if(!window.KizunaMicroevents){const microeventsScript=document.createElement('script');microeventsScript.src='microevents.js';document.head.appendChild(microeventsScript)}
+if(!document.querySelector('link[data-kizuna-microevents]')){const microeventsStyle=document.createElement('link');microeventsStyle.rel='stylesheet';microeventsStyle.dataset.kizunaMicroevents='';microeventsStyle.href='microevents.css?v=20260724-confirmation-redesign04';document.head.appendChild(microeventsStyle)}
+if(!window.KizunaMicroevents){const microeventsScript=document.createElement('script');microeventsScript.src='microevents.js?v=20260724-confirmation-redesign04';document.head.appendChild(microeventsScript)}
 if(!window.kizunaStorage){const storageAssetsScript=document.createElement('script');storageAssetsScript.src='../storage-assets.js';document.head.appendChild(storageAssetsScript)}
 document.querySelectorAll('.password-toggle').forEach(button=>{
   const input=document.getElementById(button.dataset.passwordTarget);
@@ -2475,6 +2475,9 @@ setTimeout(async()=>{KizunaSound.bindInterface();await fetchSoundConfig()},250);
 // el módulo solo obtiene el control antes de mostrar el resultado o persistir lectura.
 const microeventRecoveryPassed=new Set();
 const microeventRecoveryRunning=new Set();
+// Si Supabase falla después de superar un protocolo, el reintento de guardado
+// no obliga al usuario a repetir el microjuego durante la misma sesión.
+const microeventConfirmationPassed=new Set();
 const getMicroevents=async()=>{
   for(let attempt=0;attempt<30&&!window.KizunaMicroevents;attempt++)await new Promise(resolve=>setTimeout(resolve,50));
   return window.KizunaMicroevents||null;
@@ -2486,11 +2489,18 @@ setTimeout(async()=>{
     const id=active,alreadyRead=read().includes(id);
     if(mark.disabled)return;
     if(id==='FINAL-01')return originalMarkHandler?.call(mark,event);
-    if(!alreadyRead&&/^KTB-\d{3}$/.test(id)){
+    if(!alreadyRead&&/^KTB-\d{3}$/.test(id)&&!microeventConfirmationPassed.has(id)){
       mark.disabled=true;
+      const enabled=await module.confirmationEnabled(id);
+      if(!enabled){
+        mark.disabled=false;
+        mark.textContent='Confirmar lectura';
+        return originalMarkHandler?.call(mark,event);
+      }
       const success=await module.runConfirmation(id,{container:document.querySelector('#doc-body')});
       mark.disabled=false;
       if(!success)return;
+      microeventConfirmationPassed.add(id);
     }
     return originalMarkHandler?.call(mark,event);
   };
