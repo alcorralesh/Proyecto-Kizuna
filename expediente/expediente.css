@@ -1415,6 +1415,95 @@ body:has(#viewer[open]){overflow:hidden}
   #viewer:has(.folder-index:not(.ar03-folder-index)) .paper-foot .reader-actions button{width:100%;min-width:0;min-height:36px;padding:7px 10px;font-size:7px}
 }
 
+.folder-sequence-label{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 10px!important;color:#6b6459;font:7px/1.4 var(--mono)!important;letter-spacing:.1em}.folder-sequence-label strong{color:#7e1b19;font-weight:500;letter-spacing:.04em;text-transform:uppercase}.folder-next-phase.is-locked{border-color:#827a6d;background:linear-gradient(115deg,#202522,#252b27);box-shadow:none;animation:none}.folder-next-phase.is-locked::before{background:#70695e;box-shadow:none}.folder-next-phase.is-locked .folder-next-symbol{border-color:#777166;color:#9a9387;animation:none}.folder-next-phase.is-locked .folder-next-copy p{color:#aaa294!important}.folder-next-phase.is-locked .folder-next-state{border-color:#777166;color:#aaa294;transform:none}.folder-index>footer .folder-next-phase.is-locked button{border-color:#777166;background:transparent;color:#aaa294;cursor:not-allowed;opacity:.72}
+
+/* Una sola secuencia para carpetas cortas y extensas. En vertical todos los
+   registros forman una lista continua y el KTB permanece como cierre visible. */
+@media(orientation:portrait) and (max-width:1000px) and (pointer:coarse){
+  #viewer:has(.folder-sequence-index) .reader-content.is-folder{align-items:start;padding:8px}
+  #viewer:has(.folder-sequence-index) .reader-content.is-folder .paper{align-self:stretch;box-sizing:border-box;width:100%;min-height:100%;padding:24px 20px}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index{display:flex;min-height:100%;flex-direction:column}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>header{align-items:flex-start;gap:14px;padding-bottom:14px}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>header h3{font-size:28px}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>header>p{align-items:baseline;font-size:7px}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>header>p strong{font-size:25px}
+  #viewer:has(.folder-sequence-index) .folder-intro{margin:13px 0 16px!important;font-size:7px!important;line-height:1.5!important}
+  #viewer:has(.folder-sequence-index) .folder-sequence-label{margin-bottom:5px!important;font-size:6px!important}
+  #viewer:has(.folder-sequence-index) .folder-file-list{display:grid;grid-template-columns:1fr;gap:0}
+  #viewer:has(.folder-sequence-index) .folder-file{min-height:58px;padding:9px 5px;border:0;border-top:1px solid #b9ad99;background:transparent}
+  #viewer:has(.folder-sequence-index) .folder-file:last-child{border-bottom:1px solid #b9ad99}
+  #viewer:has(.folder-sequence-index) .folder-file:hover:not(:disabled),
+  #viewer:has(.folder-sequence-index) .folder-file:focus-visible{background:#fff9ec}
+  #viewer:has(.folder-sequence-index) .folder-file.is-read{background:#eef0da}
+  #viewer:has(.folder-sequence-index) .folder-file-copy strong{font-size:14px}
+  #viewer:has(.folder-sequence-index) .folder-file-copy small{margin-top:4px;font-size:5px}
+  #viewer:has(.folder-sequence-index) .folder-file-action{font-size:6px}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>footer{margin-top:15px;padding-top:12px;border-top:2px solid #7e1b19}
+  #viewer:has(.folder-sequence-index) .folder-next-phase{grid-template-columns:40px minmax(0,1fr) auto;gap:10px;padding:13px 12px;box-shadow:none}
+  #viewer:has(.folder-sequence-index) .folder-next-symbol{width:38px;height:38px;font-size:18px}
+  #viewer:has(.folder-sequence-index) .folder-next-copy p{margin-bottom:4px!important;font-size:5px!important}
+  #viewer:has(.folder-sequence-index) .folder-next-copy h4{font-size:16px}
+  #viewer:has(.folder-sequence-index) .folder-next-copy h4 span{font-size:7px}
+  #viewer:has(.folder-sequence-index) .folder-next-copy small{margin-top:4px;font-size:5px;line-height:1.4}
+  #viewer:has(.folder-sequence-index) .folder-next-state{padding:4px 5px}
+  #viewer:has(.folder-sequence-index) .folder-next-state span{font-size:6px}
+  #viewer:has(.folder-sequence-index) .folder-next-state strong{font-size:4px}
+  #viewer:has(.folder-sequence-index) .folder-index>footer .folder-next-phase button{grid-column:1/-1;width:100%;min-width:0;min-height:38px;padding:8px 10px;font-size:6px}
+}
+
+/* En horizontal la identidad permanece a la izquierda. La secuencia ocupa la
+   zona derecha, usa dos columnas y desplaza solo sus documentos cuando crece. */
+@media(orientation:landscape) and (min-width:601px) and (max-width:1000px) and (max-height:520px) and (pointer:coarse){
+  #viewer:has(.folder-sequence-index) .reader-toolbar{min-height:50px;padding-top:4px;padding-bottom:4px}
+  #viewer:has(.folder-sequence-index) .reader-toolbar .close{width:38px;height:38px;font-size:23px}
+  #viewer:has(.folder-sequence-index) .reader-heading h2{font-size:15px}
+  #viewer:has(.folder-sequence-index) #reader-status,
+  #viewer:has(.folder-sequence-index) .reader-heading #doc-type{display:none}
+  #viewer:has(.folder-sequence-index) .reader-content.is-folder{padding:6px 10px}
+  #viewer:has(.folder-sequence-index) .reader-content.is-folder .paper{align-self:stretch;width:100%;height:100%;padding:12px 18px;overflow:hidden}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index{
+    display:grid;
+    grid-template-columns:minmax(190px,.34fr) minmax(360px,.66fr);
+    grid-template-rows:auto minmax(0,1fr) auto;
+    gap:8px 18px;
+    height:100%;
+    min-height:0;
+  }
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>header{grid-column:1;grid-row:1;display:block;align-self:start;padding-bottom:10px}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>header .system-line{margin-bottom:6px;font-size:6px}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>header h3{font-size:27px}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>header>p{margin-top:9px;font-size:6px}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>header>p strong{font-size:23px}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>.folder-intro{grid-column:1;grid-row:2;align-self:start;margin:0!important;font-size:6px!important;line-height:1.5!important}
+  #viewer:has(.folder-sequence-index) .folder-sequence-label{grid-column:2;grid-row:1;align-self:end;margin:0!important;padding-bottom:8px;border-bottom:1px solid #b9ad99;font-size:5px!important}
+  #viewer:has(.folder-sequence-index) .folder-file-list{grid-column:2;grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(45px,auto);align-content:start;gap:0 12px;min-height:0;overflow:auto;padding-right:4px}
+  #viewer:has(.folder-sequence-index) .folder-file{grid-template-columns:27px minmax(0,1fr) auto;gap:7px;min-height:45px;padding:5px 4px;border:0;border-top:1px solid #b9ad99;background:transparent}
+  #viewer:has(.folder-sequence-index) .folder-file:nth-last-child(-n+2){border-bottom:1px solid #b9ad99}
+  #viewer:has(.folder-sequence-index) .folder-file:hover:not(:disabled),
+  #viewer:has(.folder-sequence-index) .folder-file:focus-visible{background:#fff9ec}
+  #viewer:has(.folder-sequence-index) .folder-file.is-read{background:#eef0da}
+  #viewer:has(.folder-sequence-index) .folder-file-number{width:25px;height:25px;font-size:6px}
+  #viewer:has(.folder-sequence-index) .folder-file-copy strong{font-size:11px}
+  #viewer:has(.folder-sequence-index) .folder-file-copy small{margin-top:3px;font-size:4px}
+  #viewer:has(.folder-sequence-index) .folder-file-action{font-size:5px}
+  #viewer:has(.folder-sequence-index) .folder-sequence-index>footer{grid-column:2;grid-row:3;align-self:end;margin:0;padding:8px 0 0;border:0;border-top:2px solid #7e1b19}
+  #viewer:has(.folder-sequence-index) .folder-next-phase{grid-template-columns:34px minmax(0,1fr) auto auto;gap:8px;padding:7px 8px;box-shadow:none}
+  #viewer:has(.folder-sequence-index) .folder-next-symbol{width:32px;height:32px;font-size:15px}
+  #viewer:has(.folder-sequence-index) .folder-next-copy p{margin-bottom:2px!important;font-size:4px!important}
+  #viewer:has(.folder-sequence-index) .folder-next-copy h4{font-size:13px}
+  #viewer:has(.folder-sequence-index) .folder-next-copy h4 span{font-size:6px}
+  #viewer:has(.folder-sequence-index) .folder-next-copy small{margin-top:2px;font-size:4px;line-height:1.3}
+  #viewer:has(.folder-sequence-index) .folder-next-state{padding:3px 4px}
+  #viewer:has(.folder-sequence-index) .folder-next-state span{font-size:5px}
+  #viewer:has(.folder-sequence-index) .folder-next-state strong{font-size:4px}
+  #viewer:has(.folder-sequence-index) .folder-index>footer .folder-next-phase button{grid-column:4;width:auto;min-width:118px;min-height:30px;padding:6px 8px;font-size:5px}
+  #viewer:has(.folder-sequence-index) .paper-foot{grid-template-columns:1fr;min-height:44px;padding:4px 10px}
+  #viewer:has(.folder-sequence-index) .reader-position,
+  #viewer:has(.folder-sequence-index) .reader-hint{display:none}
+  #viewer:has(.folder-sequence-index) .reader-actions{display:grid;grid-template-columns:1fr}
+  #viewer:has(.folder-sequence-index) .paper-foot .reader-actions button{width:100%;min-width:0;min-height:36px;padding:7px 10px;font-size:7px}
+}
+
 /* Confirmación KTB panorámica: resumen del registro a la izquierda y efectos
    de la lectura a la derecha, con toda la consecuencia visible de una vez. */
 @media(orientation:landscape) and (min-width:601px) and (max-width:1000px) and (max-height:520px) and (pointer:coarse){
