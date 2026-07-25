@@ -344,9 +344,24 @@ const showEarlyAccessSequence=({preview=false,onComplete=()=>{}}={})=>{
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const timers=[];
   const openedAt=performance.now();
-  let revealed=false,saving=false,pendingRevealTimer=0;
+  let revealed=false,saving=false,pendingRevealTimer=0,diagnosticComplete=false,diagnosticCompletedAt=0;
+  const diagnosticTitle=scene.querySelector('.early-access-diagnostic h1');
+  const diagnosticFields=[...scene.querySelectorAll('.early-access-diagnostic dl div')];
+  const diagnosticSteps=[...scene.querySelectorAll('.early-access-diagnostic li')];
+  const diagnosticHint=scene.querySelector('.early-access-skip');
+  const showAllDiagnostic=()=>{
+    diagnosticTitle.classList.add('is-visible');
+    diagnosticFields.forEach(field=>field.classList.add('is-visible'));
+    diagnosticSteps.forEach(step=>step.classList.add('is-visible','is-complete'));
+    if(!diagnosticComplete){
+      diagnosticComplete=true;
+      diagnosticCompletedAt=performance.now();
+    }
+    diagnosticHint.textContent='Pulsa de nuevo para abrir el comunicado';
+  };
   const reveal=()=>{
     if(revealed)return;
+    showAllDiagnostic();
     revealed=true;
     timers.forEach(clearTimeout);
     scene.classList.remove('is-interference');
@@ -355,7 +370,11 @@ const showEarlyAccessSequence=({preview=false,onComplete=()=>{}}={})=>{
     scene.querySelector('button').focus({preventScroll:true});
   };
   const requestReveal=()=>{
-    const remaining=900-(performance.now()-openedAt);
+    if(!diagnosticComplete){
+      showAllDiagnostic();
+      return;
+    }
+    const remaining=Math.max(900-(performance.now()-openedAt),1200-(performance.now()-diagnosticCompletedAt));
     if(remaining>0){
       clearTimeout(pendingRevealTimer);
       pendingRevealTimer=setTimeout(reveal,remaining);
@@ -364,11 +383,20 @@ const showEarlyAccessSequence=({preview=false,onComplete=()=>{}}={})=>{
     reveal();
   };
   if(reduced){
-    scene.querySelectorAll('.early-access-diagnostic li').forEach(item=>item.classList.add('is-complete'));
-    timers.push(setTimeout(reveal,2600));
+    showAllDiagnostic();
+    timers.push(setTimeout(reveal,8000));
   }else{
-    [500,1250,2250,3400].forEach((delay,index)=>timers.push(setTimeout(()=>scene.querySelectorAll('.early-access-diagnostic li')[index]?.classList.add('is-complete'),delay)));
-    timers.push(setTimeout(reveal,4700));
+    timers.push(setTimeout(()=>diagnosticTitle.classList.add('is-visible'),500));
+    [1500,2350,3200,4050].forEach((delay,index)=>timers.push(setTimeout(()=>diagnosticFields[index]?.classList.add('is-visible'),delay)));
+    [5000,6100,7200,8300].forEach((delay,index)=>timers.push(setTimeout(()=>{
+      diagnosticSteps[index]?.classList.add('is-visible','is-complete');
+      if(index===diagnosticSteps.length-1){
+        diagnosticComplete=true;
+        diagnosticCompletedAt=performance.now();
+        diagnosticHint.textContent='Autorización recibida · abriendo comunicado…';
+      }
+    },delay)));
+    timers.push(setTimeout(reveal,10800));
   }
   scene.addEventListener('click',event=>{
     if(event.target.closest('button'))return;
