@@ -42,9 +42,10 @@ const ar01Tickets=[{id:'AR01-TICKET-01',title:'Billete Enoden',src:'BilleteEnode
 folders['AR-01'].files.push({id:'AR01-04',title:'Boarding pass · José Cuadrado',src:'04-Boarding-pass-Jose.png'},{id:'AR01-05',title:'JR Pass',src:'05-JR-Pass.png'},{id:'AR01-BILLETES',title:'Carpeta · Billetes de transporte',mosaic:'tickets'});
 const ar03Cities=['01-Tokyo.png','02-Tokyo_barrios.png','03-Kyoto.png','04-Osaka.png','05-Nara.png','06-Hiroshima.png','07-Miyajima.png','08-Nikko.png','09-Hakone.png','10-Kamakura.png','11-Yokohama.png','12-Kanazawa.png'];
 const ar03Temples=['001-Fushimi Inari.png','002-Kiyomizu Dera.png','003-Kinkaku ji.png','004-Todai ji.png','005-Itsukushima.png','006-Senso ji.png','007-Meiji jingu.png','008-Kotoku in.png','009-Ginkaku ji.png','010-Tenryu ji.png','011-Kasuga taisha.png','012-nikko tosho gu.png','013-Hase dera.png','014-Yasaka shrine.png','015-Arashiyama bamboo grove.png','016-Heian jingu.png'];
+const EARLY_ACCESS_VERSION=1;
 const supabaseUrl='https://vcwqkideizdrhzpbghkj.supabase.co';
 const supabaseKey='sb_publishable_h3pjxT8UPZkYqRhLskVdlA_m-ulI4EF';
-let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null,currentDisplayName='Destinatario autorizado',progressHydrated=false,progressSessionVersion=0,remoteRecipientMessages=[];
+let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null,currentDisplayName='Destinatario autorizado',progressHydrated=false,progressSessionVersion=0,remoteRecipientMessages=[],recipientPushConnection=null,recipientPushConnected=false;
 const recipientName=()=>currentDisplayName||'Destinatario autorizado';
 const updateRecipientName=()=>{
   const fullName=recipientName().trim();
@@ -69,7 +70,7 @@ updateCompletionHeader=done=>{
 };
 let transientProgressState=null;
 const transientState=()=>normalizeFinalState(transientProgressState||emptyProgressState());
-const emptyProgressState=()=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,comicReadPages:[],alt00Discovered:false,alt00DiscoveredAt:null,alt00Completed:false,alt00CompletedAt:null,alt00LastPage:1,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,loadingSeen:false,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:1,seenUnlocks:[]});
+const emptyProgressState=()=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,comicReadPages:[],alt00Discovered:false,alt00DiscoveredAt:null,alt00Completed:false,alt00CompletedAt:null,alt00LastPage:1,earlyAccessVersion:EARLY_ACCESS_VERSION,earlyAccessShownAt:null,earlyAccessAcknowledgedAt:null,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,loadingSeen:false,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:1,seenUnlocks:[]});
 const resetFinalDecisionState=state=>({
   ...state,
   albertoMessageRead:false,
@@ -238,6 +239,8 @@ const handleRecipientExit=async()=>{
     currentUser=null;
     remoteState=null;
     progressHydrated=false;
+    recipientPushConnection=null;
+    recipientPushConnected=false;
     location.replace('../index.html');
   }catch(error){
     console.error('No se pudo cerrar la sesión privada.',error);
@@ -303,6 +306,95 @@ const patchState=changes=>{
   if(hadRead)rememberAuthoritativeRead(state);
   transientProgressState=state;
   return Promise.resolve(state);
+};
+const earlyAccessAcknowledged=state=>{
+  const progress=state||getState();
+  return Number(progress.earlyAccessVersion||0)>=EARLY_ACCESS_VERSION&&Boolean(progress.earlyAccessAcknowledgedAt);
+};
+const connectRecipientPush=()=>{
+  if(recipientPushConnected||!recipientPushConnection)return;
+  recipientPushConnected=true;
+  if(window.KizunaPWA?.connectPush)void window.KizunaPWA.connectPush(recipientPushConnection);
+  else window.KizunaPendingPushConnection=recipientPushConnection;
+};
+const enterExpedientAfterAuthorization=()=>{
+  loading.hidden=true;
+  if(getState().legalAccepted){
+    gate.hidden=true;
+    dash.hidden=false;
+    render({focusNext:true});
+    maybeStartExpedientTour();
+    connectRecipientPush();
+  }else{
+    dash.hidden=true;
+    gate.hidden=false;
+  }
+};
+const earlyAccessDateLabel=()=>new Intl.DateTimeFormat('es-ES',{day:'2-digit',month:'long',year:'numeric'}).format(new Date()).toLocaleUpperCase('es-ES');
+const showEarlyAccessSequence=({preview=false,onComplete=()=>{}}={})=>{
+  document.querySelector('.kizuna-early-access')?.remove();
+  const scene=document.createElement('section');
+  scene.className='kizuna-early-access is-interference';
+  scene.setAttribute('role','dialog');
+  scene.setAttribute('aria-modal','true');
+  scene.setAttribute('aria-labelledby','early-access-title');
+  scene.innerHTML=`<div class="early-access-noise" aria-hidden="true"></div><header><img src="../assets/kizuna-logo-official.png" alt=""><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>PROTOCOLO DE LIBERACIÓN · AT-03</strong></div><b>ESTADO · CRÍTICO</b></header><div class="early-access-stage"><section class="early-access-diagnostic"><p class="early-access-kicker">ANOMALÍA TEMPORAL DETECTADA</p><h1 id="early-access-title">La fecha prevista<br><em>ha dejado de ser válida.</em></h1><dl><div><dt>Clasificación</dt><dd>AT-03</dd></div><div><dt>Estado</dt><dd class="critical">CRÍTICO</dd></div><div><dt>Fecha de acceso detectada</dt><dd>${earlyAccessDateLabel()}</dd></div><div><dt>Ventana de entrega</dt><dd class="critical">NO COINCIDENTE</dd></div></dl><ol aria-label="Verificación temporal"><li>Iniciando verificación temporal…</li><li>Comprobando ventana de entrega autorizada…</li><li>Analizando estabilidad de acontecimientos futuros…</li><li>Solicitando autorización al Comité KIZUNA…</li></ol><p class="early-access-skip">Pulsa para estabilizar la señal</p></section><article class="early-access-communique" aria-live="polite"><div class="early-access-seal" aria-hidden="true">LIBERACIÓN<br>ANTICIPADA</div><p class="system-line">COMUNICADO EXTRAORDINARIO · COMITÉ KIZUNA</p><h2>Acceso autorizado<br><em>con efecto inmediato.</em></h2><p><strong>Resultado:</strong> La fecha de acceso no coincide con la fecha originalmente prevista para la liberación de este expediente.</p><p>Se ha detectado una alteración significativa en la línea temporal desde la emisión de esta documentación.</p><p>Tras una nueva evaluación de estabilidad, el <strong>Comité KIZUNA</strong> ha autorizado de forma extraordinaria la <strong>liberación anticipada del expediente</strong>.</p><p>Las simulaciones más recientes indican que mantener el protocolo bloqueado hasta la fecha inicialmente prevista podría comprometer la estabilidad de los acontecimientos futuros.</p><p>Por este motivo, la restricción temporal ha sido revocada y el acceso queda autorizado con efecto inmediato. Toda la información contenida en este expediente deberá considerarse <strong>prioritaria</strong>.</p><blockquote><span>MENSAJE DEL COMITÉ KIZUNA</span>«Hay futuros que pueden esperar.<br>Este no era uno de ellos.»</blockquote><footer><p role="status">${preview?'VISTA PREVIA · NO MODIFICA EL EXPEDIENTE':'Confirmación pendiente de registro.'}</p><button type="button">${preview?'Cerrar vista previa':'Continuar al expediente'} <b>→</b></button></footer></article></div></section>`;
+  document.body.appendChild(scene);
+  document.body.classList.add('early-access-open');
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const timers=[];
+  let revealed=false,saving=false;
+  const reveal=()=>{
+    if(revealed)return;
+    revealed=true;
+    timers.forEach(clearTimeout);
+    scene.classList.remove('is-interference');
+    scene.classList.add('is-authorized');
+    scene.querySelector('.early-access-communique').scrollTop=0;
+    scene.querySelector('button').focus({preventScroll:true});
+  };
+  if(reduced)reveal();
+  else{
+    [500,1250,2250,3400].forEach((delay,index)=>timers.push(setTimeout(()=>scene.querySelectorAll('.early-access-diagnostic li')[index]?.classList.add('is-complete'),delay)));
+    timers.push(setTimeout(reveal,4700));
+  }
+  scene.addEventListener('click',event=>{
+    if(event.target.closest('button'))return;
+    if(!revealed)reveal();
+  });
+  scene.querySelector('button').onclick=async()=>{
+    if(!revealed){reveal();return}
+    if(saving)return;
+    if(preview){
+      scene.remove();
+      document.body.classList.remove('early-access-open');
+      onComplete();
+      return;
+    }
+    saving=true;
+    const button=scene.querySelector('button'),status=scene.querySelector('footer p');
+    button.disabled=true;
+    button.textContent='Registrando autorización…';
+    status.textContent='Sincronizando con el Archivo Central…';
+    const acknowledgedAt=new Date().toISOString();
+    try{
+      await patchState({earlyAccessVersion:EARLY_ACCESS_VERSION,earlyAccessShownAt:acknowledgedAt,earlyAccessAcknowledgedAt:acknowledgedAt});
+      await recordActivity('early_access_acknowledged',null,{classification:'AT-03',version:EARLY_ACCESS_VERSION,detected_date:acknowledgedAt});
+      scene.classList.add('is-closing');
+      setTimeout(()=>{
+        scene.remove();
+        document.body.classList.remove('early-access-open');
+        onComplete();
+      },reduced?0:450);
+    }catch(error){
+      console.error('No se pudo registrar la liberación anticipada.',error);
+      saving=false;
+      button.disabled=false;
+      button.innerHTML='Reintentar registro <b>→</b>';
+      status.textContent='No se ha podido registrar la autorización. Comprueba la conexión.';
+    }
+  };
+  return scene;
 };
 const save=items=>patchState({read:items});
 const persistReadMarker=async(id,button,options={})=>{
@@ -404,9 +496,8 @@ const loadRemoteProgress=async user=>{
       if(mailbox?.style?.display==='block'&&typeof renderMailbox==='function')renderMailbox();
     }
   });
-  const pushConnection={client,userId:user.id};
-  if(window.KizunaPWA?.connectPush)void window.KizunaPWA.connectPush(pushConnection);
-  else window.KizunaPendingPushConnection=pushConnection;
+  recipientPushConnection={client,userId:user.id};
+  recipientPushConnected=false;
   return remoteState;
 };
 const recordComicPage=async page=>{
@@ -607,8 +698,8 @@ setTimeout(()=>{
     };
     const advance=()=>{
       loading.hidden=true;
-      if(getState().legalAccepted){gate.hidden=true;dash.hidden=false;render({focusNext:true});maybeStartExpedientTour()}
-      else{dash.hidden=true;gate.hidden=false}
+      if(!earlyAccessAcknowledged())showEarlyAccessSequence({onComplete:enterExpedientAfterAuthorization});
+      else enterExpedientAfterAuthorization();
     };
     continueButton.onclick=advance;
     skip.hidden=false;
@@ -1078,10 +1169,11 @@ const paintMailboxButton=unread=>{mailboxButton.innerHTML=`<span aria-hidden="tr
 const privateHeader=document.querySelector('.dashboard>header'),privateHeaderTools=document.createElement('div');privateHeaderTools.className='private-header-tools';if(privateHeader&&headerActions){privateHeader.insertBefore(privateHeaderTools,headerActions);privateHeaderTools.append(mailboxButton,headerActions)}
 const mailboxEscape=value=>String(value??'').replace(/[&<>'"]/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
 const automaticMailboxMessages=()=>{const done=read(),items=[];for(let i=1;i<=14;i++){const id=`KTB-${String(i).padStart(3,'0')}`;if(!done.includes(id))continue;items.push({id,subject:`Lectura confirmada · ${id}`,body:`La consulta del documento ${id} ha sido registrada correctamente. La secuencia autorizada ha sido actualizada.`,order:i,source:'system'})}if(done.includes('KTB-003'))items.push({id:'AC-01',subject:'Archivo complementario localizado',body:'Durante la reconstrucción del expediente se ha localizado el Archivo Complementario AC-01. Su contenido permanece en proceso de clasificación.',order:3.2,source:'system'});if(done.includes('KTB-006'))items.push({id:'AR-01',subject:'Acceso a Archivo Recuperado 01',body:'La documentación operativa ha quedado disponible para su consulta conforme al protocolo de custodia.',order:6.2,source:'system'});if(done.includes('KTB-011'))items.push({id:'AR-06',subject:'Acceso a datos recuperados',body:'Se ha autorizado la consulta de los datos recuperados del dispositivo asociado al expediente.',order:11.2,source:'system'});if(finalFlowClosed())items.push({id:'KTB-014-FINAL',subject:'Expediente archivado',body:'La consulta ha finalizado. El expediente PROJECT JAPAN ha sido archivado con integridad documental preservada.',order:14.2,source:'system'});if(done.includes('AR01-BILLETES'))items.push({id:'AR01-BILLETES',subject:'Registros de transporte verificados',body:'Todos los billetes recuperados de AR-01 han sido confirmados y archivados.',order:6.5,source:'system'});if(ar03Complete())items.push({id:'AR03',subject:'Registros geográficos completados',body:'Las guías de ciudades y las entradas de templos han sido incorporadas al expediente.',order:8.5,source:'system'});if(finalFlowClosed())items.push({id:'FINAL-01',subject:'ATENCIÓN · Archivo localizado',body:'Se ha localizado un archivo durante la verificación final del expediente. Clasificación: No catalogado. Estado: Pendiente de revisión.',order:100,urgent:true,source:'system'});return items.sort((a,b)=>b.order-a.order)};
-const mailboxMessages=()=>[...remoteRecipientMessages.map(message=>({...message,id:message.id,order:new Date(message.published_at).getTime(),source:'remote',urgent:message.priority==='urgent'})),...automaticMailboxMessages()].sort((a,b)=>b.order-a.order);
-const mailboxUnreadCount=()=>Math.max(0,automaticMailboxMessages().length-Number(getState().mailRead||0))+remoteRecipientMessages.filter(message=>!message.read_at).length;
+const earlyAccessMailboxMessages=()=>getState().earlyAccessAcknowledgedAt?[{id:'AT-03',subject:'Liberación anticipada autorizada',body:'El Comité KIZUNA ha revocado la restricción temporal del expediente. Clasificación AT-03: acceso autorizado con efecto inmediato. «Hay futuros que pueden esperar. Este no era uno de ellos.»',order:.5,urgent:true,source:'system'}]:[];
+const mailboxMessages=()=>[...remoteRecipientMessages.map(message=>({...message,id:message.id,order:new Date(message.published_at).getTime(),source:'remote',urgent:message.priority==='urgent'})),...automaticMailboxMessages(),...earlyAccessMailboxMessages()].sort((a,b)=>b.order-a.order);
+const mailboxUnreadCount=()=>Math.max(0,automaticMailboxMessages().length+earlyAccessMailboxMessages().length-Number(getState().mailRead||0))+remoteRecipientMessages.filter(message=>!message.read_at).length;
 const renderMailbox=()=>{const items=mailboxMessages(),unread=mailboxUnreadCount();paintMailboxButton(unread);mailbox.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #b4ae9f;padding-bottom:14px"><div><p style="margin:0;color:#7e1b19;font:10px var(--mono);letter-spacing:.1em">SISTEMA DE NOTIFICACIONES</p><h3 style="margin:6px 0 0;font:31px var(--serif)">Buzón del expediente</h3></div><button id="mailbox-close" style="border:0;background:none;font:25px var(--serif);color:#7e1b19;cursor:pointer">×</button></div><p style="font:10px/1.6 var(--mono)">${items.length} comunicaciones registradas · más recientes primero</p>${items.map(item=>`<details data-recipient-message="${item.source==='remote'?item.id:''}" style="border-top:1px solid ${item.urgent?'#7e1b19':'#c5bdaa'};padding:13px 0;${item.urgent?'background:#f4dfd5;margin:0 -10px;padding:15px 10px;border-left:4px solid #7e1b19':''}"><summary style="cursor:pointer;list-style:none;font:600 13px var(--serif)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${item.urgent||item.source==='remote'&&!item.read_at?'#7e1b19':'#9a998f'};margin-right:8px"></span>${mailboxEscape(item.subject)}<small style="display:block;margin:5px 0 0 16px;font:9px var(--mono);color:#7e1b19">DIVISIÓN DE ARCHIVOS TEMPORALES · ${item.source==='remote'?new Date(item.published_at).toLocaleDateString('es-ES'):mailboxEscape(item.id)}</small></summary><p style="margin:12px 0 0 16px;font:12px/1.65 var(--mono)">${mailboxEscape(item.body).replace(/\n/g,'<br>')}</p>${item.source==='remote'&&item.requires_ack&&!item.acknowledged_at?`<button data-ack-message="${item.id}" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Confirmar recepción</button>`:''}${item.id==='FINAL-01'?'<button id="final-file-from-mail" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Consultar archivo</button>':''}</details>`).join('')||'<p>No hay comunicaciones registradas.</p>'}`;document.querySelector('#mailbox-close').onclick=()=>mailbox.style.display='none';mailbox.querySelectorAll('details[data-recipient-message]').forEach(details=>details.addEventListener('toggle',()=>{if(details.open&&details.dataset.recipientMessage)window.KizunaRecipientMessages?.markRead(details.dataset.recipientMessage)}));mailbox.querySelectorAll('[data-ack-message]').forEach(button=>button.onclick=()=>window.KizunaRecipientMessages?.acknowledge(button.dataset.ackMessage));const finalButton=document.querySelector('#final-file-from-mail');if(finalButton)finalButton.onclick=()=>{mailbox.style.display='none';openFinalLocatedFile()}};
-mailboxButton.onclick=()=>{const opening=mailbox.style.display==='none';if(opening){renderMailbox();mailbox.style.display='block';patchState({mailRead:automaticMailboxMessages().length}).finally(()=>{renderMailbox();updateMailboxIndicator()})}else mailbox.style.display='none'};
+mailboxButton.onclick=()=>{const opening=mailbox.style.display==='none';if(opening){renderMailbox();mailbox.style.display='block';patchState({mailRead:automaticMailboxMessages().length+earlyAccessMailboxMessages().length}).finally(()=>{renderMailbox();updateMailboxIndicator()})}else mailbox.style.display='none'};
 mailbox.addEventListener('toggle',event=>{
   const details=event.target;
   if(!(details instanceof HTMLDetailsElement)||!details.open||!details.dataset.recipientMessage||details.querySelector('[data-message-deep-link]'))return;
@@ -1571,7 +1663,7 @@ document.querySelector('#gate-consent').onchange=event=>document.querySelector('
 document.querySelector('#gate-continue').onclick=async()=>{
   await patchState({legalAccepted:true,legalAcceptedAt:new Date().toISOString(),legalVersion:Number(getState().legalVersion||1)});
   await recordActivity('legal_terms_accepted',null,{version:Number(getState().legalVersion||1)});
-  gate.hidden=true;dash.hidden=false;render({focusNext:true});maybeStartExpedientTour();
+  gate.hidden=true;dash.hidden=false;render({focusNext:true});maybeStartExpedientTour();connectRecipientPush();
 };
 document.querySelector('#exit').onclick=handleRecipientExit;
 
@@ -2347,7 +2439,7 @@ document.querySelector('#admin-shop-refresh').onclick=loadAdminProducts;
 [adminShopSearch,adminShopCategory,adminShopVisibility].forEach(control=>control.addEventListener(control.tagName==='INPUT'?'input':'change',renderAdminProductList));
 
 const isAdmin=user=>user?.app_metadata?.role==='admin';
-const safeState=state=>normalizeFinalState({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,comicReadPages:[],alt00Discovered:false,alt00DiscoveredAt:null,alt00Completed:false,alt00CompletedAt:null,alt00LastPage:1,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:1,seenUnlocks:[],...(state||{})});
+const safeState=state=>normalizeFinalState({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,comicReadPages:[],alt00Discovered:false,alt00DiscoveredAt:null,alt00Completed:false,alt00CompletedAt:null,alt00LastPage:1,earlyAccessVersion:EARLY_ACCESS_VERSION,earlyAccessShownAt:null,earlyAccessAcknowledgedAt:null,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:1,seenUnlocks:[],...(state||{})});
 const adminProgressSortTime=row=>{
   const value=row?.state?.adminSavedAt||row?.updated_at||'';
   const time=Date.parse(value);
@@ -2685,6 +2777,12 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   pushDevices.innerHTML='<p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4><p>Cargando suscripciones push…</p>';
   passwordRecovery.after(pushDevices);
   renderAdminPushDevices(profile.id);
+  const earlyAccessAccepted=earlyAccessAcknowledged(current);
+  const earlyAccessDate=current.earlyAccessAcknowledgedAt&&!Number.isNaN(Date.parse(current.earlyAccessAcknowledgedAt))?new Date(current.earlyAccessAcknowledgedAt).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):null;
+  const earlyAccessSettings=document.createElement('section');
+  earlyAccessSettings.className='admin-message-settings admin-early-access-settings';
+  earlyAccessSettings.innerHTML=`<p class="system-line">LIBERACIÓN ANTICIPADA · AT-03</p><h4>Apertura cinematográfica</h4><p class="admin-legal-state ${earlyAccessAccepted?'accepted':'pending'}"><strong>${earlyAccessAccepted?'AUTORIZACIÓN MOSTRADA':'PENDIENTE DE MOSTRAR'}</strong>${earlyAccessDate?`<span>${adminEditorEscape(earlyAccessDate)}</span>`:''}</p><p>${earlyAccessAccepted?'El destinatario ya confirmó la liberación anticipada. Puedes reproducirla aquí sin alterar su expediente.':'La secuencia aparecerá después de «Acceso autorizado» en su próximo inicio de sesión.'}</p><button type="button" id="admin-preview-early-access">Reproducir apertura anticipada</button><small>VISTA DE PRUEBA · SIN ESCRITURAS EN SUPABASE</small>`;
+  settingsPanel.insertBefore(earlyAccessSettings,dangerZone);
   const legalAccepted=Boolean(current.legalAccepted),legalVersion=Number(current.legalVersion||1);
   const legalAcceptedDate=current.legalAcceptedAt&&!Number.isNaN(Date.parse(current.legalAcceptedAt))?new Date(current.legalAcceptedAt).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):null;
   const legalSettings=document.createElement('section');
@@ -2811,6 +2909,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   };
   const toggleAccess=async()=>{const nextActive=!isActive;if(!confirm(nextActive?'¿Reactivar el acceso de este destinatario?':'¿Desactivar el acceso de este destinatario? No podrá iniciar sesión hasta que lo reactives.'))return;const buttons=[document.querySelector('#admin-toggle-user'),document.querySelector('#admin-side-toggle-user')];buttons.forEach(button=>button.disabled=true);try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'set-active',userId:profile.id,active:nextActive}});if(error)throw error;profile.is_active=data?.isActive===undefined?nextActive:data.isActive;renderAdminEditor(profile,current)}catch(error){console.error(error);buttons.forEach(button=>button.disabled=false);document.querySelector('#admin-identity-status').textContent=await functionErrorMessage(error)}};
   document.querySelector('#admin-toggle-user').onclick=toggleAccess;document.querySelector('#admin-side-toggle-user').onclick=toggleAccess;
+  document.querySelector('#admin-preview-early-access').onclick=()=>showEarlyAccessSequence({preview:true});
   document.querySelector('#admin-play-finale').onclick=()=>{if(!window.KizunaFinale){alert('No se ha podido cargar la vista previa del final.');return}window.KizunaFinale.play({assetBase:'../',preview:true,lastPage:1})};
   document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!confirm(`¿Volver a mostrar el mensaje y la decisión final a ${profile.display_name||profile.email}?`))return;button.disabled=true;status.textContent='Restaurando mensaje…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};try{const savedState=await saveAdminProgressState(profile.id,nextState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent='No se ha podido restaurar el mensaje.';button.disabled=false}};
   document.querySelector('#admin-renew-legal').onclick=async()=>{
@@ -2859,7 +2958,7 @@ const renderAdminActivity=async userId=>{
   const full=document.querySelector('#admin-activity-log'),preview=document.querySelector('#admin-activity-preview'),last=document.querySelector('#admin-last-activity');if(!full)return;
   try{const {data,error}=await supabaseClient.from('expedient_activity_log').select('event_type,document_id,details,created_at').eq('user_id',userId).order('created_at',{ascending:false});if(error)throw error;const items=data||[];if(last)last.textContent=items[0]?new Date(items[0].created_at).toLocaleDateString('es-ES'):'Sin actividad';
     const albertoResponses={japon:'Sí. Nos vamos a Japón.',ramen:'Acepto... pero quiero mucho ramen.',claro:'¿De verdad pensabas que iba a decir que no?'};
-    const activityTitle=item=>{const kind=item.details?.activity_kind||item.event_type;return kind==='alt00_discovered'?'ALT-00 descubierto':kind==='alt00_completed'?'ALT-00 completado · 10 páginas':kind==='alberto_message_opened'?'Carta de Alberto abierta':kind==='alberto_response_submitted'?`Respuesta a la carta de Alberto · ${albertoResponses[item.details?.response]||'Respuesta registrada'}`:kind==='login'?'Inicio de sesión verificado':kind==='logout'?'Cierre de sesión':kind==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:kind==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:kind==='onboarding_completed'?'Guía inicial completada':kind==='onboarding_skipped'?'Guía inicial omitida':kind==='onboarding_reset'?'Guía inicial reactivada por administración':kind==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas`:kind==='supplementary_file_consulted'?'Archivo final consultado':kind==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`};
+    const activityTitle=item=>{const kind=item.details?.activity_kind||item.event_type;return kind==='early_access_acknowledged'?'Liberación anticipada AT-03 confirmada':kind==='alt00_discovered'?'ALT-00 descubierto':kind==='alt00_completed'?'ALT-00 completado · 10 páginas':kind==='alberto_message_opened'?'Carta de Alberto abierta':kind==='alberto_response_submitted'?`Respuesta a la carta de Alberto · ${albertoResponses[item.details?.response]||'Respuesta registrada'}`:kind==='login'?'Inicio de sesión verificado':kind==='logout'?'Cierre de sesión':kind==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:kind==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:kind==='onboarding_completed'?'Guía inicial completada':kind==='onboarding_skipped'?'Guía inicial omitida':kind==='onboarding_reset'?'Guía inicial reactivada por administración':kind==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas`:kind==='supplementary_file_consulted'?'Archivo final consultado':kind==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`};
     const row=item=>`<li><time>${new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})}</time><strong>${adminEditorEscape(activityTitle(item))}</strong></li>`;
     if(!items.length){full.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Aún no hay actividad registrada para este destinatario.</p>';if(preview)preview.innerHTML='<p>Sin actividad registrada.</p>';return}
     full.innerHTML=`<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p class="admin-activity-count">${items.length} registros</p><ol class="admin-activity-list">${items.map(row).join('')}</ol>`;if(preview)preview.innerHTML=`<ol class="admin-activity-list compact">${items.slice(0,3).map(row).join('')}</ol>`;
