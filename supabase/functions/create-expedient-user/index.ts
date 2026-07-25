@@ -102,6 +102,37 @@ Deno.serve(async (request) => {
     return response({ id: userId, isActive: active })
   }
 
+  if (action === 'reset-password') {
+    const userId = String(payload.userId ?? '')
+    const password = String(payload.password ?? '')
+    if (!userId) return response({ error: 'Destinatario no identificado.' }, 400)
+    if (userId === userData.user.id) {
+      return response({ error: 'No puedes cambiar tu propia contraseña desde la ficha de un destinatario.' }, 400)
+    }
+    if (password.length < 8) {
+      return response({ error: 'La contraseña temporal debe tener al menos 8 caracteres.' }, 400)
+    }
+
+    const { data: authData, error: authLookupError } = await adminClient.auth.admin.getUserById(userId)
+    if (authLookupError || !authData.user) {
+      return response({ error: authLookupError?.message ?? 'No se encontró la cuenta de acceso.' }, 404)
+    }
+
+    const { error: authError } = await adminClient.auth.admin.updateUserById(userId, { password })
+    if (authError) return response({ error: authError.message }, 400)
+
+    const { error: logError } = await adminClient
+      .from('expedient_activity_log')
+      .insert({
+        user_id: userId,
+        event_type: 'password_reset_by_admin',
+        details: { source: 'admin_panel', reset_by: userData.user.id },
+      })
+    if (logError) console.warn('La contraseña cambió, pero no pudo registrarse la actividad:', logError.message)
+
+    return response({ id: userId, passwordUpdated: true })
+  }
+
   if (action === 'reset-progress') {
     const userId = String(payload.userId ?? '')
     if (!userId) return response({ error: 'Destinatario no identificado.' }, 400)

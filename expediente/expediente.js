@@ -2468,6 +2468,10 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   const identityEmailLabel=document.createElement('label');
   identityEmailLabel.innerHTML=`Correo electrónico de acceso<input name="email" type="email" autocomplete="email" required value="${email}"><small>El destinatario utilizará este correo la próxima vez que inicie sesión.</small>`;
   identityDetails.querySelector('input[name="displayName"]').closest('label').after(identityEmailLabel);
+  const passwordRecovery=document.createElement('section');
+  passwordRecovery.className='admin-password-recovery';
+  passwordRecovery.innerHTML=`<p class="system-line">RECUPERACIÓN DE ACCESO</p><h4>Cambiar contraseña temporal</h4><p>Utiliza esta opción si el destinatario olvida su contraseña. El expediente y todo su progreso se conservan.</p><form id="admin-reset-password-form"><label>Nueva contraseña temporal<input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="Mínimo 8 caracteres"></label><button type="submit">Cambiar contraseña</button><span id="admin-password-status" role="status"></span></form><p class="admin-password-note">Comunica la nueva contraseña al destinatario por un canal privado. La contraseña anterior no puede consultarse.</p>`;
+  identityDetails.after(passwordRecovery);
   const legalAccepted=Boolean(current.legalAccepted),legalVersion=Number(current.legalVersion||1);
   const legalAcceptedDate=current.legalAcceptedAt&&!Number.isNaN(Date.parse(current.legalAcceptedAt))?new Date(current.legalAcceptedAt).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):null;
   const legalSettings=document.createElement('section');
@@ -2572,6 +2576,25 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
       const option=document.querySelector(`#admin-user-list option[value="${profile.id}"]`);if(option)option.textContent=`${profile.display_name||profile.email} · ${profile.email}`;
       renderAdminEditor(profile,current);
     }catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}
+  };
+  const resetPasswordForm=document.querySelector('#admin-reset-password-form');
+  resetPasswordForm.onsubmit=async event=>{
+    event.preventDefault();
+    const password=String(new FormData(resetPasswordForm).get('password')||'');
+    const status=document.querySelector('#admin-password-status'),button=resetPasswordForm.querySelector('button');
+    if(password.length<8){status.textContent='La contraseña debe tener al menos 8 caracteres.';return}
+    if(!confirm(`¿Cambiar la contraseña de acceso de ${profile.display_name||profile.email}? Su progreso no se modificará.`))return;
+    status.textContent='Cambiando contraseña…';button.disabled=true;
+    try{
+      const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'reset-password',userId:profile.id,password}});
+      if(error)throw error;
+      if(!data?.passwordUpdated)throw new Error('Supabase no confirmó el cambio de contraseña.');
+      resetPasswordForm.reset();
+      status.textContent='Contraseña cambiada. El expediente se ha conservado.';
+    }catch(error){
+      console.error(error);
+      status.textContent=await functionErrorMessage(error);
+    }finally{button.disabled=false}
   };
   const toggleAccess=async()=>{const nextActive=!isActive;if(!confirm(nextActive?'¿Reactivar el acceso de este destinatario?':'¿Desactivar el acceso de este destinatario? No podrá iniciar sesión hasta que lo reactives.'))return;const buttons=[document.querySelector('#admin-toggle-user'),document.querySelector('#admin-side-toggle-user')];buttons.forEach(button=>button.disabled=true);try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'set-active',userId:profile.id,active:nextActive}});if(error)throw error;profile.is_active=data?.isActive===undefined?nextActive:data.isActive;renderAdminEditor(profile,current)}catch(error){console.error(error);buttons.forEach(button=>button.disabled=false);document.querySelector('#admin-identity-status').textContent=await functionErrorMessage(error)}};
   document.querySelector('#admin-toggle-user').onclick=toggleAccess;document.querySelector('#admin-side-toggle-user').onclick=toggleAccess;
