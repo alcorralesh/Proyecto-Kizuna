@@ -239,3 +239,30 @@ body.quiz-open{overflow:hidden}
   #alberto-decision .alberto-choices button span{font-size:11px;line-height:1.35}
   #alberto-decision .alberto-decision-close{right:max(14px,calc((100vw - 820px)/2 + 10px));top:14px;width:40px;height:40px;font-size:24px}
 }
+
+/* En la aplicación instalada, la cabecera pública comienza después de la
+   barra de estado. En navegador normal no se añade ninguna compensación. */
+@media(max-width:600px){
+  html.kizuna-pwa-standalone .site-header{
+    height:calc(68px + env(safe-area-inset-top));
+    padding-top:calc(6px + env(safe-area-inset-top))
+  }
+  html.kizuna-pwa-standalone .site-header.open nav{
+    top:calc(67px + env(safe-area-inset-top))
+  }
+  html.kizuna-pwa-standalone .hero{
+    height:calc(100svh - 68px - env(safe-area-inset-top))
+  }
+}
+@media(display-mode:standalone) and (max-width:600px){
+  .site-header{
+    height:calc(68px + env(safe-area-inset-top));
+    padding-top:calc(6px + env(safe-area-inset-top))
+  }
+  .site-header.open nav{
+    top:calc(67px + env(safe-area-inset-top))
+  }
+  .hero{
+    height:calc(100svh - 68px - env(safe-area-inset-top))
+  }
+}

@@ -30,7 +30,7 @@
   );
 
   const moveImageToStorage=img=>{
-    const source=img.getAttribute('src');
+    const source=img.dataset.assetSrc||img.getAttribute('src');
     if(!source||source.startsWith(publicBase)||img.dataset.storageManaged==='true')return;
     const match=source.replace(/\\/g,'/').match(/(?:^|\/)assets\/(.+)$/);
     if(!match)return;
@@ -38,11 +38,17 @@
 
     // Until an optimized/versioned copy exists, GitHub Pages serves the local
     // asset. This prevents the old multi-megabyte originals consuming Storage.
-    if(!entry)return;
+    if(!entry){
+      // Las imágenes diferidas conservan el recurso local como último recurso.
+      // Si ya tienen una miniatura local en src, no la sustituimos por el
+      // original pesado.
+      if(!img.getAttribute('src'))img.src=source;
+      return;
+    }
 
     const variant=preferredVariant(img);
     img.dataset.storageManaged='true';
-    img.dataset.localAsset=source;
+    img.dataset.localAsset=img.getAttribute('src')||source;
     img.decoding='async';
     if(variant==='thumb'){
       img.loading='lazy';
@@ -66,8 +72,8 @@
   };
 
   const scan=root=>{
-    if(root.nodeType===1&&root.matches?.('img[src]'))moveImageToStorage(root);
-    root.querySelectorAll?.('img[src]').forEach(moveImageToStorage);
+    if(root.nodeType===1&&root.matches?.('img[src],img[data-asset-src]'))moveImageToStorage(root);
+    root.querySelectorAll?.('img[src],img[data-asset-src]').forEach(moveImageToStorage);
   };
 
   const start=async()=>{
@@ -76,7 +82,7 @@
     new MutationObserver(changes=>changes.forEach(change=>{
       if(change.type==='attributes')moveImageToStorage(change.target);
       change.addedNodes.forEach(scan);
-    })).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['src']});
+    })).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['src','data-asset-src']});
 
     const hero=document.querySelector('.hero-image');
     if(hero&&entryFor('kyoto-hero.png')){

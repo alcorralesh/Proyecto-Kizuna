@@ -6,6 +6,52 @@ window.KizunaFinale=(()=>{
   const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
   const pageName=page=>`Pagina-${String(page).padStart(2,'0')}.png`;
   const reducedMotion=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const layerNavigation=window.KizunaLayerNavigation||(window.KizunaLayerNavigation=(()=>{
+    const layers=[];
+    let suppressNextPop=false;
+    const stateFor=layer=>({
+      ...(history.state&&typeof history.state==='object'?history.state:{}),
+      kizunaLayer:{token:layer.token,scope:layer.scope,type:layer.type}
+    });
+    const run=callback=>{try{const result=callback?.();if(result?.catch)result.catch(error=>console.warn('No se pudo cerrar la capa de navegación.',error))}catch(error){console.warn('No se pudo cerrar la capa de navegación.',error)}};
+    window.addEventListener('popstate',()=>{
+      if(suppressNextPop){suppressNextPop=false;return}
+      const layer=layers.pop();
+      if(layer)run(layer.onBack);
+    });
+    return {
+      push(scope,type,onBack){
+        const layer={scope,type,onBack,token:`${scope}:${type}:${Date.now()}:${Math.random().toString(36).slice(2)}`};
+        layers.push(layer);
+        history.pushState(stateFor(layer),'',location.href);
+        return layer.token;
+      },
+      back(token){
+        const top=layers.at(-1);
+        if(!top||top.token!==token)return false;
+        history.back();
+        return true;
+      },
+      discard(token){
+        const top=layers.at(-1);
+        if(!top||top.token!==token)return false;
+        layers.pop();
+        suppressNextPop=true;
+        history.back();
+        return true;
+      },
+      discardScope(scope){
+        let count=0;
+        for(let index=layers.length-1;index>=0&&layers[index].scope===scope;index--)count++;
+        if(!count)return false;
+        layers.splice(layers.length-count,count);
+        suppressNextPop=true;
+        history.go(-count);
+        return true;
+      },
+      isTop(token){return layers.at(-1)?.token===token}
+    };
+  })());
   // Reducir movimiento elimina transiciones, pero nunca debe eliminar el
   // tiempo que necesita una persona para leer cada pantalla.
   const delay=milliseconds=>wait(milliseconds);
@@ -97,6 +143,8 @@ window.KizunaFinale=(()=>{
     let fullscreenChange=()=>{};
     let resizeTimer=0;
     let stateQueue=Promise.resolve();
+    const navigationScope=`alt00-reader:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    let comicLayerToken=null,fullscreenLayerToken=null,closing=false;
 
     strip.innerHTML=Array.from({length:PAGE_TOTAL},(_,index)=>`<button type="button" data-alt00-page="${index+1}" aria-label="Ir a la página ${index+1}"><span>${String(index+1).padStart(2,'0')}</span></button>`).join('');
     const notify=(kind,extra={})=>{
@@ -156,7 +204,9 @@ window.KizunaFinale=(()=>{
       [page-1,page+1].filter(value=>value>=1&&value<=PAGE_TOTAL).forEach(value=>{const preload=new Image();preload.src=`${assetBase}assets/documents/ALT-00/${pageName(value)}`});
       notify(page===PAGE_TOTAL?'completed':'page');
     };
-    const close=()=>{
+    const performClose=()=>{
+      if(closing)return;
+      closing=true;
       document.removeEventListener('keydown',keyboard);
       document.removeEventListener('fullscreenchange',fullscreenChange);
       window.removeEventListener('resize',resize);
@@ -170,6 +220,10 @@ window.KizunaFinale=(()=>{
         onClose();
       },reducedMotion()?0:230);
     };
+    const close=()=>{
+      if(comicLayerToken&&layerNavigation.back(comicLayerToken))return;
+      performClose();
+    };
     image.onload=()=>{fit();viewer.classList.add('is-page-ready')};
     previous.onclick=()=>paint(page-1);
     next.onclick=()=>paint(page+1);
@@ -178,7 +232,6 @@ window.KizunaFinale=(()=>{
     zoomOut.onclick=()=>setScale(scale/1.25);
     zoomIn.onclick=()=>setScale(scale*1.25);
     zoomFit.onclick=fit;
-    const touchFullscreen=(navigator.maxTouchPoints||0)>0||matchMedia('(pointer:coarse)').matches;
     const setImmersive=active=>{
       viewer.classList.toggle('is-immersive',active);
       fullscreen.classList.toggle('active',active);
@@ -190,20 +243,43 @@ window.KizunaFinale=(()=>{
       if(document.fullscreenElement===viewer)await document.exitFullscreen();
       else if(viewer.classList.contains('is-immersive'))setImmersive(false);
     };
+    const exitDisplayModeFromHistory=async()=>{
+      fullscreenLayerToken=null;
+      await exitDisplayMode();
+    };
+    const ensureFullscreenLayer=()=>{
+      if(!fullscreenLayerToken)fullscreenLayerToken=layerNavigation.push(navigationScope,'fullscreen',exitDisplayModeFromHistory);
+    };
+    const enterDisplayMode=async()=>{
+      if(viewer.requestFullscreen){
+        try{
+          await viewer.requestFullscreen();
+          if(document.fullscreenElement===viewer){ensureFullscreenLayer();return}
+        }catch(error){console.warn('Pantalla completa nativa no disponible; se activa el modo inmersivo.',error)}
+      }
+      setImmersive(true);
+      ensureFullscreenLayer();
+    };
+    const leaveDisplayMode=async()=>{
+      if(fullscreenLayerToken&&layerNavigation.back(fullscreenLayerToken))return;
+      await exitDisplayMode();
+    };
     closeControl.onclick=async()=>{
-      if(document.fullscreenElement===viewer||viewer.classList.contains('is-immersive'))await exitDisplayMode();
+      if(document.fullscreenElement===viewer||viewer.classList.contains('is-immersive'))await leaveDisplayMode();
       else close();
     };
     fullscreen.onclick=async()=>{
-      if(document.fullscreenElement===viewer||viewer.classList.contains('is-immersive')){await exitDisplayMode();return}
-      if(touchFullscreen){setImmersive(true);return}
-      if(viewer.requestFullscreen){
-        try{await viewer.requestFullscreen();return}catch(error){console.warn('Pantalla completa nativa no disponible; se activa el modo inmersivo.',error)}
-      }
-      setImmersive(true);
+      if(document.fullscreenElement===viewer||viewer.classList.contains('is-immersive')){await leaveDisplayMode();return}
+      await enterDisplayMode();
     };
     fullscreenChange=()=>{
       const active=document.fullscreenElement===viewer;
+      if(active)ensureFullscreenLayer();
+      else if(fullscreenLayerToken){
+        const token=fullscreenLayerToken;
+        fullscreenLayerToken=null;
+        layerNavigation.discard(token);
+      }
       fullscreen.classList.toggle('active',active);
       fullscreen.setAttribute('aria-pressed',String(active));
       closeControl.setAttribute('aria-label',active?'Salir del modo de lectura inmersiva':'Cerrar registro');
@@ -251,11 +327,15 @@ window.KizunaFinale=(()=>{
       if(event.key==='ArrowRight'&&page<PAGE_TOTAL)paint(page+1);
       if(event.key==='ArrowLeft'&&page>1)paint(page-1);
       if(event.key==='Escape'){
-        if(document.fullscreenElement===viewer||viewer.classList.contains('is-immersive'))void exitDisplayMode();
+        if(document.fullscreenElement===viewer||viewer.classList.contains('is-immersive'))void leaveDisplayMode();
         else close();
       }
     };
     document.addEventListener('keydown',keyboard);
+    comicLayerToken=layerNavigation.push(navigationScope,'comic',()=>{
+      comicLayerToken=null;
+      performClose();
+    });
     notify('discovered');
     paint(page);
     requestAnimationFrame(()=>viewer.classList.add('is-visible'));
@@ -292,6 +372,7 @@ window.KizunaFinale=(()=>{
     const exit=main.querySelector('.alt00-finale-exit');
     let opened=false;
     const closeFinale=()=>{
+      if(options.requestFinaleClose){options.requestFinaleClose();return}
       overlay.classList.add('is-closing');
       setTimeout(()=>{removeActive();options.onClose?.()},reducedMotion()?0:300);
     };
@@ -364,6 +445,22 @@ window.KizunaFinale=(()=>{
     document.body.appendChild(overlay);
     activeOverlay=overlay;
     document.body.classList.add('alberto-overlay-open','kizuna-finale-open');
+    const finaleNavigationScope=`kizuna-finale:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    let finaleLayerToken=null,finaleClosing=false;
+    const performFinaleClose=()=>{
+      if(finaleClosing)return;
+      finaleClosing=true;
+      overlay.classList.add('is-closing');
+      setTimeout(()=>{removeActive();settings.onClose?.()},reducedMotion()?0:300);
+    };
+    settings.requestFinaleClose=()=>{
+      if(finaleLayerToken&&layerNavigation.back(finaleLayerToken))return;
+      performFinaleClose();
+    };
+    finaleLayerToken=layerNavigation.push(finaleNavigationScope,'finale',()=>{
+      finaleLayerToken=null;
+      performFinaleClose();
+    });
     const terminal=overlay.querySelector('#alberto-terminal');
     const state=overlay.querySelector('#alberto-expedient-state');
     const oldState=overlay.querySelector('#alberto-old-state');

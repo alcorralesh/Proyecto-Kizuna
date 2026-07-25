@@ -8,6 +8,10 @@
   const baseUrl=new URL('./',script.src);
   const privateArea=location.pathname.includes('/expediente/');
   const standalone=()=>window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true;
+  const syncStandaloneClass=()=>document.documentElement.classList.toggle('kizuna-pwa-standalone',standalone());
+  syncStandaloneClass();
+  window.matchMedia?.('(display-mode: standalone)').addEventListener?.('change',syncStandaloneClass);
+  window.addEventListener('pageshow',syncStandaloneClass);
   const isIos=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   const isBusy=()=>Boolean(
     document.querySelector('dialog[open],#alt00-viewer,.kizuna-cinematic-finale')||
@@ -17,7 +21,7 @@
 
   const stylesheet=document.createElement('link');
   stylesheet.rel='stylesheet';
-  stylesheet.href=new URL('pwa.css?v=20260724-pwa04',baseUrl).href;
+  stylesheet.href=new URL('pwa.css?v=20260725-safe-area01',baseUrl).href;
   document.head.appendChild(stylesheet);
 
   let installEvent=null;

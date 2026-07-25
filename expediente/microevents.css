@@ -365,3 +365,37 @@ body.admin-me-preview-open{overflow:hidden}.admin-me-preview{position:fixed;inse
   .kizuna-microevent>footer button{min-height:23px;padding:4px 7px}
   .me-widget-game kizuna-auth-reader,.me-widget-game kizuna-sealed-envelope,.me-widget-game kizuna-focus-camera,.me-widget-game kizuna-document-scanner,.me-widget-game kizuna-server-link,.me-widget-game kizuna-authorization-seal,.me-widget-game kizuna-code-terminal,.me-widget-game kizuna-vault-lock,.me-widget-game kizuna-corruption-cleaner,.me-widget-game kizuna-frequency-array,.me-widget-game kizuna-power-sequence,.me-widget-game kizuna-risk-stabilizer,.me-widget-game kizuna-closure-key,.me-widget-game kizuna-confirmation-protocol{max-height:calc(100dvh - 122px);overflow:auto;overscroll-behavior:contain}
 }
+
+/* Los textos auxiliares de los microjuegos también conservan una escala
+   accesible en horizontal. Si el juego necesita más altura, se desplaza. */
+@media(orientation:landscape) and (max-width:1000px) and (max-height:620px) and (pointer:coarse){
+  .kizuna-microevent{
+    height:auto;
+    min-height:calc(100dvh - 62px);
+    overflow-x:hidden;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch
+  }
+  .kizuna-microevent>header p,
+  .kizuna-microevent>header>span,
+  .kizuna-microevent>footer,
+  .kizuna-microevent>footer button,
+  .me-kicker,
+  .me-control b,
+  .me-code p,
+  .me-widget-game>p{
+    font-size:8px!important;
+    line-height:1.4
+  }
+  .me-instruction,
+  .me-completed,
+  .me-check span{
+    font-size:11px!important;
+    line-height:1.5!important
+  }
+  .kizuna-microevent>footer button{
+    min-height:34px;
+    padding:7px 10px
+  }
+}

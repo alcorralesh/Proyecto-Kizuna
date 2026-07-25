@@ -1,6 +1,6 @@
-if(!document.querySelector('link[data-kizuna-microevents]')){const microeventsStyle=document.createElement('link');microeventsStyle.rel='stylesheet';microeventsStyle.dataset.kizunaMicroevents='';microeventsStyle.href='microevents.css?v=20260724-confirmation-redesign04';document.head.appendChild(microeventsStyle)}
+if(!document.querySelector('link[data-kizuna-microevents]')){const microeventsStyle=document.createElement('link');microeventsStyle.rel='stylesheet';microeventsStyle.dataset.kizunaMicroevents='';microeventsStyle.href='microevents.css?v=20260725-landscape-a11y01';document.head.appendChild(microeventsStyle)}
 if(!window.KizunaMicroevents){const microeventsScript=document.createElement('script');microeventsScript.src='microevents.js?v=20260724-confirmation-redesign04';document.head.appendChild(microeventsScript)}
-if(!window.kizunaStorage){const storageAssetsScript=document.createElement('script');storageAssetsScript.src='../storage-assets.js';document.head.appendChild(storageAssetsScript)}
+if(!window.kizunaStorage){const storageAssetsScript=document.createElement('script');storageAssetsScript.src='../storage-assets.js?v=20260725-assets02';document.head.appendChild(storageAssetsScript)}
 document.querySelectorAll('.password-toggle').forEach(button=>{
   const input=document.getElementById(button.dataset.passwordTarget);
   if(!input)return;
@@ -304,6 +304,37 @@ const patchState=changes=>{
   return Promise.resolve(state);
 };
 const save=items=>patchState({read:items});
+const persistReadMarker=async(id,button,options={})=>{
+  const pendingLabel=options.pendingLabel||'Guardando en Supabase…';
+  const retryLabel=options.retryLabel||'Error al guardar · Reintentar';
+  const currentRead=[...read()];
+  if(currentRead.includes(id))return getState();
+  if(button){
+    button.disabled=true;
+    button.setAttribute('aria-live','polite');
+    button.textContent=pendingLabel;
+  }
+  if(navigator.onLine===false){
+    if(button){
+      button.disabled=false;
+      button.textContent='Sin conexión · Reintentar';
+    }
+    throw new Error(`No se puede confirmar ${id} sin conexión.`);
+  }
+  try{
+    const savedState=await save([...currentRead,id]);
+    if(!Array.isArray(savedState?.read)||!savedState.read.includes(id)){
+      throw new Error(`Supabase no confirmó la lectura de ${id}.`);
+    }
+    return savedState;
+  }catch(error){
+    if(button){
+      button.disabled=false;
+      button.textContent=retryLabel;
+    }
+    throw error;
+  }
+};
 const getSupabase=async()=>{if(supabaseClient)return supabaseClient;if(!window.supabase){if(!supabaseScript){supabaseScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)})}await supabaseScript}supabaseClient=window.supabase.createClient(supabaseUrl,supabaseKey);return supabaseClient};
 const recipientAccessErrorMessage=error=>{
   const message=String(error?.message||'').trim();
@@ -600,6 +631,11 @@ setTimeout(()=>{
       if(alreadyRead)return;
       mark.disabled=true;
       mark.textContent='Registrando lectura…';
+      if(navigator.onLine===false){
+        mark.disabled=false;
+        mark.textContent='Sin conexión · Reintentar';
+        return;
+      }
       try{
         await showFinalPublicTransition();
       }catch(error){
@@ -613,6 +649,11 @@ setTimeout(()=>{
       const nextRead=[...done,id];
       mark.disabled=true;
       mark.textContent='Guardando en Supabase…';
+      if(navigator.onLine===false){
+        mark.disabled=false;
+        mark.textContent='Sin conexión · Reintentar';
+        return;
+      }
       try{
         const savedState=await (id==='KTB-014'?withKtb14ReadMutation(()=>save(nextRead)):save(nextRead));
         if(!Array.isArray(savedState?.read)||!savedState.read.includes(id)){
@@ -995,8 +1036,8 @@ const enhanceDocumentImages=()=>{
       if(action==='full'){
         try{
           if(document.fullscreenElement===viewer||viewer.classList.contains('is-fallback-fullscreen'))await exitReaderFullscreen();
-          else if((navigator.maxTouchPoints||0)>0||window.matchMedia?.('(pointer: coarse)').matches){readerPreviousBodyOverflow=document.body.style.overflow;document.body.style.overflow='hidden';viewer.classList.add('is-fallback-fullscreen');setReaderFullscreenState(true)}
           else if(viewer.requestFullscreen)await viewer.requestFullscreen();
+          else{readerPreviousBodyOverflow=document.body.style.overflow;document.body.style.overflow='hidden';viewer.classList.add('is-fallback-fullscreen');setReaderFullscreenState(true)}
         }catch(error){console.warn('Se utilizará el modo de pantalla completa compatible.',error);readerPreviousBodyOverflow=document.body.style.overflow;document.body.style.overflow='hidden';viewer.classList.add('is-fallback-fullscreen');setReaderFullscreenState(true)}
       }
     };
@@ -1234,11 +1275,11 @@ function openTicketMosaic(){
   const done=read(),seen=ar01Tickets.filter(ticket=>done.includes(ticket.id)).length,total=ar01Tickets.length,remaining=total-seen,complete=remaining===0,batchConfirmed=done.includes('AR01-BILLETES'),progress=Math.round(seen/total*100),firstPending=ar01Tickets.find(ticket=>!done.includes(ticket.id));
   document.querySelector('#doc-type').textContent=`AR-01 / BILLETES DE TRANSPORTE · ${seen}/${total} CONSULTADOS`;
   document.querySelector('#doc-title').textContent='Billetes recuperados';
-  document.querySelector('#doc-body').innerHTML=`<section class="ticket-archive ${complete?'is-complete':''} ${batchConfirmed?'is-confirmed':''}"><header class="ticket-archive-header"><div><p class="system-line">LOTE DOCUMENTAL · TRANSPORTE</p><h3>Billetes de transporte</h3><p>Consulta cada registro antes de confirmar e incorporar el lote al expediente.</p></div><div class="ticket-progress-count"><strong>${seen}</strong><span>de ${total}<br>consultados</span></div></header><div class="ticket-progress" aria-label="${progress} % consultado"><i style="width:${progress}%"></i></div><div class="ticket-grid">${ar01Tickets.map((ticket,index)=>{const readTicket=done.includes(ticket.id);return `<button class="ticket-card ${readTicket?'is-read':'is-pending'}" data-ticket="${ticket.id}"><span class="ticket-card-number">${String(index+1).padStart(2,'0')}</span><span class="ticket-card-state">${readTicket?'✓ CONSULTADO':'PENDIENTE'}</span><img src="../assets/documents/AR-01/Billetes/${ticket.src}" alt="${ticket.title}"><span class="ticket-card-copy"><strong>${ticket.title}</strong><small>${readTicket?'LECTURA CONFIRMADA · REVISAR':'ABRIR REGISTRO'}</small></span></button>`}).join('')}</div><aside class="ticket-batch-summary ${complete?'is-ready':''} ${batchConfirmed?'is-confirmed':''}"><span class="ticket-batch-symbol">${batchConfirmed?'✓':complete?'07':String(remaining).padStart(2,'0')}</span><div><p>${batchConfirmed?'LOTE ARCHIVADO':complete?'CONFIRMACIÓN DISPONIBLE':'CONSULTA INCOMPLETA'}</p><h4>${batchConfirmed?'Billetes incorporados al expediente':complete?'Todos los billetes han sido consultados':`${remaining} ${remaining===1?'billete pendiente':'billetes pendientes'}`}</h4><small>${batchConfirmed?'La documentación de transporte permanece disponible para su revisión.':complete?'Utiliza el botón fijo inferior para confirmar el lote documental.':'Abre y confirma cada registro para desbloquear la acción final.'}</small></div></aside></section>`;
+  document.querySelector('#doc-body').innerHTML=`<section class="ticket-archive ${complete?'is-complete':''} ${batchConfirmed?'is-confirmed':''}"><header class="ticket-archive-header"><div><p class="system-line">LOTE DOCUMENTAL · TRANSPORTE</p><h3>Billetes de transporte</h3><p>Consulta cada registro antes de confirmar e incorporar el lote al expediente.</p></div><div class="ticket-progress-count"><strong>${seen}</strong><span>de ${total}<br>consultados</span></div></header><div class="ticket-progress" aria-label="${progress} % consultado"><i style="width:${progress}%"></i></div><div class="ticket-grid">${ar01Tickets.map((ticket,index)=>{const readTicket=done.includes(ticket.id),asset=`../assets/documents/AR-01/Billetes/${ticket.src}`,thumb=`../assets/documents/_thumbs/AR-01/Billetes/${ticket.src.replace(/\.[^.]+$/,'.webp')}`;return `<button class="ticket-card ${readTicket?'is-read':'is-pending'}" data-ticket="${ticket.id}"><span class="ticket-card-number">${String(index+1).padStart(2,'0')}</span><span class="ticket-card-state">${readTicket?'✓ CONSULTADO':'PENDIENTE'}</span><img src="${thumb}" data-asset-src="${asset}" data-storage-variant="thumb" loading="lazy" decoding="async" fetchpriority="low" alt="${ticket.title}"><span class="ticket-card-copy"><strong>${ticket.title}</strong><small>${readTicket?'LECTURA CONFIRMADA · REVISAR':'ABRIR REGISTRO'}</small></span></button>`}).join('')}</div><aside class="ticket-batch-summary ${complete?'is-ready':''} ${batchConfirmed?'is-confirmed':''}"><span class="ticket-batch-symbol">${batchConfirmed?'✓':complete?'07':String(remaining).padStart(2,'0')}</span><div><p>${batchConfirmed?'LOTE ARCHIVADO':complete?'CONFIRMACIÓN DISPONIBLE':'CONSULTA INCOMPLETA'}</p><h4>${batchConfirmed?'Billetes incorporados al expediente':complete?'Todos los billetes han sido consultados':`${remaining} ${remaining===1?'billete pendiente':'billetes pendientes'}`}</h4><small>${batchConfirmed?'La documentación de transporte permanece disponible para su revisión.':complete?'Utiliza el botón fijo inferior para confirmar el lote documental.':'Abre y confirma cada registro para desbloquear la acción final.'}</small></div></aside></section>`;
   archiveBatchConfirm.textContent=batchConfirmed?'Lote confirmado':complete?'Confirmar lectura del lote':`${remaining} ${remaining===1?'billete pendiente':'billetes pendientes'}`;
   archiveBatchConfirm.disabled=!complete||batchConfirmed;
   archiveBatchConfirm.hidden=batchConfirmed;
-  archiveBatchConfirm.onclick=async()=>{if(!complete||read().includes('AR01-BILLETES'))return;archiveBatchConfirm.disabled=true;archiveBatchConfirm.textContent='Archivando lote…';const records=read();records.push('AR01-BILLETES');save(records);await recordActivity('document_confirmed','AR01-BILLETES',{source:'recovered_file_bulk',documents:total});openFolder('AR-01')};
+  archiveBatchConfirm.onclick=async()=>{if(!complete||read().includes('AR01-BILLETES'))return;try{await persistReadMarker('AR01-BILLETES',archiveBatchConfirm,{pendingLabel:'Archivando lote…'});void recordActivity('document_confirmed','AR01-BILLETES',{source:'recovered_file_bulk',documents:total}).catch(error=>console.warn('No se pudo registrar la actividad del lote de billetes.',error));openFolder('AR-01')}catch(error){console.error('No se pudo archivar el lote de billetes.',error)}};
   if(!viewer.open)viewer.showModal();
   document.querySelectorAll('.ticket-card').forEach(button=>button.onclick=()=>{const ticket=ar01Tickets.find(item=>item.id===button.dataset.ticket);openTicketItem(ticket)});
   revealCollectionAdvance('tickets',firstPending?`[data-ticket="${firstPending.id}"]`:'');
@@ -1257,11 +1298,11 @@ function openAr03Mosaic(type){
   const items=type==='cities'?ar03Cities:ar03Temples,key=type==='cities'?'C':'T',folder=type==='cities'?'Ciudades':'Templos',title=type==='cities'?'Guías de ciudades':'Entradas de templos',itemLabel=type==='cities'?'guía':'entrada',marker=type==='cities'?'AR03-CITIES-COMPLETE':'AR03-TEMPLES-COMPLETE',done=read(),count=items.filter((_,i)=>done.includes(`AR03-${key}-${i}`)).length,total=items.length,remaining=total-count,complete=remaining===0,batchConfirmed=done.includes(marker),progress=Math.round(count/total*100),firstPendingIndex=items.findIndex((_,index)=>!done.includes(`AR03-${key}-${index}`));
   document.querySelector('#doc-type').textContent=`AR-03 / ARCHIVO VISUAL · ${count}/${total} CONSULTADOS`;
   document.querySelector('#doc-title').textContent=title;
-  document.querySelector('#doc-body').innerHTML=`<section class="ticket-archive visual-archive ${complete?'is-complete':''} ${batchConfirmed?'is-confirmed':''}"><header class="ticket-archive-header"><div><p class="system-line">LOTE DOCUMENTAL · REGISTROS GEOGRÁFICOS</p><h3>${title}</h3><p>Consulta cada ${itemLabel} antes de confirmar e incorporar el lote al expediente.</p></div><div class="ticket-progress-count"><strong>${count}</strong><span>de ${total}<br>consultados</span></div></header><div class="ticket-progress" aria-label="${progress} % consultado"><i style="width:${progress}%"></i></div><div class="ticket-grid">${items.map((file,index)=>{const seen=done.includes(`AR03-${key}-${index}`),displayName=type==='cities'?`Guía de ciudad ${String(index+1).padStart(2,'0')}`:`Entrada de templo ${String(index+1).padStart(2,'0')}`;return `<button class="ticket-card visual-archive-card ${seen?'is-read':'is-pending'}" data-file="${file}" data-index="${index}"><span class="ticket-card-number">${String(index+1).padStart(2,'0')}</span><span class="ticket-card-state">${seen?'✓ CONSULTADO':'PENDIENTE'}</span><img src="../assets/documents/AR-03/${folder}/${file}" alt="${displayName}"><span class="ticket-card-copy"><strong>${displayName}</strong><small>${seen?'LECTURA CONFIRMADA · REVISAR':'ABRIR REGISTRO'}</small></span></button>`}).join('')}</div><aside class="ticket-batch-summary ${complete?'is-ready':''} ${batchConfirmed?'is-confirmed':''}"><span class="ticket-batch-symbol">${batchConfirmed?'✓':complete?String(total).padStart(2,'0'):String(remaining).padStart(2,'0')}</span><div><p>${batchConfirmed?'LOTE ARCHIVADO':complete?'CONFIRMACIÓN DISPONIBLE':'CONSULTA INCOMPLETA'}</p><h4>${batchConfirmed?`${title} incorporadas al expediente`:complete?'Todos los registros han sido consultados':`${remaining} ${remaining===1?'registro pendiente':'registros pendientes'}`}</h4><small>${batchConfirmed?'El lote permanece disponible para su revisión.':complete?'Utiliza el botón fijo inferior para confirmar el lote documental.':'Abre y confirma cada registro para desbloquear la acción final.'}</small></div></aside></section>`;
+  document.querySelector('#doc-body').innerHTML=`<section class="ticket-archive visual-archive ${complete?'is-complete':''} ${batchConfirmed?'is-confirmed':''}"><header class="ticket-archive-header"><div><p class="system-line">LOTE DOCUMENTAL · REGISTROS GEOGRÁFICOS</p><h3>${title}</h3><p>Consulta cada ${itemLabel} antes de confirmar e incorporar el lote al expediente.</p></div><div class="ticket-progress-count"><strong>${count}</strong><span>de ${total}<br>consultados</span></div></header><div class="ticket-progress" aria-label="${progress} % consultado"><i style="width:${progress}%"></i></div><div class="ticket-grid">${items.map((file,index)=>{const seen=done.includes(`AR03-${key}-${index}`),displayName=type==='cities'?`Guía de ciudad ${String(index+1).padStart(2,'0')}`:`Entrada de templo ${String(index+1).padStart(2,'0')}`,asset=`../assets/documents/AR-03/${folder}/${file}`,thumb=`../assets/documents/_thumbs/AR-03/${folder}/${file.replace(/\.[^.]+$/,'.webp')}`;return `<button class="ticket-card visual-archive-card ${seen?'is-read':'is-pending'}" data-file="${file}" data-index="${index}"><span class="ticket-card-number">${String(index+1).padStart(2,'0')}</span><span class="ticket-card-state">${seen?'✓ CONSULTADO':'PENDIENTE'}</span><img src="${thumb}" data-asset-src="${asset}" data-storage-variant="thumb" loading="lazy" decoding="async" fetchpriority="low" alt="${displayName}"><span class="ticket-card-copy"><strong>${displayName}</strong><small>${seen?'LECTURA CONFIRMADA · REVISAR':'ABRIR REGISTRO'}</small></span></button>`}).join('')}</div><aside class="ticket-batch-summary ${complete?'is-ready':''} ${batchConfirmed?'is-confirmed':''}"><span class="ticket-batch-symbol">${batchConfirmed?'✓':complete?String(total).padStart(2,'0'):String(remaining).padStart(2,'0')}</span><div><p>${batchConfirmed?'LOTE ARCHIVADO':complete?'CONFIRMACIÓN DISPONIBLE':'CONSULTA INCOMPLETA'}</p><h4>${batchConfirmed?`${title} incorporadas al expediente`:complete?'Todos los registros han sido consultados':`${remaining} ${remaining===1?'registro pendiente':'registros pendientes'}`}</h4><small>${batchConfirmed?'El lote permanece disponible para su revisión.':complete?'Utiliza el botón fijo inferior para confirmar el lote documental.':'Abre y confirma cada registro para desbloquear la acción final.'}</small></div></aside></section>`;
   archiveBatchConfirm.textContent=batchConfirmed?'Lote confirmado':complete?'Confirmar lectura del lote':`${remaining} ${remaining===1?'registro pendiente':'registros pendientes'}`;
   archiveBatchConfirm.disabled=!complete||batchConfirmed;
   archiveBatchConfirm.hidden=batchConfirmed;
-  archiveBatchConfirm.onclick=async()=>{if(!complete||read().includes(marker))return;archiveBatchConfirm.disabled=true;archiveBatchConfirm.textContent='Archivando lote…';const records=read();records.push(marker);save(records);await recordActivity('document_confirmed',marker,{source:'recovered_file_bulk',documents:total});openAr03()};
+  archiveBatchConfirm.onclick=async()=>{if(!complete||read().includes(marker))return;try{await persistReadMarker(marker,archiveBatchConfirm,{pendingLabel:'Archivando lote…'});void recordActivity('document_confirmed',marker,{source:'recovered_file_bulk',documents:total}).catch(error=>console.warn('No se pudo registrar la actividad del lote geográfico.',error));openAr03()}catch(error){console.error('No se pudo archivar el lote geográfico.',error)}};
   document.querySelectorAll('.visual-archive-card').forEach(button=>button.onclick=()=>openAr03Item(`AR03-${key}-${button.dataset.index}`,button.dataset.file,`../assets/documents/AR-03/${folder}/${button.dataset.file}`,type));
   revealCollectionAdvance(type,firstPendingIndex>=0?`[data-index="${firstPendingIndex}"]`:'');
 }
@@ -1307,9 +1348,9 @@ const openRecoveredFolder=id=>{clearRecoveryTimers();viewer.classList.remove('is
 const showRecoveredFolderReady=(id,state)=>{document.querySelector('#doc-title').textContent='Carpeta recuperada';document.querySelector('#doc-body').innerHTML=`<section class="recovery-ready recovery-folder-ready"><div class="recovery-ready-symbol">▱</div><p class="recovery-kicker">CARPETA RECUPERADA</p><h3>${id}</h3><p class="recovery-ready-name">${state.title}</p><dl><div><dt>DOCUMENTOS LOCALIZADOS</dt><dd>${state.total}</dd></div><div><dt>DOCUMENTOS CONSULTADOS</dt><dd>${state.seen}</dd></div><div><dt>ESTADO</dt><dd>Disponible para consulta</dd></div></dl><div class="recovery-final-stamp">ÍNDICE RECUPERADO</div><button type="button" id="open-recovered-folder">Abrir carpeta →</button></section>`;document.querySelector('#open-recovered-folder').onclick=()=>openRecoveredFolder(id)};
 function folderRecoveryScreen(id){const state=folderRecoveryState(id),node=randomArchiveNode();prepareRecoveryView(id,state.seen?'Consultando carpeta':'Recuperación de carpeta','DIVISIÓN DE ARCHIVOS TEMPORALES / ÍNDICE DE ARCHIVO');if(state.seen){const heading=state.complete?'Carpeta completada':'Índice recuperado',message=state.complete?'Abriendo archivo histórico…':'Restaurando última posición…';document.querySelector('#doc-body').innerHTML=`<section class="recovery-quick recovery-folder-quick"><div class="recovery-quick-icon">${state.complete?'✓':'↻'}</div><p>CONSULTA DE CARPETA</p><h3>${id}</h3><strong>${heading}</strong><span>${state.seen} de ${state.total} documentos consultados</span><span>${message}</span><small>NODO · ${node}</small></section>`;recoveryLater(()=>openRecoveredFolder(id),1450);return}const steps=['Localizando índice autorizado','Validando permisos de consulta','Catalogando documentos internos','Reconstruyendo estructura de la carpeta'];document.querySelector('#doc-body').innerHTML=`<section class="archive-recovery archive-folder-recovery"><header><div><p>RECUPERACIÓN DE CARPETA</p><h3>${id}</h3><small>${state.title}</small></div><span>NODO DE ARCHIVO<strong>${node}</strong></span></header>${recoveryStepsMarkup(steps)}<div class="recovery-progress"><div><i class="recovery-progress-fill"></i></div><strong class="recovery-progress-value">0 %</strong></div><p class="recovery-live" aria-live="polite">Solicitud de índice recibida…</p></section>`;setRecoveryPhase(0,7,'Localizando índice autorizado…');recoveryLater(()=>setRecoveryPhase(1,29,'Índice localizado. Validando permisos…'),650);recoveryLater(()=>setRecoveryPhase(2,57,`Permisos confirmados. Catalogando ${state.total} registros…`),1350);recoveryLater(()=>setRecoveryPhase(3,84,'Reconstruyendo estructura de la carpeta…'),2150);recoveryLater(()=>{setRecoveryPhase(4,100,'Carpeta recuperada.');recoveryLater(()=>showRecoveredFolderReady(id,state),500)},3050)}
 const warningReadList=()=>Array.from({length:11},(_,index)=>`<li><span>✓</span>KTB-${String(index+1).padStart(3,'0')}</li>`).join('');
-const renderArchiveWarning=(code,title,onAccept)=>{prepareRecoveryView(code,title,'DIVISIÓN DE ARCHIVOS TEMPORALES / ADVERTENCIA DE ACCESO');document.querySelector('#doc-body').innerHTML=`<section class="archive-warning"><header><div><p>ADVERTENCIA DE ACCESO</p><h3>Contenido recuperado<br><em>fuera del expediente original.</em></h3></div><div class="warning-seal">ACCESO<br>CONTROLADO</div></header><p>Los archivos que va a consultar proceden de una extracción parcial realizada sobre un dispositivo asociado al destinatario.</p><div class="warning-risks"><strong>Los registros pueden contener:</strong><ul><li>Fragmentos incompletos</li><li>Errores de recuperación</li><li>Alteraciones en los metadatos</li><li>Información no catalogada</li></ul></div><section><div><p>LECTURAS PREVIAS VERIFICADAS</p><ul class="warning-read-list">${warningReadList()}</ul></div><dl><div><dt>ARCHIVO RECUPERADO</dt><dd>${code.replace('KTB-','')}</dd></div><div><dt>INTEGRIDAD ESTIMADA</dt><dd>68 %</dd></div><div><dt>ESTADO</dt><dd>Acceso autorizado</dd></div></dl></section><label class="warning-consent"><input id="archive-warning-confirm" type="checkbox"><span>Comprendo el origen de estos archivos y deseo continuar.</span></label><footer><button type="button" id="archive-warning-cancel">Volver al expediente</button><button type="button" id="archive-warning-accept" disabled>Aceptar y continuar →</button></footer></section>`;const checkbox=document.querySelector('#archive-warning-confirm'),accept=document.querySelector('#archive-warning-accept');checkbox.onchange=()=>accept.disabled=!checkbox.checked;document.querySelector('#archive-warning-cancel').onclick=()=>viewer.close();accept.onclick=onAccept};
-function openAr06Protocol(){renderArchiveWarning('AR-06','Autorización de acceso',()=>startAr06Recovery())}
-function startAr06Recovery(){const done=read();if(!done.includes('AR06-PROTOCOL')){done.push('AR06-PROTOCOL');save(done);void recordActivity('document_confirmed','AR06-PROTOCOL',{source:'recovered_file_protocol'})}folderRecoveryScreen('AR-06')}
+const renderArchiveWarning=(code,title,onAccept)=>{prepareRecoveryView(code,title,'DIVISIÓN DE ARCHIVOS TEMPORALES / ADVERTENCIA DE ACCESO');document.querySelector('#doc-body').innerHTML=`<section class="archive-warning"><header><div><p>ADVERTENCIA DE ACCESO</p><h3>Contenido recuperado<br><em>fuera del expediente original.</em></h3></div><div class="warning-seal">ACCESO<br>CONTROLADO</div></header><p>Los archivos que va a consultar proceden de una extracción parcial realizada sobre un dispositivo asociado al destinatario.</p><div class="warning-risks"><strong>Los registros pueden contener:</strong><ul><li>Fragmentos incompletos</li><li>Errores de recuperación</li><li>Alteraciones en los metadatos</li><li>Información no catalogada</li></ul></div><section><div><p>LECTURAS PREVIAS VERIFICADAS</p><ul class="warning-read-list">${warningReadList()}</ul></div><dl><div><dt>ARCHIVO RECUPERADO</dt><dd>${code.replace('KTB-','')}</dd></div><div><dt>INTEGRIDAD ESTIMADA</dt><dd>68 %</dd></div><div><dt>ESTADO</dt><dd>Acceso autorizado</dd></div></dl></section><label class="warning-consent"><input id="archive-warning-confirm" type="checkbox"><span>Comprendo el origen de estos archivos y deseo continuar.</span></label><footer><button type="button" id="archive-warning-cancel">Volver al expediente</button><button type="button" id="archive-warning-accept" disabled>Aceptar y continuar →</button></footer></section>`;const checkbox=document.querySelector('#archive-warning-confirm'),accept=document.querySelector('#archive-warning-accept');checkbox.onchange=()=>accept.disabled=!checkbox.checked;document.querySelector('#archive-warning-cancel').onclick=()=>viewer.close();accept.onclick=()=>onAccept(accept)};
+function openAr06Protocol(){renderArchiveWarning('AR-06','Autorización de acceso',button=>startAr06Recovery(button))}
+async function startAr06Recovery(button){try{if(!read().includes('AR06-PROTOCOL')){await persistReadMarker('AR06-PROTOCOL',button,{pendingLabel:'Autorizando acceso…'});void recordActivity('document_confirmed','AR06-PROTOCOL',{source:'recovered_file_protocol'}).catch(error=>console.warn('No se pudo registrar la actividad de AR-06.',error))}folderRecoveryScreen('AR-06')}catch(error){console.error('No se pudo autorizar el acceso a AR-06.',error)}}
 function showDoc(id){clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery');document.querySelector('.stamp').style.display='block';if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'){openAr03();return}if(folders[id]){openFolder(id);return}active=id;next.style.display='inline-block';mark.style.display='inline-block';const [title,...paras]=textFor(id);document.querySelector('#doc-type').textContent=isFolder(id)?'CARPETA DE ARCHIVOS RECUPERADOS / ACCESO AUTORIZADO':'DIVISIÓN DE ARCHIVOS TEMPORALES / ACCESO AUTORIZADO';document.querySelector('#doc-title').textContent=documentImages.has(id)?'Documento recuperado':title;document.querySelector('#doc-body').innerHTML=documentImages.has(id)?`<img style="display:block;width:100%;height:auto" src="../assets/documents/${id}.png" alt="Documento ${id}">`:paras.map(text=>`<p>${text}</p>`).join('')+(id==='KTB-014'?'<p><strong>EXPEDIENTE CERRADO<br>ARCHIVADO DEFINITIVAMENTE</strong></p>':'');mark.textContent=read().includes(id)?'Volver al expediente':isFolder(id)?'Cerrar carpeta y autorizar siguiente fase':window.KizunaMicroevents?.labelFor?.(id)||'Confirmar lectura';if(!viewer.open)viewer.showModal()}
 function openDoc(id){readerBackExpedient.disabled=false;const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');if(id!=='AC-01'){paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin=''}if(id==='AC-01'){openAcInfo();return}if(id==='ALT-00'){openAlt00Record();return}if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'||folders[id]){folderRecoveryScreen(id);return}if(id.startsWith('KTB-')){recoveryScreen(id);return}showDoc(id)}
 const persistPrivateAlt00State=async({kind,page})=>{
@@ -1374,7 +1415,7 @@ function syncKtb(id,onComplete){
   const detail=isAcDiscovery
     ?`<article class="confirmation-action confirmation-event confirmation-event-ac" id="confirmation-event"><span class="confirmation-action-index">02</span><span class="confirmation-action-symbol">AC-01</span><div class="confirmation-action-copy"><p class="system-line">ARCHIVO COMPLEMENTARIO</p><h4>Registro ilustrado autorizado.</h4><p>AC-01 queda disponible e inicia la reconstrucción del cómic.</p><div class="confirmation-meter"><i style="--confirmation-value:0%"></i></div><p class="confirmation-count"><strong>0</strong> de 11 páginas recuperadas</p></div><strong class="confirmation-action-state">DISPONIBLE</strong></article>`
     :acPage
-      ?`<article class="confirmation-action confirmation-event confirmation-event-page" id="confirmation-event"><span class="confirmation-action-index">02</span><figure class="confirmation-preview confirmation-action-symbol"><div><img src="../assets/documents/AC-01/Pagina-${acPage}.png" alt="Vista previa de la página ${acPage} recuperada"><i aria-hidden="true"></i><span>RECONSTRUYENDO</span></div></figure><div class="confirmation-action-copy"><p class="system-line">ARCHIVO COMPLEMENTARIO · AC-01</p><h4>${isFinal?'Reconstrucción completada':'Nueva página reconstruida.'}</h4><p>${isFinal?'La secuencia complementaria está disponible en su totalidad.':`La página ${String(acPage).padStart(2,'0')} se ha incorporado al registro ilustrado.`}</p><div class="confirmation-meter"><i style="--confirmation-value:${Math.round(acPage/11*100)}%"></i></div><p class="confirmation-count"><strong>${acPage}</strong> de 11 páginas recuperadas</p></div><strong class="confirmation-action-state">${acPage} / 11</strong></article>`
+      ?`<article class="confirmation-action confirmation-event confirmation-event-page" id="confirmation-event"><span class="confirmation-action-index">02</span><figure class="confirmation-preview confirmation-action-symbol"><div><img data-asset-src="../assets/documents/AC-01/Pagina-${acPage}.png" data-storage-variant="thumb" loading="lazy" decoding="async" fetchpriority="low" alt="Vista previa de la página ${acPage} recuperada"><i aria-hidden="true"></i><span>RECONSTRUYENDO</span></div></figure><div class="confirmation-action-copy"><p class="system-line">ARCHIVO COMPLEMENTARIO · AC-01</p><h4>${isFinal?'Reconstrucción completada':'Nueva página reconstruida.'}</h4><p>${isFinal?'La secuencia complementaria está disponible en su totalidad.':`La página ${String(acPage).padStart(2,'0')} se ha incorporado al registro ilustrado.`}</p><div class="confirmation-meter"><i style="--confirmation-value:${Math.round(acPage/11*100)}%"></i></div><p class="confirmation-count"><strong>${acPage}</strong> de 11 páginas recuperadas</p></div><strong class="confirmation-action-state">${acPage} / 11</strong></article>`
       :`<article class="confirmation-action confirmation-event confirmation-event-next" id="confirmation-event"><span class="confirmation-action-index">02</span><span class="confirmation-action-symbol">↻</span><div class="confirmation-action-copy"><p class="system-line">EXPEDIENTE SINCRONIZADO</p><h4>Nivel de autorización actualizado.</h4><p>Los permisos de consulta reflejan la lectura recién confirmada.</p></div><strong class="confirmation-action-state">VALIDADO</strong></article>`;
   const unlock=folder
     ?`<article class="confirmation-action confirmation-unlock" id="confirmation-unlock"><span class="confirmation-action-index">03</span><span class="confirmation-action-symbol confirmation-folder-symbol" aria-hidden="true"><i></i></span><div class="confirmation-action-copy"><p class="system-line">NUEVA FASE AUTORIZADA</p><h4>${folder} · ${folderDetails[folder][0]}</h4><p>${folderDetails[folder][1]}</p></div><strong class="confirmation-action-state">DISPONIBLE</strong></article>`
@@ -2702,3 +2743,121 @@ setTimeout(async()=>{
     await module.renderAdmin(view);
   };
 },100);
+
+// El historial del navegador representa las capas visibles del expediente.
+// En Android, el gesto Atrás deshace una capa cada vez antes de abandonar la
+// página: pantalla completa, documento, carpeta y, por último, expediente.
+const readerLayerNavigation=window.KizunaLayerNavigation;
+if(readerLayerNavigation){
+  const readerNavigationScope=`expedient-reader:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  let readerBaseLayerToken=null,readerFullscreenLayerToken=null;
+  const readerContentLayerTokens=[];
+  let closingReaderProgrammatically=false,navigationSyncFrame=0;
+
+  const performReaderBackFolder=()=>{
+    if(readerReturnToFolder==='tickets')openTicketMosaic();
+    else if(readerReturnToFolder==='cities'||readerReturnToFolder==='temples')openAr03Mosaic(readerReturnToFolder);
+    else if(readerReturnToFolder==='AR-03')openAr03();
+    else if(readerReturnToFolder)openFolder(readerReturnToFolder);
+    else if(viewer.open)viewer.close();
+  };
+  const closeReaderFromHistory=()=>{
+    readerBaseLayerToken=null;
+    closingReaderProgrammatically=true;
+    if(viewer.open)viewer.close();
+    render();
+    closingReaderProgrammatically=false;
+  };
+  const ensureReaderBaseLayer=()=>{
+    if(readerBaseLayerToken||!viewer.open)return;
+    readerBaseLayerToken=readerLayerNavigation.push(readerNavigationScope,'reader',closeReaderFromHistory);
+  };
+  const desiredReaderContentDepth=()=>{
+    if(ar01Tickets.some(ticket=>ticket.id===active)||active==='AR03-CARTA'||active.startsWith('AR03-C-')||active.startsWith('AR03-T-'))return 2;
+    if(active==='AR01-BILLETES'||active==='AR03-cities'||active==='AR03-temples'||Boolean(fileFolder(active)))return 1;
+    return 0;
+  };
+  const ensureReaderContentLayers=()=>{
+    const desired=desiredReaderContentDepth();
+    while(viewer.open&&readerContentLayerTokens.length<desired){
+      let token=null;
+      token=readerLayerNavigation.push(readerNavigationScope,'reader-content',()=>{
+        const index=readerContentLayerTokens.indexOf(token);
+        if(index>=0)readerContentLayerTokens.splice(index,1);
+        performReaderBackFolder();
+      });
+      readerContentLayerTokens.push(token);
+    }
+  };
+  const syncReaderNavigation=()=>{
+    cancelAnimationFrame(navigationSyncFrame);
+    navigationSyncFrame=requestAnimationFrame(()=>{
+      if(!viewer.open)return;
+      ensureReaderBaseLayer();
+      ensureReaderContentLayers();
+    });
+  };
+  const closeReaderCompletely=()=>{
+    closingReaderProgrammatically=true;
+    readerLayerNavigation.discardScope(readerNavigationScope);
+    readerBaseLayerToken=null;
+    readerFullscreenLayerToken=null;
+    readerContentLayerTokens.length=0;
+    if(viewer.open)viewer.close();
+    render();
+    closingReaderProgrammatically=false;
+  };
+  const syncReaderFullscreenLayer=()=>{
+    const fullscreenActive=document.fullscreenElement===viewer||viewer.classList.contains('is-fallback-fullscreen')||viewer.classList.contains('is-reader-fullscreen');
+    if(fullscreenActive&&!readerFullscreenLayerToken){
+      let token=null;
+      token=readerLayerNavigation.push(readerNavigationScope,'fullscreen',async()=>{
+        if(readerFullscreenLayerToken===token)readerFullscreenLayerToken=null;
+        await exitReaderFullscreen();
+      });
+      readerFullscreenLayerToken=token;
+    }else if(!fullscreenActive&&readerFullscreenLayerToken){
+      const token=readerFullscreenLayerToken;
+      readerFullscreenLayerToken=null;
+      readerLayerNavigation.discard(token);
+    }
+  };
+
+  readerBackFolder.onclick=()=>{
+    const token=readerContentLayerTokens.at(-1);
+    if(token&&readerLayerNavigation.back(token))return;
+    performReaderBackFolder();
+  };
+  readerBackExpedient.onclick=closeReaderCompletely;
+  readerCloseButton.onclick=async()=>{
+    if(document.fullscreenElement===viewer||viewer.classList.contains('is-fallback-fullscreen')||viewer.classList.contains('is-reader-fullscreen')){
+      await exitReaderFullscreen();
+      return;
+    }
+    if(finalFlowPending()&&active==='KTB-014'){showFinalExitWarning();return}
+    closeReaderCompletely();
+  };
+  viewer.addEventListener('cancel',event=>{
+    event.preventDefault();
+    if(document.fullscreenElement===viewer||viewer.classList.contains('is-fallback-fullscreen')||viewer.classList.contains('is-reader-fullscreen')){
+      void exitReaderFullscreen();
+      return;
+    }
+    if(finalFlowPending()&&active==='KTB-014'){showFinalExitWarning();return}
+    const contentToken=readerContentLayerTokens.at(-1);
+    if(contentToken&&readerLayerNavigation.back(contentToken))return;
+    if(readerBaseLayerToken)readerLayerNavigation.back(readerBaseLayerToken);
+  });
+  viewer.addEventListener('close',()=>{
+    if(!closingReaderProgrammatically)readerLayerNavigation.discardScope(readerNavigationScope);
+    readerBaseLayerToken=null;
+    readerFullscreenLayerToken=null;
+    readerContentLayerTokens.length=0;
+  });
+  const readerNavigationObserver=new MutationObserver(syncReaderNavigation);
+  readerNavigationObserver.observe(viewer,{attributes:true,attributeFilter:['open','class']});
+  readerNavigationObserver.observe(document.querySelector('#doc-body'),{childList:true,subtree:true});
+  const readerFullscreenObserver=new MutationObserver(syncReaderFullscreenLayer);
+  readerFullscreenObserver.observe(viewer,{attributes:true,attributeFilter:['class']});
+  document.addEventListener('fullscreenchange',syncReaderFullscreenLayer);
+}
