@@ -22,7 +22,7 @@
 
   const stylesheet=document.createElement('link');
   stylesheet.rel='stylesheet';
-  stylesheet.href=new URL('pwa.css?v=20260725-admin-settings02',baseUrl).href;
+  stylesheet.href=new URL('pwa.css?v=20260725-push-sheet01',baseUrl).href;
   document.head.appendChild(stylesheet);
 
   let installEvent=null;
@@ -184,7 +184,13 @@
       </div>
       <button type="button" data-push-close>Continuar al expediente <span>→</span></button>
     </div>`;
-    notice.querySelector('[data-push-close]').onclick=()=>notice.remove();
+    notice.querySelector('[data-push-close]').onclick=()=>closePushConsent(notice);
+  };
+
+  const closePushConsent=notice=>{
+    notice.classList.remove('is-visible');
+    document.documentElement.classList.remove('kizuna-push-modal-open');
+    setTimeout(()=>notice.remove(),240);
   };
 
   const showPushConsent=()=>{
@@ -233,6 +239,8 @@
       }
     };
     document.body.appendChild(notice);
+    document.documentElement.classList.add('kizuna-push-modal-open');
+    requestAnimationFrame(()=>notice.classList.add('is-visible'));
   };
 
   const connectPush=async options=>{
