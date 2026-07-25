@@ -53,10 +53,24 @@
     try {
       const destination = new URL(message.deep_link, appBaseUrl);
       if (destination.origin !== location.origin) return '';
-      destination.searchParams.set('message', message.id);
       return destination.href;
     } catch {
       return '';
+    }
+  };
+  const isCurrentDestination = destination => {
+    if (!destination) return false;
+    try {
+      const current = new URL(location.href);
+      const target = new URL(destination);
+      current.searchParams.delete('message');
+      target.searchParams.delete('message');
+      return current.origin === target.origin &&
+        current.pathname === target.pathname &&
+        current.search === target.search &&
+        current.hash === target.hash;
+    } catch {
+      return false;
     }
   };
   const clearRequestedMessage = () => {
@@ -80,6 +94,11 @@
       !['mailbox', 'push'].includes(item.display_mode) && !item.dismissed_at && !item.acknowledged_at);
     if (!message) return;
     const destination = messageDestination(message);
+    if (requested && message.deep_link && isCurrentDestination(destination)) {
+      clearRequestedMessage();
+      if (!message.read_at) await patch(message.id, { read_at: currentIso() });
+      return;
+    }
     const root = document.createElement('aside');
     root.id = 'recipient-message-notice';
     root.className = `recipient-message-notice mode-${requested ? 'modal' : message.display_mode} priority-${message.priority}`;

@@ -164,6 +164,7 @@ Deno.serve(async request => {
       trackingToken: delivery.tracking_token,
       trackingUrl: `${supabaseUrl}/functions/v1/send-expedient-push`,
       deepLink: safeDeepLink(message.deep_link),
+      openMessage: !message.deep_link,
       priority: message.priority,
     })
     try {

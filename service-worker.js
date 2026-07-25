@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260725-message-scroll01';
+const VERSION='20260725-push-destination01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -73,7 +73,7 @@ const trackPushEvent=async(data,eventName)=>{
 
 const messageDestination=data=>{
   const target=new URL(data?.deepLink||'expediente/index.html',scopeUrl());
-  if(data?.messageId)target.searchParams.set('message',data.messageId);
+  if(data?.messageId&&data?.openMessage!==false)target.searchParams.set('message',data.messageId);
   return target.href;
 };
 
