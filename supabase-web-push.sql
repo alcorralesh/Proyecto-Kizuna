@@ -87,6 +87,15 @@ grant select, insert, update, delete
   on public.expedient_push_subscriptions to authenticated;
 grant select on public.expedient_push_deliveries to authenticated;
 
+-- La función Edge utiliza una clave secreta de servidor. Estas concesiones son
+-- necesarias además de la omisión de RLS para las tablas creadas por SQL.
+grant select, insert, update, delete
+  on public.expedient_messages to service_role;
+grant select, insert, update, delete
+  on public.expedient_push_subscriptions to service_role;
+grant select, insert, update, delete
+  on public.expedient_push_deliveries to service_role;
+
 -- Registra o reasigna de forma segura el dispositivo a la sesión actual. Esto
 -- evita que un teléfono compartido siga recibiendo avisos del usuario anterior.
 create or replace function public.register_expedient_push_subscription(
