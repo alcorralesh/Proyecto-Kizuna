@@ -7,6 +7,7 @@
   if(!script)return;
   const baseUrl=new URL('./',script.src);
   const privateArea=location.pathname.includes('/expediente/');
+  const publicHome=location.pathname.replace(/index\.html$/,'').replace(/\/+$/,'/')===baseUrl.pathname.replace(/\/+$/,'/');
   const standalone=()=>window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true;
   const syncStandaloneClass=()=>document.documentElement.classList.toggle('kizuna-pwa-standalone',standalone());
   syncStandaloneClass();
@@ -21,7 +22,7 @@
 
   const stylesheet=document.createElement('link');
   stylesheet.rel='stylesheet';
-  stylesheet.href=new URL('pwa.css?v=20260725-safe-area01',baseUrl).href;
+  stylesheet.href=new URL('pwa.css?v=20260725-install-banner01',baseUrl).href;
   document.head.appendChild(stylesheet);
 
   let installEvent=null;
@@ -31,14 +32,7 @@
   let refreshing=false;
   let pendingUpdate=false;
   let updateRequested=false;
-
-  const makeButton=(label,className)=>{
-    const button=document.createElement('button');
-    button.type='button';
-    button.className=className;
-    button.textContent=label;
-    return button;
-  };
+  let installCollapseTimer=0;
 
   const removeElement=selector=>document.querySelector(selector)?.remove();
 
@@ -86,16 +80,45 @@
     installEvent.prompt();
     await installEvent.userChoice;
     installEvent=null;
+    clearTimeout(installCollapseTimer);
     removeElement('.kizuna-pwa-install');
   };
 
   const showInstall=()=>{
     if(privateArea||standalone()||document.querySelector('.kizuna-pwa-install'))return;
     if(!isIos()&&!installEvent)return;
-    const button=makeButton('Instalar KIZUNA','kizuna-pwa-install');
-    button.setAttribute('aria-label','Instalar KIZUNA como aplicación');
-    button.addEventListener('click',install);
-    document.body.appendChild(button);
+    const notice=document.createElement('aside');
+    notice.className=`kizuna-pwa-install ${publicHome?'is-expanded':'is-compact'}`;
+    notice.setAttribute('aria-label','Instalar KIZUNA como aplicación');
+    notice.innerHTML=`
+      <button type="button" class="kizuna-pwa-install-main" data-pwa-install>
+        <span class="kizuna-pwa-install-mark" aria-hidden="true">K</span>
+        <span class="kizuna-pwa-install-copy">
+          <small>ACCESO DIRECTO · KIZUNA</small>
+          <strong>Guarda el Archivo Central en tu pantalla</strong>
+          <em>Acceso rápido, pantalla completa y siempre la última versión.</em>
+        </span>
+        <span class="kizuna-pwa-install-action">Instalar <b>→</b></span>
+      </button>
+      <button type="button" class="kizuna-pwa-install-collapse" aria-label="Reducir aviso de instalación">×</button>`;
+    notice.querySelector('[data-pwa-install]').addEventListener('click',install);
+    const collapseButton=notice.querySelector('.kizuna-pwa-install-collapse');
+    collapseButton.hidden=!publicHome;
+    collapseButton.addEventListener('click',()=>{
+      clearTimeout(installCollapseTimer);
+      notice.classList.remove('is-expanded');
+      notice.classList.add('is-compact');
+      collapseButton.hidden=true;
+    });
+    document.body.appendChild(notice);
+    if(!publicHome)return;
+    const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
+    installCollapseTimer=setTimeout(()=>{
+      if(!notice.isConnected)return;
+      notice.classList.remove('is-expanded');
+      notice.classList.add('is-compact');
+      collapseButton.hidden=true;
+    },reduced?9000:7000);
   };
 
   const applyUpdate=()=>{
@@ -172,7 +195,10 @@
     installEvent=event;
     showInstall();
   });
-  window.addEventListener('appinstalled',()=>removeElement('.kizuna-pwa-install'));
+  window.addEventListener('appinstalled',()=>{
+    clearTimeout(installCollapseTimer);
+    removeElement('.kizuna-pwa-install');
+  });
   window.addEventListener('online',showConnectionState);
   window.addEventListener('offline',showConnectionState);
   document.addEventListener('visibilitychange',checkForUpdates);
