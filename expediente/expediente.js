@@ -1801,6 +1801,30 @@ const adminDirectMessageForm=document.querySelector('#admin-direct-message-form'
 const adminDirectMessageList=document.querySelector('#admin-direct-message-list');
 const adminDirectMessageSummary=document.querySelector('#admin-direct-message-summary');
 const adminDirectMessageStatus=document.querySelector('#admin-direct-message-status');
+const adminDirectMessageRecipientState=document.createElement('aside');
+adminDirectMessageRecipientState.className='admin-direct-message-recipient-state';
+adminDirectMessageRecipientState.hidden=true;
+adminDirectMessageForm.elements.user_id.closest('label').after(adminDirectMessageRecipientState);
+const updateAdminDirectMessageRecipientState=()=>{
+  const option=adminDirectMessageForm.elements.user_id.selectedOptions[0];
+  const state=option?.dataset.pushState||'unselected';
+  const states={
+    authorized:['TERMINAL AUTORIZADO','Hay un dispositivo activo. Puedes enviar notificaciones push a este destinatario.',true],
+    pending:['PUSH PENDIENTE','Todavía no ha aceptado ni rechazado la autorización. No puedes enviarle una push por ahora.',false],
+    declined:['CANAL NO DISPONIBLE','Ha decidido continuar sin notificaciones. Puedes solicitar una nueva autorización desde Usuarios > Ajustes.',false],
+    inactive:['SIN TERMINAL ACTIVO','Aceptó las notificaciones, pero ya no tiene ningún dispositivo activo. No puedes enviarle una push.',false]
+  };
+  const current=states[state];
+  adminDirectMessageRecipientState.hidden=!current;
+  if(current){
+    adminDirectMessageRecipientState.className=`admin-direct-message-recipient-state ${state}`;
+    adminDirectMessageRecipientState.innerHTML=`<i aria-hidden="true"></i><div><strong>${current[0]}</strong><span>${current[1]}</span></div>`;
+  }
+  const pushSelected=adminDirectMessageForm.elements.display_mode.value==='push';
+  const submit=adminDirectMessageForm.querySelector('button[type="submit"]');
+  submit.disabled=pushSelected&&(!current||current[2]!==true);
+  submit.title=submit.disabled?'Selecciona un destinatario con un Terminal Autorizado activo.':'';
+};
 let adminDirectMessagesCache=[];
 const adminDirectMessageDeliveryOptions=document.createElement('section');
 adminDirectMessageDeliveryOptions.className='admin-direct-message-delivery-options';
@@ -1863,17 +1887,48 @@ const renderAdminPushDevices=async userId=>{
   const target=document.querySelector('#admin-push-devices');
   if(!target)return;
   target.innerHTML='<p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4><p>Cargando suscripciones push…</p>';
-  const {data,error}=await supabaseClient.from('expedient_push_subscriptions')
-    .select('id,user_agent,platform,created_at,last_seen_at,revoked_at')
-    .eq('user_id',userId)
-    .order('last_seen_at',{ascending:false});
+  const [{data,error},{data:preference,error:preferenceError}]=await Promise.all([
+    supabaseClient.from('expedient_push_subscriptions')
+      .select('id,user_agent,platform,created_at,last_seen_at,revoked_at')
+      .eq('user_id',userId)
+      .order('last_seen_at',{ascending:false}),
+    supabaseClient.from('expedient_push_preferences')
+      .select('status,responded_at')
+      .eq('user_id',userId)
+      .maybeSingle()
+  ]);
   if(error){
     console.error('No se pudieron consultar los dispositivos push.',error);
     target.innerHTML='<p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4><p>No se pudieron consultar los dispositivos.</p>';
     return;
   }
   const subscriptions=data||[],active=subscriptions.filter(item=>!item.revoked_at);
-  target.innerHTML=`<header><div><p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4></div><strong>${active.length} ACTIVO${active.length===1?'':'S'}</strong></header>
+  if(preferenceError)console.warn('No se pudo consultar la autorización narrativa de notificaciones.',preferenceError);
+  const preferenceStatus=preference?.status||null;
+  const notificationState=active.length
+    ?{label:'TERMINAL AUTORIZADO',className:'authorized',description:`Canal Seguro establecido · ${active.length} dispositivo${active.length===1?'':'s'} activo${active.length===1?'':'s'}`}
+    :preferenceStatus==='declined'
+      ?{label:'CANAL NO DISPONIBLE',className:'declined',description:'El destinatario continuó sin autorizar este dispositivo.'}
+      :preferenceStatus==='granted'
+        ?{label:'SIN TERMINAL ACTIVO',className:'inactive',description:'La autorización fue aceptada, pero ahora no hay dispositivos activos.'}
+        :{label:'PENDIENTE',className:'pending',description:'El destinatario todavía no ha respondido a la autorización excepcional.'};
+  const summaryState=document.querySelector('[data-admin-notification-state]');
+  if(summaryState){
+    summaryState.className=`admin-user-notification-state ${notificationState.className}`;
+    summaryState.innerHTML=`<i aria-hidden="true"></i><span><small>NOTIFICACIONES</small><strong>${notificationState.label}</strong></span>`;
+    summaryState.title=notificationState.description;
+  }
+  target.innerHTML=`<header><div><p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4></div><strong class="${notificationState.className}">${notificationState.label}</strong></header>
+    <p class="admin-push-preference-state ${notificationState.className}"><b>${notificationState.description}</b>${preference?.responded_at?`<span>Respuesta registrada ${directMessageDate(preference.responded_at)}</span>`:''}</p>
+    <details class="admin-push-state-legend">
+      <summary>¿Qué significa cada estado?</summary>
+      <dl>
+        <div class="authorized"><dt><i></i> Terminal autorizado</dt><dd>Hay al menos un dispositivo activo. Puedes enviarle notificaciones push.</dd></div>
+        <div class="pending"><dt><i></i> Push pendiente</dt><dd>El usuario todavía no ha aceptado ni rechazado la autorización. Aún no puedes enviarle una push.</dd></div>
+        <div class="declined"><dt><i></i> Canal no disponible</dt><dd>El usuario decidió continuar sin notificaciones. Puedes solicitarle la autorización de nuevo.</dd></div>
+        <div class="inactive"><dt><i></i> Sin terminal activo</dt><dd>Aceptó anteriormente, pero todos sus dispositivos están revocados o inactivos. No se puede enviar una push.</dd></div>
+      </dl>
+    </details>
     <p class="admin-push-devices-note">Revocar detiene las notificaciones en ese navegador sin borrar el historial. El propio dispositivo podrá registrarse otra vez si vuelve a autorizarlas.</p>
     <ul>${subscriptions.map(subscription=>{
       const device=directMessageDeviceInfo(subscription),revoked=Boolean(subscription.revoked_at);
@@ -1884,11 +1939,27 @@ const renderAdminPushDevices=async userId=>{
         <button type="button" data-push-device-action="${revoked?'reactivate':'revoke'}" data-push-subscription-id="${subscription.id}">${revoked?'Reactivar dispositivo':'Revocar dispositivo'}</button>
       </li>`;
     }).join('')||'<li class="is-empty">Este destinatario todavía no ha autorizado ningún dispositivo.</li>'}</ul>
+    ${preferenceStatus==='declined'?'<button type="button" data-push-request-again>Solicitar autorización de nuevo</button>':''}
     <span id="admin-push-device-status" role="status"></span>`;
+  const requestAgain=target.querySelector('[data-push-request-again]');
+  if(requestAgain)requestAgain.onclick=async()=>{
+    if(!await adminConfirm({title:'Solicitar autorización de nuevo',message:'La autorización de notificaciones volverá a mostrarse al destinatario en su próximo acceso compatible.',confirmLabel:'Preparar solicitud'}))return;
+    requestAgain.disabled=true;
+    const status=target.querySelector('#admin-push-device-status');
+    status.textContent='Preparando una nueva solicitud…';
+    const {error:resetError}=await supabaseClient.from('expedient_push_preferences').delete().eq('user_id',userId);
+    if(resetError){
+      console.error('No se pudo reiniciar la autorización de notificaciones.',resetError);
+      status.textContent='No se pudo preparar la nueva solicitud.';
+      requestAgain.disabled=false;
+      return;
+    }
+    await renderAdminPushDevices(userId);
+  };
   target.querySelectorAll('[data-push-device-action]').forEach(button=>button.onclick=async()=>{
     const row=button.closest('[data-push-subscription]'),name=row?.querySelector('span:nth-child(2) strong')?.textContent||'este dispositivo';
     const reactivating=button.dataset.pushDeviceAction==='reactivate';
-    if(!confirm(reactivating?`¿Reactivar ${name}? Podrá volver a recibir notificaciones push.`:`¿Revocar ${name}? Dejará de recibir nuevas notificaciones push.`))return;
+    if(!await adminConfirm({title:reactivating?'Reactivar dispositivo':'Revocar dispositivo',message:reactivating?`${name} podrá volver a recibir notificaciones push.`:`${name} dejará de recibir nuevas notificaciones push hasta que vuelva a autorizarse.`,confirmLabel:reactivating?'Reactivar dispositivo':'Revocar dispositivo',danger:!reactivating}))return;
     const status=target.querySelector('#admin-push-device-status');
     button.disabled=true;status.textContent=reactivating?'Reactivando dispositivo…':'Revocando dispositivo…';
     const now=new Date().toISOString();
@@ -1954,30 +2025,45 @@ const renderAdminDirectMessages=messages=>{
 const loadAdminDirectMessages=async()=>{
   if(!supabaseClient)return;
   const recipientSelect=adminDirectMessageForm.elements.user_id;
-  const [{data:profiles,error:profilesError},{data:messages,error:messagesError}]=await Promise.all([
+  const [{data:profiles,error:profilesError},{data:messages,error:messagesError},{data:subscriptions,error:subscriptionsError},{data:preferences,error:preferencesError}]=await Promise.all([
     supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').order('display_name'),
-    supabaseClient.from('expedient_messages').select('*,expedient_profiles(display_name,email),expedient_push_deliveries(status,accepted_at,received_at,opened_at,updated_at,error,expedient_push_subscriptions(id,user_agent,platform,last_seen_at,revoked_at))').order('published_at',{ascending:false}).limit(100)
+    supabaseClient.from('expedient_messages').select('*,expedient_profiles(display_name,email),expedient_push_deliveries(status,accepted_at,received_at,opened_at,updated_at,error,expedient_push_subscriptions(id,user_agent,platform,last_seen_at,revoked_at))').order('published_at',{ascending:false}).limit(100),
+    supabaseClient.from('expedient_push_subscriptions').select('user_id').is('revoked_at',null),
+    supabaseClient.from('expedient_push_preferences').select('user_id,status')
   ]);
-  if(profilesError||messagesError){
-    const error=profilesError||messagesError;
+  if(profilesError||messagesError||subscriptionsError||preferencesError){
+    const error=profilesError||messagesError||subscriptionsError||preferencesError;
     console.error('No se pudieron cargar las comunicaciones.',error);
     adminDirectMessageList.innerHTML='<p class="admin-direct-message-empty">No se pudieron cargar los mensajes. Comprueba que has ejecutado el SQL de comunicaciones.</p>';
     return false;
   }
   const previous=recipientSelect.value;
-  recipientSelect.innerHTML='<option value="">Selecciona un destinatario</option>'+profiles.filter(profile=>profile.is_active!==false).map(profile=>`<option value="${profile.id}">${adminEditorEscape(profile.display_name||profile.email)} · ${adminEditorEscape(profile.email)}</option>`).join('');
+  const activePushUsers=new Set((subscriptions||[]).map(subscription=>subscription.user_id));
+  const pushPreferences=new Map((preferences||[]).map(preference=>[preference.user_id,preference.status]));
+  recipientSelect.innerHTML='<option value="">Selecciona un destinatario</option>'+profiles.filter(profile=>profile.is_active!==false).map(profile=>{
+    const pushActive=activePushUsers.has(profile.id);
+    const pushLabel=pushActive?'PUSH ACTIVA':pushPreferences.get(profile.id)==='declined'?'SIN CANAL':'PUSH PENDIENTE';
+    const pushState=pushActive?'authorized':pushPreferences.get(profile.id)==='declined'?'declined':pushPreferences.get(profile.id)==='granted'?'inactive':'pending';
+    return `<option value="${profile.id}" data-push-available="${pushActive}" data-push-state="${pushState}">${adminEditorEscape(profile.display_name||profile.email)} · ${adminEditorEscape(profile.email)} · ${pushLabel}</option>`;
+  }).join('');
   if([...recipientSelect.options].some(option=>option.value===previous))recipientSelect.value=previous;
+  updateAdminDirectMessageRecipientState();
   adminDirectMessagesCache=messages||[];
   renderAdminDirectMessages(adminDirectMessagesCache);
   if(!adminDirectMessageChannel){
     adminDirectMessageChannel=supabaseClient.channel('admin-direct-messages')
       .on('postgres_changes',{event:'*',schema:'public',table:'expedient_messages'},()=>loadAdminDirectMessages())
       .on('postgres_changes',{event:'*',schema:'public',table:'expedient_push_deliveries'},()=>loadAdminDirectMessages())
+      .on('postgres_changes',{event:'*',schema:'public',table:'expedient_push_preferences'},()=>loadAdminDirectMessages())
+      .on('postgres_changes',{event:'*',schema:'public',table:'expedient_push_subscriptions'},()=>loadAdminDirectMessages())
       .subscribe();
   }
   return true;
 };
-adminDirectMessageForm.elements.user_id.addEventListener('change',()=>renderAdminDirectMessages(adminDirectMessagesCache));
+adminDirectMessageForm.elements.user_id.addEventListener('change',()=>{
+  renderAdminDirectMessages(adminDirectMessagesCache);
+  updateAdminDirectMessageRecipientState();
+});
 const adminMessageModeHelp={
   mailbox:'No aparece sobre la web. Se guarda en el buzón y enciende su indicador de mensajes nuevos.',
   banner:'Aparece como una tarjeta compacta flotante en una esquina y también queda guardado en el buzón.',
@@ -2006,7 +2092,10 @@ const updateAdminDirectMessageDestination=()=>{
   adminDirectMessageForm.querySelector('[data-deep-link-custom]').hidden=adminDirectMessageForm.elements.deep_link_preset.value!=='custom';
   updateAdminDirectMessagePreview();
 };
-['display_mode','priority','requires_ack'].forEach(name=>adminDirectMessageForm.elements[name].addEventListener('change',updateAdminDirectMessagePreview));
+['display_mode','priority','requires_ack'].forEach(name=>adminDirectMessageForm.elements[name].addEventListener('change',()=>{
+  updateAdminDirectMessagePreview();
+  if(name==='display_mode')updateAdminDirectMessageRecipientState();
+}));
 adminDirectMessageForm.elements.deep_link_preset.addEventListener('change',updateAdminDirectMessageDestination);
 updateAdminDirectMessagePreview();
 const normalizeAdminMessageDeepLink=data=>{
@@ -2019,6 +2108,10 @@ const normalizeAdminMessageDeepLink=data=>{
 adminDirectMessageForm.onsubmit=async event=>{
   event.preventDefault();
   const submit=adminDirectMessageForm.querySelector('button[type="submit"]'),data=new FormData(adminDirectMessageForm);
+  if(data.get('display_mode')==='push'&&adminDirectMessageForm.elements.user_id.selectedOptions[0]?.dataset.pushAvailable!=='true'){
+    adminDirectMessageStatus.textContent='Este destinatario no tiene ningún Terminal Autorizado activo. La notificación push no se ha enviado.';
+    return;
+  }
   submit.disabled=true;adminDirectMessageStatus.textContent='Enviando comunicación…';
   try{
     const sendPush=data.get('display_mode')==='push';
@@ -2645,6 +2738,44 @@ const renderAdminActivityLegacy=async userId=>{
 };
 
 const adminEditorEscape=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+const adminConfirm=({eyebrow='PROTOCOLO DE ADMINISTRACIÓN',title='Confirmar acción',message,confirmLabel='Confirmar',danger=false}={})=>new Promise(resolve=>{
+  document.querySelector('.admin-confirm')?.remove();
+  const previousFocus=document.activeElement;
+  const modal=document.createElement('section');
+  modal.className=`admin-confirm${danger?' is-danger':''}`;
+  modal.setAttribute('role','dialog');
+  modal.setAttribute('aria-modal','true');
+  modal.setAttribute('aria-labelledby','admin-confirm-title');
+  modal.innerHTML=`<article class="admin-confirm-card">
+    <header><div><p>${adminEditorEscape(eyebrow)}</p><span>${danger?'ACCIÓN CRÍTICA':'VERIFICACIÓN REQUERIDA'}</span></div><b aria-hidden="true">${danger?'!':'✓'}</b></header>
+    <div class="admin-confirm-copy">
+      <p class="system-line">${danger?'ZONA DE SEGURIDAD':'GESTIÓN DEL DESTINATARIO'}</p>
+      <h2 id="admin-confirm-title">${adminEditorEscape(title)}</h2>
+      <p>${adminEditorEscape(message||'Esta acción necesita confirmación antes de continuar.')}</p>
+      ${danger?'<aside><strong>Esta operación modificará el expediente.</strong><span>Comprueba el destinatario antes de continuar.</span></aside>':''}
+    </div>
+    <footer><button type="button" data-admin-confirm-cancel>Cancelar</button><button type="button" data-admin-confirm-accept>${adminEditorEscape(confirmLabel)} <span>→</span></button></footer>
+  </article>`;
+  document.body.appendChild(modal);
+  const cancel=modal.querySelector('[data-admin-confirm-cancel]');
+  const accept=modal.querySelector('[data-admin-confirm-accept]');
+  let settled=false;
+  const finish=value=>{
+    if(settled)return;
+    settled=true;
+    document.removeEventListener('keydown',onKeyDown);
+    modal.classList.add('is-closing');
+    setTimeout(()=>modal.remove(),140);
+    if(previousFocus instanceof HTMLElement)previousFocus.focus({preventScroll:true});
+    resolve(value);
+  };
+  const onKeyDown=event=>{if(event.key==='Escape'){event.preventDefault();finish(false)}};
+  cancel.onclick=()=>finish(false);
+  accept.onclick=()=>finish(true);
+  modal.onclick=event=>{if(event.target===modal)finish(false)};
+  document.addEventListener('keydown',onKeyDown);
+  requestAnimationFrame(()=>{modal.classList.add('is-visible');cancel.focus()});
+});
 const adminRecordTitle=id=>{
   if(id==='FINAL-01')return 'Archivo localizado';
   if(id.startsWith('KTB-'))return `Documento ${id}`;
@@ -2801,6 +2932,8 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   editor.hidden=false;editor.className='admin-user-workspace';
   editor.innerHTML=`<header class="admin-user-profile"><div><p class="system-line">DESTINATARIO SELECCIONADO</p><h2>${displayName}</h2><p>${email}</p></div><dl><div><dt>Expediente</dt><dd>KTB-EXP-2026-JP-00184</dd><span class="admin-user-badge ${isActive?'active':'inactive'}">${isActive?'CUENTA ACTIVA':'CUENTA DESACTIVADA'}</span></div><div><dt>Documentos</dt><dd>${reviewed} de ${total}</dd></div><div><dt>Progreso</dt><dd>${integrity} %</dd></div><div><dt>Última actividad</dt><dd id="admin-last-activity">Consultando…</dd></div></dl></header><nav class="admin-editor-tabs" role="tablist"><button type="button" class="active" data-editor-tab="summary">Resumen</button><button type="button" data-editor-tab="documents">Documentos</button><button type="button" data-editor-tab="activity">Actividad</button><button type="button" data-editor-tab="purchases">Productos comprados</button><button type="button" data-editor-tab="settings">Ajustes</button></nav><div class="admin-user-body"><div class="admin-user-main"><section class="admin-editor-panel" data-editor-panel="summary"><p class="system-line">RESUMEN DEL EXPEDIENTE</p><h3>Estado general</h3><div class="admin-overview-grid"><article><strong>${reviewed}</strong><span>Registros confirmados</span></article><article><strong>${total-reviewed}</strong><span>Registros pendientes</span></article><article><strong>${accessLevel}</strong><span>Nivel de acceso</span></article><article><strong>${integrity} %</strong><span>Integridad documental</span></article></div></section><section class="admin-editor-panel" data-editor-panel="documents" hidden><div class="admin-document-toolbar"><div class="admin-document-filters"><button type="button" class="active" data-record-filter="all">Todos</button><button type="button" data-record-filter="read">Leídos</button><button type="button" data-record-filter="pending">Pendientes</button></div><label><span>Buscar documento</span><input id="admin-document-search" type="search" placeholder="Buscar documento"></label></div><form id="admin-progress-form">${groupedDocuments}<section class="admin-final-document"><p class="system-line">FINAL-01 · ARCHIVO LOCALIZADO</p>${finalDocument}<p class="admin-note">FINAL-01 depende de KTB-014: si KTB-014 no está confirmado, este documento se desmarca automáticamente.</p></section><p class="admin-note">Al desmarcar KTB-014 se reabre el expediente, se restablece el cierre final y también se desmarca FINAL-01.</p></form><details class="admin-identity-details"><summary>Identidad y acceso</summary><form id="admin-identity-form"><label>Nombre y apellidos<input name="displayName" required maxlength="80" value="${displayName}"></label><div><span>Estado de la cuenta</span><button type="button" id="admin-toggle-user" class="admin-account-toggle ${isActive?'active':''}" aria-pressed="${isActive}"><i></i>${isActive?'Cuenta activa':'Cuenta desactivada'}</button></div><button>Guardar identidad</button><span id="admin-identity-status" role="status"></span></form></details></section><section class="admin-editor-panel" data-editor-panel="activity" hidden><div id="admin-activity-log"><p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Cargando actividad…</p></div></section><section class="admin-editor-panel" data-editor-panel="purchases" hidden><div id="admin-purchases"><p class="system-line">TIENDA KIZUNA</p><h3>Productos comprados</h3><p>Cargando pedidos simulados…</p></div></section><section class="admin-editor-panel" data-editor-panel="settings" hidden><p class="system-line">AJUSTES DEL DESTINATARIO</p><h3>Acceso y seguridad</h3><p>Gestiona la identidad, el acceso y las acciones permanentes de este expediente.</p><button type="button" class="admin-open-identity">Editar identidad y acceso</button></section></div><aside class="admin-user-side"><section class="admin-progress-card"><p class="system-line">PROGRESO DEL EXPEDIENTE</p><strong>${integrity} %</strong><div><i style="width:${integrity}%"></i></div><dl><div><dt>${reviewed}</dt><dd>Documentos leídos</dd></div><div><dt>${total-reviewed}</dt><dd>Documentos pendientes</dd></div></dl><p>NIVEL DE ACCESO ACTUAL<br><b>${accessLevel}</b></p><button type="button" id="admin-save-progress">Guardar cambios</button><span id="admin-save-status" role="status"></span></section><section class="admin-activity-preview"><p class="system-line">ACTIVIDAD RECIENTE</p><div id="admin-activity-preview"><p>Cargando actividad…</p></div><button type="button" id="admin-view-all-activity">Ver actividad completa →</button></section><section class="admin-danger-zone"><p class="system-line">ZONA DE SEGURIDAD</p><p>Limpiar expediente reinicia documentos, carpetas, p\u00e1ginas del c\u00f3mic, aviso legal, gu\u00eda inicial, cierre final, carta de Alberto y respuesta registrada. La cuenta, el nombre y el correo se conservan.</p><p class="admin-reset-warning">El usuario volver\u00e1 a empezar desde KTB-001 y podr\u00e1 responder otra vez a la carta final.</p><button type="button" id="admin-reset-progress">Limpiar expediente completo</button><button type="button" id="admin-side-toggle-user">${isActive?'Desactivar acceso':'Reactivar acceso'}</button><span id="admin-reset-status" role="status"></span></section></aside></div>`;
 
+  const accountBadge=editor.querySelector('.admin-user-badge');
+  accountBadge?.insertAdjacentHTML('afterend','<span class="admin-user-notification-state pending" data-admin-notification-state><i aria-hidden="true"></i><span><small>NOTIFICACIONES</small><strong>CONSULTANDO…</strong></span></span>');
   const documentsPanel=editor.querySelector('[data-editor-panel="documents"]'),settingsPanel=editor.querySelector('[data-editor-panel="settings"]');
   const identityDetails=editor.querySelector('.admin-identity-details'),dangerZone=editor.querySelector('.admin-danger-zone');
   identityDetails.open=true;settingsPanel.append(identityDetails,dangerZone);
@@ -2835,7 +2968,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   onboardingSettings.innerHTML=`<p class="system-line">GUÍA INICIAL · VERSIÓN ${Number(current.onboardingVersion||1)}</p><h4>Recorrido del expediente</h4><p class="admin-legal-state ${onboardingCompleted?'accepted':'pending'}"><strong>${onboardingCompleted?'GUÍA COMPLETADA':'PENDIENTE DE MOSTRAR'}</strong>${onboardingCompletedDate?`<span>${adminEditorEscape(onboardingCompletedDate)}</span>`:''}</p><p>${onboardingCompleted?'El recorrido no volverá a aparecer automáticamente. Puedes prepararlo para el próximo acceso.':'La guía se mostrará cuando el destinatario vuelva a entrar en su expediente.'}</p><button type="button" id="admin-reset-onboarding" ${onboardingCompleted?'':'disabled'}>Mostrar guía de nuevo</button><span id="admin-onboarding-status" role="status"></span>`;
   settingsPanel.insertBefore(onboardingSettings,dangerZone);
   const albertoSettings=document.createElement('section'),expedientCompleted=Boolean(current.completed&&selected.has('KTB-014'));
-  albertoSettings.className='admin-message-settings';
+  albertoSettings.className='admin-message-settings admin-alberto-settings';
   albertoSettings.innerHTML=`<p class="system-line">COMUNICACIÓN FINAL</p><h4>Mensaje de Alberto</h4><p>${expedientCompleted?current.albertoResponseAccepted===true?'La decisión final ya está registrada. Esta acción solo vuelve a mostrar la carta y permite responderla otra vez. No reinicia documentos ni el expediente.':current.albertoMessageRead===true?'El destinatario ya ha leído el mensaje. Puedes volver a mostrarlo como pendiente.':'El mensaje está pendiente de lectura.':'Esta acción estará disponible cuando el expediente esté completado.'}</p><button type="button" id="admin-reset-alberto" ${expedientCompleted?'':'disabled'}>Reabrir carta final</button><span id="admin-alberto-status" role="status"></span>`;
   settingsPanel.insertBefore(albertoSettings,dangerZone);
   const alt00Settings=document.createElement('section'),alt00Discovered=Boolean(current.alt00Discovered),alt00Completed=Boolean(current.alt00Completed);
@@ -2918,7 +3051,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
     const status=document.querySelector('#admin-identity-status'),button=identityForm.querySelector('button:not([type="button"])'),formData=new FormData(identityForm);
     const newName=String(formData.get('displayName')||'').trim(),newEmail=String(formData.get('email')||'').trim().toLowerCase();
     const emailChanged=newEmail!==String(profile.email||'').trim().toLowerCase();
-    if(emailChanged&&!confirm(`¿Cambiar el correo de acceso de ${profile.email} a ${newEmail}? El correo anterior dejará de servir para iniciar sesión.`))return;
+    if(emailChanged&&!await adminConfirm({title:'Cambiar correo de acceso',message:`El acceso de ${profile.email} será sustituido por ${newEmail}. El correo anterior dejará de servir para iniciar sesión.`,confirmLabel:'Cambiar correo'}))return;
     status.textContent='Actualizando identidad y acceso…';button.disabled=true;
     try{
       const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'update-profile',userId:profile.id,displayName:newName,email:newEmail}});
@@ -2934,7 +3067,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
     const password=String(new FormData(resetPasswordForm).get('password')||'');
     const status=document.querySelector('#admin-password-status'),button=resetPasswordForm.querySelector('button');
     if(password.length<8){status.textContent='La contraseña debe tener al menos 8 caracteres.';return}
-    if(!confirm(`¿Cambiar la contraseña de acceso de ${profile.display_name||profile.email}? Su progreso no se modificará.`))return;
+    if(!await adminConfirm({title:'Cambiar contraseña temporal',message:`Se sustituirá la contraseña de acceso de ${profile.display_name||profile.email}. El progreso del expediente no se modificará.`,confirmLabel:'Cambiar contraseña'}))return;
     status.textContent='Cambiando contraseña…';button.disabled=true;
     try{
       const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'reset-password',userId:profile.id,password}});
@@ -2947,14 +3080,14 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
       status.textContent=await functionErrorMessage(error);
     }finally{button.disabled=false}
   };
-  const toggleAccess=async()=>{const nextActive=!isActive;if(!confirm(nextActive?'¿Reactivar el acceso de este destinatario?':'¿Desactivar el acceso de este destinatario? No podrá iniciar sesión hasta que lo reactives.'))return;const buttons=[document.querySelector('#admin-toggle-user'),document.querySelector('#admin-side-toggle-user')];buttons.forEach(button=>button.disabled=true);try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'set-active',userId:profile.id,active:nextActive}});if(error)throw error;profile.is_active=data?.isActive===undefined?nextActive:data.isActive;renderAdminEditor(profile,current)}catch(error){console.error(error);buttons.forEach(button=>button.disabled=false);document.querySelector('#admin-identity-status').textContent=await functionErrorMessage(error)}};
+  const toggleAccess=async()=>{const nextActive=!isActive;if(!await adminConfirm({title:nextActive?'Reactivar acceso':'Desactivar acceso',message:nextActive?`Se restaurará el acceso de ${profile.display_name||profile.email} a su expediente.`:`${profile.display_name||profile.email} no podrá iniciar sesión hasta que vuelvas a reactivar su cuenta.`,confirmLabel:nextActive?'Reactivar cuenta':'Desactivar cuenta',danger:!nextActive}))return;const buttons=[document.querySelector('#admin-toggle-user'),document.querySelector('#admin-side-toggle-user')];buttons.forEach(button=>button.disabled=true);try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'set-active',userId:profile.id,active:nextActive}});if(error)throw error;profile.is_active=data?.isActive===undefined?nextActive:data.isActive;renderAdminEditor(profile,current)}catch(error){console.error(error);buttons.forEach(button=>button.disabled=false);document.querySelector('#admin-identity-status').textContent=await functionErrorMessage(error)}};
   document.querySelector('#admin-toggle-user').onclick=toggleAccess;document.querySelector('#admin-side-toggle-user').onclick=toggleAccess;
   document.querySelector('#admin-preview-early-access').onclick=()=>showEarlyAccessSequence({preview:true});
   document.querySelector('#admin-play-finale').onclick=()=>{if(!window.KizunaFinale){alert('No se ha podido cargar la vista previa del final.');return}window.KizunaFinale.play({assetBase:'../',preview:true,lastPage:1})};
-  document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!confirm(`¿Volver a mostrar el mensaje y la decisión final a ${profile.display_name||profile.email}?`))return;button.disabled=true;status.textContent='Restaurando mensaje…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};try{const savedState=await saveAdminProgressState(profile.id,nextState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent='No se ha podido restaurar el mensaje.';button.disabled=false}};
+  document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!await adminConfirm({title:'Reabrir la decisión final',message:`El mensaje de Alberto volverá a mostrarse a ${profile.display_name||profile.email} y podrá responderlo de nuevo.`,confirmLabel:'Reabrir mensaje'}))return;button.disabled=true;status.textContent='Restaurando mensaje…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};try{const savedState=await saveAdminProgressState(profile.id,nextState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent='No se ha podido restaurar el mensaje.';button.disabled=false}};
   document.querySelector('#admin-renew-legal').onclick=async()=>{
     const button=document.querySelector('#admin-renew-legal'),status=document.querySelector('#admin-legal-status');
-    if(!confirm(`¿Crear una nueva versión de las bases para ${profile.display_name||profile.email}? Tendrá que aceptarlas de nuevo antes de acceder al expediente.`))return;
+    if(!await adminConfirm({title:'Publicar nuevas condiciones',message:`Se creará una nueva versión para ${profile.display_name||profile.email}. Tendrá que aceptarla antes de volver a acceder al expediente.`,confirmLabel:'Crear nueva versión'}))return;
     button.disabled=true;status.textContent='Creando nueva versión…';
     const nextVersion=legalVersion+1,nextState={...current,legalAccepted:false,legalAcceptedAt:null,legalVersion:nextVersion,legalResetAt:new Date().toISOString()};
     try{
@@ -2967,7 +3100,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   };
   document.querySelector('#admin-reset-onboarding').onclick=async()=>{
     const button=document.querySelector('#admin-reset-onboarding'),status=document.querySelector('#admin-onboarding-status');
-    if(!confirm(`¿Volver a mostrar la guía inicial a ${profile.display_name||profile.email} en su próximo acceso?`))return;
+    if(!await adminConfirm({title:'Reactivar recorrido inicial',message:`La guía volverá a mostrarse a ${profile.display_name||profile.email} en su próximo acceso al expediente.`,confirmLabel:'Mostrar guía'}))return;
     button.disabled=true;status.textContent='Preparando la guía…';
     const nextState={...current,onboardingCompleted:false,onboardingCompletedAt:null,onboardingResult:null,onboardingResetAt:new Date().toISOString(),onboardingVersion:Number(current.onboardingVersion||1)};
     try{
@@ -2978,7 +3111,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
       renderAdminEditor(profile,savedState,'settings');
     }catch(error){console.error(error);status.textContent='No se ha podido reactivar la guía.';button.disabled=false}
   };
-  document.querySelector('#admin-reset-progress').onclick=async()=>{const button=document.querySelector('#admin-reset-progress'),status=document.querySelector('#admin-reset-status');if(!confirm(`¿Limpiar por completo el expediente de ${profile.display_name||profile.email}? Se reiniciarán documentos, carpetas, páginas del cómic, aviso legal, guía inicial, cierre final, carta de Alberto y respuesta registrada. La cuenta, el nombre y el correo se conservan.`))return;button.disabled=true;status.textContent='Limpiando expediente…';try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'reset-progress',userId:profile.id}});if(error)throw error;const resetState=safeState(data?.state);const savedState=await saveAdminProgressState(profile.id,resetState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}};
+  document.querySelector('#admin-reset-progress').onclick=async()=>{const button=document.querySelector('#admin-reset-progress'),status=document.querySelector('#admin-reset-status');if(!await adminConfirm({eyebrow:'PROTOCOLO DE REINICIO · EXPEDIENTE PERSONAL',title:'Limpiar expediente completo',message:`Se reiniciarán todos los documentos, carpetas, páginas del cómic, aviso legal, guía inicial, cierre final, carta de Alberto y respuesta registrada de ${profile.display_name||profile.email}. La cuenta, el nombre y el correo se conservarán.`,confirmLabel:'Limpiar expediente',danger:true}))return;button.disabled=true;status.textContent='Limpiando expediente…';try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'reset-progress',userId:profile.id}});if(error)throw error;const resetState=safeState(data?.state);const savedState=await saveAdminProgressState(profile.id,resetState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}};
   renderAdminActivity(profile.id);
   renderAdminPurchases(profile.id);
 };

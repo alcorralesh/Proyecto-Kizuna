@@ -22,7 +22,7 @@
 
   const stylesheet=document.createElement('link');
   stylesheet.rel='stylesheet';
-  stylesheet.href=new URL('pwa.css?v=20260725-web-push01',baseUrl).href;
+  stylesheet.href=new URL('pwa.css?v=20260725-admin-settings02',baseUrl).href;
   document.head.appendChild(stylesheet);
 
   let installEvent=null;
@@ -142,6 +142,14 @@
     if(error)throw error;
   };
 
+  const savePushPreference=async preference=>{
+    if(!pushClient||!pushUserId)return;
+    const {error}=await pushClient.rpc('set_expedient_push_preference',{
+      preference_status:preference
+    });
+    if(error)throw error;
+  };
+
   const enablePush=async status=>{
     if(!pushClient||!pushUserId)throw new Error('Inicia sesión para activar los avisos.');
     const permission=await Notification.requestPermission();
@@ -158,9 +166,25 @@
       });
     }
     await savePushSubscription(subscription);
+    await savePushPreference('granted');
     if(status)status.textContent='Notificaciones activadas en este dispositivo ✓';
-    setTimeout(()=>document.querySelector('.kizuna-push-consent')?.remove(),1200);
     return subscription;
+  };
+
+  const showPushConsentResult=(notice,granted)=>{
+    notice.classList.add('is-result',granted?'is-authorized':'is-unavailable');
+    notice.innerHTML=`<div class="kizuna-push-consent-card">
+      <header><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><b>${granted?'CANAL SEGURO':'CANAL LOCAL'}</b></header>
+      <div class="kizuna-push-consent-result">
+        <p>ESTADO</p>
+        <h2><i aria-hidden="true">${granted?'●':'○'}</i> ${granted?'Terminal registrado':'Canal no disponible'}</h2>
+        ${granted
+          ?'<strong>Canal Seguro establecido.</strong><p>Las futuras comunicaciones podrán entregarse<br>aunque el expediente permanezca cerrado.</p>'
+          :'<p>Podrás consultar toda la información desde<br>el expediente, aunque algunas comunicaciones<br>extraordinarias podrían no entregarse en el<br>momento previsto.</p>'}
+      </div>
+      <button type="button" data-push-close>Continuar al expediente <span>→</span></button>
+    </div>`;
+    notice.querySelector('[data-push-close]').onclick=()=>notice.remove();
   };
 
   const showPushConsent=()=>{
@@ -168,14 +192,45 @@
     if(!('Notification'in window)||!('PushManager'in window)||Notification.permission!=='default')return;
     const notice=document.createElement('aside');
     notice.className='kizuna-push-consent';
-    notice.setAttribute('role','status');
-    notice.innerHTML=`<span aria-hidden="true">✉</span><div><small>MENSAJES DEL ARCHIVO CENTRAL</small><strong>¿Quieres recibir avisos aunque KIZUNA esté cerrada?</strong><p>Podrás desactivarlos cuando quieras desde los ajustes del teléfono.</p><em role="status"></em></div><button type="button" data-push-enable>Activar avisos</button><button type="button" data-push-later>Ahora no</button>`;
-    notice.querySelector('[data-push-later]').onclick=()=>notice.remove();
+    notice.setAttribute('role','dialog');
+    notice.setAttribute('aria-modal','true');
+    notice.setAttribute('aria-labelledby','kizuna-push-consent-title');
+    notice.innerHTML=`<div class="kizuna-push-consent-card">
+      <header><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><b>AUTORIZACIÓN · AT-03</b></header>
+      <div class="kizuna-push-consent-body">
+        <p class="kizuna-push-consent-kicker">AUTORIZACIÓN EXCEPCIONAL</p>
+        <h2 id="kizuna-push-consent-title">Registrar este dispositivo como<br><em>Terminal Autorizado.</em></h2>
+        <div class="kizuna-push-consent-copy">
+          <p>La liberación anticipada del expediente ha obligado a habilitar métodos de comunicación que inicialmente no estaban previstos.</p>
+          <p>Para mantener el contacto durante el resto de la investigación es necesario registrar este dispositivo como <strong>Terminal Autorizado</strong>.</p>
+          <p>Una vez autorizado, KIZUNA podrá enviarte comunicaciones urgentes cuando sea necesario, incluso si el expediente permanece cerrado.</p>
+        </div>
+        <div class="kizuna-push-consent-terminal"><span aria-hidden="true">◉</span><div><small>DISPOSITIVO ACTUAL</small><strong>Esperando autorización del destinatario</strong></div></div>
+        <em class="kizuna-push-consent-status" role="status"></em>
+      </div>
+      <footer><button type="button" data-push-later>Continuar sin canal</button><button type="button" data-push-enable>Autorizar terminal <span>→</span></button></footer>
+    </div>`;
+    notice.querySelector('[data-push-later]').onclick=async event=>{
+      event.currentTarget.disabled=true;
+      try{await savePushPreference('declined')}
+      catch(error){console.warn('No se pudo registrar la preferencia de notificaciones.',error)}
+      showPushConsentResult(notice,false);
+    };
     notice.querySelector('[data-push-enable]').onclick=async event=>{
-      const button=event.currentTarget,status=notice.querySelector('em');
+      const button=event.currentTarget,status=notice.querySelector('.kizuna-push-consent-status');
       button.disabled=true;status.textContent='Solicitando permiso…';
-      try{await enablePush(status)}
-      catch(error){status.textContent=error?.message||'No se pudieron activar los avisos.';button.disabled=false}
+      try{
+        await enablePush(status);
+        showPushConsentResult(notice,true);
+      }catch(error){
+        if(Notification.permission==='denied'){
+          try{await savePushPreference('declined')}catch(preferenceError){console.warn('No se pudo registrar la preferencia de notificaciones.',preferenceError)}
+          showPushConsentResult(notice,false);
+          return;
+        }
+        status.textContent=error?.message||'No se pudieron activar los avisos.';
+        button.disabled=false;
+      }
     };
     document.body.appendChild(notice);
   };
@@ -185,18 +240,32 @@
     pushUserId=options?.userId||null;
     if(!pushClient||!pushUserId||!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))return null;
     if(isIos()&&!standalone())return null;
+    const {data:preference,error:preferenceError}=await pushClient
+      .from('expedient_push_preferences')
+      .select('status')
+      .eq('user_id',pushUserId)
+      .maybeSingle();
+    if(preferenceError)console.warn('No se pudo consultar la preferencia de notificaciones.',preferenceError);
+    if(preference?.status==='declined'&&Notification.permission==='default')return null;
     if(!registration)await register();
     const currentRegistration=registration||await navigator.serviceWorker.ready;
     const subscription=await currentRegistration.pushManager.getSubscription();
     if(Notification.permission==='granted'){
       if(subscription){
-        await savePushSubscription(subscription).catch(error=>console.warn('No se pudo sincronizar la suscripción push.',error));
+        await Promise.all([
+          savePushSubscription(subscription),
+          savePushPreference('granted')
+        ]).catch(error=>console.warn('No se pudo sincronizar la suscripción push.',error));
         return subscription;
       }
       return enablePush().catch(error=>{
         console.warn('No se pudo recuperar la suscripción push.',error);
         return null;
       });
+    }
+    if(Notification.permission==='denied'){
+      await savePushPreference('declined').catch(error=>console.warn('No se pudo sincronizar la preferencia de notificaciones.',error));
+      return null;
     }
     setTimeout(()=>{if(!isBusy())showPushConsent()},1400);
     return null;
