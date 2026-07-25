@@ -343,7 +343,8 @@ const showEarlyAccessSequence=({preview=false,onComplete=()=>{}}={})=>{
   document.body.classList.add('early-access-open');
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const timers=[];
-  let revealed=false,saving=false;
+  const openedAt=performance.now();
+  let revealed=false,saving=false,pendingRevealTimer=0;
   const reveal=()=>{
     if(revealed)return;
     revealed=true;
@@ -353,17 +354,28 @@ const showEarlyAccessSequence=({preview=false,onComplete=()=>{}}={})=>{
     scene.querySelector('.early-access-communique').scrollTop=0;
     scene.querySelector('button').focus({preventScroll:true});
   };
-  if(reduced)reveal();
-  else{
+  const requestReveal=()=>{
+    const remaining=900-(performance.now()-openedAt);
+    if(remaining>0){
+      clearTimeout(pendingRevealTimer);
+      pendingRevealTimer=setTimeout(reveal,remaining);
+      return;
+    }
+    reveal();
+  };
+  if(reduced){
+    scene.querySelectorAll('.early-access-diagnostic li').forEach(item=>item.classList.add('is-complete'));
+    timers.push(setTimeout(reveal,2600));
+  }else{
     [500,1250,2250,3400].forEach((delay,index)=>timers.push(setTimeout(()=>scene.querySelectorAll('.early-access-diagnostic li')[index]?.classList.add('is-complete'),delay)));
     timers.push(setTimeout(reveal,4700));
   }
   scene.addEventListener('click',event=>{
     if(event.target.closest('button'))return;
-    if(!revealed)reveal();
+    if(!revealed)requestReveal();
   });
   scene.querySelector('button').onclick=async()=>{
-    if(!revealed){reveal();return}
+    if(!revealed){requestReveal();return}
     if(saving)return;
     if(preview){
       scene.remove();

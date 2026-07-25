@@ -269,12 +269,12 @@ body.early-access-open{overflow:hidden}
   .kizuna-early-access.is-interference .early-access-diagnostic{align-items:stretch;text-align:left}
   .kizuna-early-access.is-interference .early-access-diagnostic dl,.kizuna-early-access.is-interference .early-access-diagnostic ol{width:100%}
   .early-access-diagnostic h1{font-size:clamp(39px,12vw,58px)}
-  .early-access-communique{position:absolute;inset:0;z-index:2;padding:36px 24px max(28px,env(safe-area-inset-bottom));transform:translateY(5%)}
+  .early-access-communique{position:absolute;inset:0;z-index:2;padding:36px 24px max(28px,env(safe-area-inset-bottom));scroll-padding-bottom:112px;transform:translateY(5%)}
   .early-access-communique h2{padding:0 0 18px;font-size:clamp(39px,11vw,55px)}
   .early-access-seal{position:relative;top:auto;right:auto;float:right;margin:0 0 18px 18px;font-size:8px}
   .early-access-communique>p:not(.system-line){font-size:15px;line-height:1.55}
   .early-access-communique blockquote{font-size:24px}
-  .early-access-communique footer{position:sticky;bottom:0;display:grid;margin:22px -24px -28px;padding:14px 24px max(14px,env(safe-area-inset-bottom));background:linear-gradient(180deg,#eee3cadd,#eee3ca 18%)}
+  .early-access-communique footer{position:sticky;bottom:0;z-index:3;display:grid;margin:22px -24px 0;padding:14px 24px max(14px,env(safe-area-inset-bottom));border-top:1px solid #b9aa8c;background:#eee3ca;box-shadow:0 -14px 20px #eee3ca}
   .early-access-communique footer button{width:100%;min-width:0}
 }
 @media(min-width:761px) and (max-height:600px){
