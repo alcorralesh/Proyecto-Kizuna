@@ -72,6 +72,7 @@ window.KizunaFinale=(()=>{
         <button class="alt00-page-prev" type="button">← Anterior</button>
         <nav class="alt00-page-strip" aria-label="Páginas del registro"></nav>
         <button class="alt00-page-next" type="button">Siguiente →</button>
+        <button class="alt00-reader-exit" type="button">${assetBase==='../'?'Volver al expediente':'Cerrar registro'}</button>
       </footer>
       <p class="alt00-preview-note" ${preview?'':'hidden'}>VISTA DE PRUEBA · NO MODIFICA EL EXPEDIENTE</p>`;
     document.body.appendChild(viewer);
@@ -88,6 +89,8 @@ window.KizunaFinale=(()=>{
     const zoomFit=viewer.querySelector('[data-alt00-action="fit"]');
     const fullscreen=viewer.querySelector('[data-alt00-action="full"]');
     const strip=viewer.querySelector('.alt00-page-strip');
+    const closeControl=viewer.querySelector('.alt00-reader-close');
+    const exitControl=viewer.querySelector('.alt00-reader-exit');
     let page=Math.min(PAGE_TOTAL,Math.max(1,Number(startPage)||1));
     let scale=1,fitScale=1,pinchStart=null,moved=false;
     const pointers=new Map();
@@ -141,7 +144,8 @@ window.KizunaFinale=(()=>{
       image.alt=`ALT-00 · página ${page} de ${PAGE_TOTAL}`;
       counter.textContent=`${String(page).padStart(2,'0')} / ${PAGE_TOTAL}`;
       previous.disabled=page===1;
-      next.textContent=page===PAGE_TOTAL?'Cerrar registro':'Siguiente →';
+      next.disabled=page===PAGE_TOTAL;
+      next.textContent='Siguiente →';
       strip.querySelectorAll('button').forEach(button=>{
         const selected=Number(button.dataset.alt00Page)===page;
         button.classList.toggle('active',selected);
@@ -168,23 +172,43 @@ window.KizunaFinale=(()=>{
     };
     image.onload=()=>{fit();viewer.classList.add('is-page-ready')};
     previous.onclick=()=>paint(page-1);
-    next.onclick=()=>page===PAGE_TOTAL?close():paint(page+1);
+    next.onclick=()=>paint(page+1);
+    exitControl.onclick=close;
     strip.querySelectorAll('button').forEach(button=>button.onclick=()=>paint(Number(button.dataset.alt00Page)));
-    viewer.querySelector('.alt00-reader-close').onclick=close;
     zoomOut.onclick=()=>setScale(scale/1.25);
     zoomIn.onclick=()=>setScale(scale*1.25);
     zoomFit.onclick=fit;
+    const touchFullscreen=(navigator.maxTouchPoints||0)>0||matchMedia('(pointer:coarse)').matches;
+    const setImmersive=active=>{
+      viewer.classList.toggle('is-immersive',active);
+      fullscreen.classList.toggle('active',active);
+      fullscreen.setAttribute('aria-pressed',String(active));
+      closeControl.setAttribute('aria-label',active?'Salir del modo de lectura inmersiva':'Cerrar registro');
+      setTimeout(fit,50);
+    };
+    const exitDisplayMode=async()=>{
+      if(document.fullscreenElement===viewer)await document.exitFullscreen();
+      else if(viewer.classList.contains('is-immersive'))setImmersive(false);
+    };
+    closeControl.onclick=async()=>{
+      if(document.fullscreenElement===viewer||viewer.classList.contains('is-immersive'))await exitDisplayMode();
+      else close();
+    };
     fullscreen.onclick=async()=>{
-      if(document.fullscreenElement){await document.exitFullscreen();return}
+      if(document.fullscreenElement===viewer||viewer.classList.contains('is-immersive')){await exitDisplayMode();return}
+      if(touchFullscreen){setImmersive(true);return}
       if(viewer.requestFullscreen){
         try{await viewer.requestFullscreen();return}catch(error){console.warn('Pantalla completa nativa no disponible; se activa el modo inmersivo.',error)}
       }
-      const immersive=viewer.classList.toggle('is-immersive');
-      fullscreen.classList.toggle('active',immersive);
-      fullscreen.setAttribute('aria-pressed',String(immersive));
+      setImmersive(true);
+    };
+    fullscreenChange=()=>{
+      const active=document.fullscreenElement===viewer;
+      fullscreen.classList.toggle('active',active);
+      fullscreen.setAttribute('aria-pressed',String(active));
+      closeControl.setAttribute('aria-label',active?'Salir del modo de lectura inmersiva':'Cerrar registro');
       setTimeout(fit,50);
     };
-    fullscreenChange=()=>{const active=document.fullscreenElement===viewer;fullscreen.classList.toggle('active',active);fullscreen.setAttribute('aria-pressed',String(active));setTimeout(fit,50)};
     document.addEventListener('fullscreenchange',fullscreenChange);
     const resize=()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(fit,120)};
     window.addEventListener('resize',resize);
@@ -226,7 +250,10 @@ window.KizunaFinale=(()=>{
       if(!viewer.isConnected){document.removeEventListener('keydown',keyboard);return}
       if(event.key==='ArrowRight'&&page<PAGE_TOTAL)paint(page+1);
       if(event.key==='ArrowLeft'&&page>1)paint(page-1);
-      if(event.key==='Escape')close();
+      if(event.key==='Escape'){
+        if(document.fullscreenElement===viewer||viewer.classList.contains('is-immersive'))void exitDisplayMode();
+        else close();
+      }
     };
     document.addEventListener('keydown',keyboard);
     notify('discovered');
