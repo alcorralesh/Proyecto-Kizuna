@@ -1691,6 +1691,67 @@ body:has(#viewer[open]){overflow:hidden}
   #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .paper-foot .reader-actions #comic-next-fixed{width:50px;min-width:50px;height:64px;min-height:64px}
 }
 
+/* En iPhone, tanto la PWA como el navegador conservan zonas ocupadas por el
+   sistema. La barra del lector forma parte del flujo para que nunca tape la
+   cabecera ni la primera viñeta del cómic. */
+@media(max-width:1100px),(hover:none),(pointer:coarse){
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .reader-shell{
+    display:grid;
+    grid-template-rows:auto minmax(0,1fr);
+    width:100%;
+    height:100dvh;
+    overflow:hidden;
+    background:#0d1210
+  }
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .reader-toolbar{
+    position:relative;
+    inset:auto;
+    grid-row:1;
+    display:flex;
+    align-items:center;
+    min-height:56px;
+    padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) 8px max(8px,env(safe-area-inset-left));
+    border-bottom:1px solid #39403d;
+    background:#0d1210;
+    box-shadow:0 7px 20px #0007;
+    pointer-events:auto
+  }
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .reader-toolbar .close{
+    flex:0 0 44px;
+    width:44px;
+    height:44px;
+    box-shadow:none
+  }
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .reader-tools{
+    margin-left:auto;
+    box-shadow:none
+  }
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .reader-content.has-image{
+    grid-row:2;
+    width:100%;
+    height:auto;
+    min-height:0;
+    padding:0;
+    overflow:hidden;
+    background:#0d1210
+  }
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .reader-content.has-image .paper,
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .image-inspector{
+    height:100%;
+    min-height:0;
+    background:#0d1210
+  }
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .image-inspector{
+    box-sizing:border-box;
+    padding-bottom:env(safe-area-inset-bottom);
+    scroll-padding-bottom:env(safe-area-inset-bottom)
+  }
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .paper-foot .reader-actions #comic-prev-fixed,
+  #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .paper-foot .reader-actions #comic-next-fixed{
+    top:calc(50% + 28px)
+  }
+}
+
 /* La advertencia de acceso funciona como una pantalla completa en vertical y
    como un acta compacta de dos columnas en teléfonos girados. */
 @media(orientation:portrait) and (max-width:600px){
