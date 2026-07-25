@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260725-install-banner01';
+const VERSION='20260725-web-push01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -54,6 +54,28 @@ const offlineResponse=async()=>(
   status:503,
   headers:{'Content-Type':'text/plain; charset=utf-8'}
 });
+
+const trackPushEvent=async(data,eventName)=>{
+  if(!data?.trackingUrl||!data?.deliveryId||!data?.trackingToken)return;
+  try{
+    await fetch(data.trackingUrl,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        action:'track',
+        event:eventName,
+        deliveryId:data.deliveryId,
+        trackingToken:data.trackingToken
+      })
+    });
+  }catch(_error){}
+};
+
+const messageDestination=data=>{
+  const target=new URL(data?.deepLink||'expediente/index.html',scopeUrl());
+  if(data?.messageId)target.searchParams.set('message',data.messageId);
+  return target.href;
+};
 
 const fetchAndCache=async(request,cacheName)=>{
   const response=await fetch(request);
@@ -131,5 +153,40 @@ self.addEventListener('fetch',event=>{
   if(['style','script','image','font'].includes(request.destination)){
     event.respondWith(staleWhileRevalidate(request,event));
   }
+});
+
+self.addEventListener('push',event=>{
+  let data={};
+  try{data=event.data?.json?.()||{}}catch(_error){data={body:event.data?.text?.()||''}}
+  event.waitUntil((async()=>{
+    await trackPushEvent(data,'received');
+    if('setAppBadge'in navigator)await navigator.setAppBadge(1).catch(()=>{});
+    await self.registration.showNotification(data.title||'KIZUNA · Nuevo mensaje',{
+      body:data.body||'Tienes una nueva comunicación del Archivo Central.',
+      icon:new URL('./assets/kizuna-app-icon-192.png',scopeUrl()).href,
+      badge:new URL('./assets/kizuna-app-icon-192.png',scopeUrl()).href,
+      tag:`kizuna-message-${data.messageId||'new'}`,
+      renotify:true,
+      requireInteraction:data.priority==='urgent',
+      data:{...data,url:messageDestination(data)}
+    });
+  })());
+});
+
+self.addEventListener('notificationclick',event=>{
+  event.notification.close();
+  const data=event.notification.data||{};
+  event.waitUntil((async()=>{
+    await trackPushEvent(data,'opened');
+    if('clearAppBadge'in navigator)await navigator.clearAppBadge().catch(()=>{});
+    const destination=data.url||messageDestination(data);
+    const windows=await clients.matchAll({type:'window',includeUncontrolled:true});
+    const existing=windows.find(client=>new URL(client.url).origin===new URL(destination).origin);
+    if(existing){
+      if('navigate'in existing)await existing.navigate(destination);
+      return existing.focus();
+    }
+    return clients.openWindow(destination);
+  })());
 });
 

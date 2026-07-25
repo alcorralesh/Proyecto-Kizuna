@@ -1,0 +1,2 @@
+[functions.send-expedient-push]
+verify_jwt = false

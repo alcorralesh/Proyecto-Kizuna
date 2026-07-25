@@ -9,6 +9,9 @@
   let onChange = null;
   let noticeTimer = 0;
   const listeners = new Set();
+  const scriptUrl = new URL(document.currentScript?.src || location.href);
+  const appBaseUrl = new URL('./', scriptUrl);
+  let requestedMessageId = new URLSearchParams(location.search).get('message');
 
   const escape = value => String(value ?? '').replace(/[&<>'"]/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -45,6 +48,24 @@
     highlight: 'MENSAJE DESTACADO',
     modal: 'ATENCIÓN DEL DESTINATARIO'
   }[message.display_mode] || 'NUEVO MENSAJE');
+  const messageDestination = message => {
+    if (!message?.deep_link) return '';
+    try {
+      const destination = new URL(message.deep_link, appBaseUrl);
+      if (destination.origin !== location.origin) return '';
+      destination.searchParams.set('message', message.id);
+      return destination.href;
+    } catch {
+      return '';
+    }
+  };
+  const clearRequestedMessage = () => {
+    if (!requestedMessageId) return;
+    const url = new URL(location.href);
+    url.searchParams.delete('message');
+    history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    requestedMessageId = null;
+  };
   const showNextNotice = async () => {
     clearTimeout(noticeTimer);
     if (!client || !userId || document.querySelector('#recipient-message-notice')) return;
@@ -52,13 +73,17 @@
       deferNotice();
       return;
     }
-    const message = sorted(messages).reverse().find(item =>
-      item.display_mode !== 'mailbox' && !item.dismissed_at && !item.acknowledged_at);
+    const requested = requestedMessageId
+      ? messages.find(item => item.id === requestedMessageId && active(item))
+      : null;
+    const message = requested || sorted(messages).reverse().find(item =>
+      !['mailbox', 'push'].includes(item.display_mode) && !item.dismissed_at && !item.acknowledged_at);
     if (!message) return;
+    const destination = messageDestination(message);
     const root = document.createElement('aside');
     root.id = 'recipient-message-notice';
-    root.className = `recipient-message-notice mode-${message.display_mode} priority-${message.priority}`;
-    root.setAttribute('role', message.display_mode === 'modal' ? 'alertdialog' : 'status');
+    root.className = `recipient-message-notice mode-${requested ? 'modal' : message.display_mode} priority-${message.priority}`;
+    root.setAttribute('role', requested || message.display_mode === 'modal' ? 'alertdialog' : 'status');
     root.setAttribute('aria-live', message.priority === 'urgent' ? 'assertive' : 'polite');
     root.innerHTML = `<article>
       <header><span>${escape(messageLabel(message))}</span><button type="button" data-message-dismiss aria-label="Cerrar aviso">×</button></header>
@@ -67,10 +92,12 @@
       <p class="recipient-message-body">${escape(message.body).replace(/\n/g, '<br>')}</p>
       <footer>
         <button type="button" data-message-mailbox>Guardar y ver en el buzón</button>
+        ${destination ? `<button type="button" data-message-destination>${context === 'public' && /\/expediente\//.test(destination) ? 'Abrir expediente' : 'Abrir destino'}</button>` : ''}
         ${message.requires_ack ? '<button type="button" data-message-ack>Confirmar recepción</button>' : '<button type="button" data-message-read>Entendido</button>'}
       </footer>
     </article>`;
     document.body.appendChild(root);
+    if (requested) clearRequestedMessage();
     requestAnimationFrame(() => root.classList.add('visible'));
     if (!message.displayed_at) await patch(message.id, { displayed_at: currentIso() });
     const close = async changes => {
@@ -90,6 +117,10 @@
       await close({ read_at: message.read_at || currentIso(), dismissed_at: currentIso() });
       document.dispatchEvent(new CustomEvent('kizuna:open-recipient-mailbox', { detail: message }));
     };
+    root.querySelector('[data-message-destination]')?.addEventListener('click', async () => {
+      await patch(message.id, { read_at: message.read_at || currentIso(), dismissed_at: currentIso() });
+      location.href = destination;
+    });
   };
   const stop = async () => {
     clearTimeout(noticeTimer);
@@ -140,11 +171,12 @@
   const api = {
     connect,
     stop,
-    list: () => sorted(messages),
-    unreadCount: () => messages.filter(message => active(message) && !message.read_at).length,
+    list: () => sorted(messages).filter(message => message.display_mode !== 'push'),
+    unreadCount: () => messages.filter(message => active(message) && message.display_mode !== 'push' && !message.read_at).length,
     markRead: id => patch(id, { read_at: currentIso() }),
     acknowledge: id => patch(id, { read_at: currentIso(), acknowledged_at: currentIso() }),
     dismiss: id => patch(id, { dismissed_at: currentIso() }),
+    destination: id => messageDestination(messages.find(message => message.id === id)),
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

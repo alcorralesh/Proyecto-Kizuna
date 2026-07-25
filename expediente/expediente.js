@@ -404,6 +404,9 @@ const loadRemoteProgress=async user=>{
       if(mailbox?.style?.display==='block'&&typeof renderMailbox==='function')renderMailbox();
     }
   });
+  const pushConnection={client,userId:user.id};
+  if(window.KizunaPWA?.connectPush)void window.KizunaPWA.connectPush(pushConnection);
+  else window.KizunaPendingPushConnection=pushConnection;
   return remoteState;
 };
 const recordComicPage=async page=>{
@@ -1079,6 +1082,17 @@ const mailboxMessages=()=>[...remoteRecipientMessages.map(message=>({...message,
 const mailboxUnreadCount=()=>Math.max(0,automaticMailboxMessages().length-Number(getState().mailRead||0))+remoteRecipientMessages.filter(message=>!message.read_at).length;
 const renderMailbox=()=>{const items=mailboxMessages(),unread=mailboxUnreadCount();paintMailboxButton(unread);mailbox.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #b4ae9f;padding-bottom:14px"><div><p style="margin:0;color:#7e1b19;font:10px var(--mono);letter-spacing:.1em">SISTEMA DE NOTIFICACIONES</p><h3 style="margin:6px 0 0;font:31px var(--serif)">Buzón del expediente</h3></div><button id="mailbox-close" style="border:0;background:none;font:25px var(--serif);color:#7e1b19;cursor:pointer">×</button></div><p style="font:10px/1.6 var(--mono)">${items.length} comunicaciones registradas · más recientes primero</p>${items.map(item=>`<details data-recipient-message="${item.source==='remote'?item.id:''}" style="border-top:1px solid ${item.urgent?'#7e1b19':'#c5bdaa'};padding:13px 0;${item.urgent?'background:#f4dfd5;margin:0 -10px;padding:15px 10px;border-left:4px solid #7e1b19':''}"><summary style="cursor:pointer;list-style:none;font:600 13px var(--serif)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${item.urgent||item.source==='remote'&&!item.read_at?'#7e1b19':'#9a998f'};margin-right:8px"></span>${mailboxEscape(item.subject)}<small style="display:block;margin:5px 0 0 16px;font:9px var(--mono);color:#7e1b19">DIVISIÓN DE ARCHIVOS TEMPORALES · ${item.source==='remote'?new Date(item.published_at).toLocaleDateString('es-ES'):mailboxEscape(item.id)}</small></summary><p style="margin:12px 0 0 16px;font:12px/1.65 var(--mono)">${mailboxEscape(item.body).replace(/\n/g,'<br>')}</p>${item.source==='remote'&&item.requires_ack&&!item.acknowledged_at?`<button data-ack-message="${item.id}" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Confirmar recepción</button>`:''}${item.id==='FINAL-01'?'<button id="final-file-from-mail" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Consultar archivo</button>':''}</details>`).join('')||'<p>No hay comunicaciones registradas.</p>'}`;document.querySelector('#mailbox-close').onclick=()=>mailbox.style.display='none';mailbox.querySelectorAll('details[data-recipient-message]').forEach(details=>details.addEventListener('toggle',()=>{if(details.open&&details.dataset.recipientMessage)window.KizunaRecipientMessages?.markRead(details.dataset.recipientMessage)}));mailbox.querySelectorAll('[data-ack-message]').forEach(button=>button.onclick=()=>window.KizunaRecipientMessages?.acknowledge(button.dataset.ackMessage));const finalButton=document.querySelector('#final-file-from-mail');if(finalButton)finalButton.onclick=()=>{mailbox.style.display='none';openFinalLocatedFile()}};
 mailboxButton.onclick=()=>{const opening=mailbox.style.display==='none';if(opening){renderMailbox();mailbox.style.display='block';patchState({mailRead:automaticMailboxMessages().length}).finally(()=>{renderMailbox();updateMailboxIndicator()})}else mailbox.style.display='none'};
+mailbox.addEventListener('toggle',event=>{
+  const details=event.target;
+  if(!(details instanceof HTMLDetailsElement)||!details.open||!details.dataset.recipientMessage||details.querySelector('[data-message-deep-link]'))return;
+  const destination=window.KizunaRecipientMessages?.destination?.(details.dataset.recipientMessage);
+  if(!destination)return;
+  const button=document.createElement('button');
+  button.type='button';button.dataset.messageDeepLink='';button.textContent='Abrir destino del mensaje';
+  button.style.cssText='margin:10px 0 0 16px;background:#17211e;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer';
+  button.onclick=async()=>{await window.KizunaRecipientMessages?.markRead?.(details.dataset.recipientMessage);location.href=destination};
+  details.appendChild(button);
+},true);
 document.addEventListener('kizuna:open-recipient-mailbox',()=>{if(mailbox.style.display==='none')mailboxButton.click()});
 const updateMailboxIndicator=()=>paintMailboxButton(mailboxUnreadCount());
 
@@ -1619,7 +1633,7 @@ adminDirectMessagesNav.type='button';adminDirectMessagesNav.dataset.adminView='d
 document.querySelector('.admin-sidebar').appendChild(adminDirectMessagesNav);
 const adminDirectMessagesView=document.createElement('section');
 adminDirectMessagesView.id='admin-direct-messages-view';adminDirectMessagesView.className='admin-view';adminDirectMessagesView.hidden=true;
-adminDirectMessagesView.innerHTML=`<p class="system-line">ARCHIVO CENTRAL · COMUNICACIÓN DIRECTA</p><h1>Mensajes a<br><em>destinatarios.</em></h1><p class="admin-intro">Envía comunicaciones que permanecerán en el buzón privado y decide cómo deben aparecer al destinatario.</p><div class="admin-direct-messages-layout"><form id="admin-direct-message-form"><p class="system-line">NUEVA COMUNICACIÓN</p><label>Destinatario<select name="user_id" required><option value="">Cargando destinatarios…</option></select></label><label>Asunto<input name="subject" required maxlength="160" placeholder="Actualización del expediente"></label><label>Mensaje<textarea name="body" required maxlength="5000" rows="7" placeholder="Escribe aquí la comunicación…"></textarea></label><div class="admin-direct-message-options"><label>Presentación<select name="display_mode"><option value="mailbox">Sólo en el buzón</option><option value="banner">Aviso flotante</option><option value="highlight">Mensaje destacado</option><option value="modal">Modal prioritario</option></select></label><label>Prioridad<select name="priority"><option value="normal">Normal</option><option value="high">Alta</option><option value="urgent">Urgente</option></select></label></div><div class="admin-direct-message-help"><p data-message-mode-help></p><p data-message-priority-help></p></div><label class="admin-direct-message-ack"><input name="requires_ack" type="checkbox"> Solicitar confirmación de recepción</label><aside class="admin-direct-message-preview mode-mailbox priority-normal"><header><span>VISTA PREVIA</span><b data-message-preview-label>SÓLO EN EL BUZÓN</b></header><div class="admin-direct-message-preview-stage"><article><small>DIVISIÓN DE ARCHIVOS TEMPORALES</small><strong data-message-preview-subject>Asunto del mensaje</strong><p data-message-preview-body>El texto aparecerá aquí.</p><footer><span data-message-preview-action>ABRIR MENSAJE</span></footer></article></div></aside><button type="submit">Enviar comunicación →</button><span id="admin-direct-message-status" role="status"></span></form><section><div class="admin-direct-message-list-heading"><div><p class="system-line">COMUNICACIONES ENVIADAS</p><span id="admin-direct-message-summary"></span></div><button id="admin-direct-message-refresh" type="button">↻ Actualizar</button></div><div id="admin-direct-message-list"><p>Cargando mensajes…</p></div></section></div>`;
+adminDirectMessagesView.innerHTML=`<p class="system-line">ARCHIVO CENTRAL · COMUNICACIÓN DIRECTA</p><h1>Mensajes a<br><em>destinatarios.</em></h1><p class="admin-intro">Envía comunicaciones al buzón, como avisos dentro de KIZUNA o directamente como notificaciones del dispositivo.</p><div class="admin-direct-messages-layout"><form id="admin-direct-message-form"><p class="system-line">NUEVA COMUNICACIÓN</p><label>Destinatario<select name="user_id" required><option value="">Cargando destinatarios…</option></select></label><label>Asunto<input name="subject" required maxlength="160" placeholder="Actualización del expediente"></label><label>Mensaje<textarea name="body" required maxlength="5000" rows="7" placeholder="Escribe aquí la comunicación…"></textarea></label><div class="admin-direct-message-options"><label>Presentación<select name="display_mode"><option value="mailbox">Sólo en el buzón</option><option value="banner">Aviso flotante</option><option value="highlight">Mensaje destacado</option><option value="modal">Modal prioritario</option><option value="push">Notificación push</option></select></label><label>Prioridad<select name="priority"><option value="normal">Normal</option><option value="high">Alta</option><option value="urgent">Urgente</option></select></label></div><div class="admin-direct-message-help"><p data-message-mode-help></p><p data-message-priority-help></p></div><label class="admin-direct-message-ack"><input name="requires_ack" type="checkbox"> Solicitar confirmación de recepción</label><aside class="admin-direct-message-preview mode-mailbox priority-normal"><header><span>VISTA PREVIA</span><b data-message-preview-label>SÓLO EN EL BUZÓN</b></header><div class="admin-direct-message-preview-stage"><article><small>DIVISIÓN DE ARCHIVOS TEMPORALES</small><strong data-message-preview-subject>Asunto del mensaje</strong><p data-message-preview-body>El texto aparecerá aquí.</p><footer><span data-message-preview-action>ABRIR MENSAJE</span></footer></article></div></aside><button type="submit">Enviar comunicación →</button><span id="admin-direct-message-status" role="status"></span></form><section><div class="admin-direct-message-list-heading"><div><p class="system-line">COMUNICACIONES ENVIADAS</p><span id="admin-direct-message-summary"></span></div><button id="admin-direct-message-refresh" type="button">↻ Actualizar</button></div><div id="admin-direct-message-list"><p>Cargando mensajes…</p></div></section></div>`;
 document.querySelector('.admin-views').appendChild(adminDirectMessagesView);
 
 const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView,shop:adminShopView,communications:adminCommunicationsView,sound:adminSoundView,directMessages:adminDirectMessagesView};
@@ -1655,6 +1669,26 @@ const adminDirectMessageForm=document.querySelector('#admin-direct-message-form'
 const adminDirectMessageList=document.querySelector('#admin-direct-message-list');
 const adminDirectMessageSummary=document.querySelector('#admin-direct-message-summary');
 const adminDirectMessageStatus=document.querySelector('#admin-direct-message-status');
+const adminDirectMessageDeliveryOptions=document.createElement('section');
+adminDirectMessageDeliveryOptions.className='admin-direct-message-delivery-options';
+adminDirectMessageDeliveryOptions.innerHTML=`<p class="system-line">ENTREGA Y DESTINO</p>
+  <label>Destino al abrir
+    <select name="deep_link_preset">
+      <option value="">Abrir solamente el mensaje</option>
+      <option value="expediente/index.html">Expediente privado</option>
+      <option value="index.html">Inicio de la web</option>
+      <option value="index.html#japan">Project Japan</option>
+      <option value="blog/index.html">Blog</option>
+      <option value="eventos/index.html">Eventos</option>
+      <option value="tienda/index.html">Tienda</option>
+      <option value="custom">Otra ruta de KIZUNA…</option>
+    </select>
+  </label>
+  <label data-deep-link-custom hidden>Ruta personalizada
+    <input name="deep_link_custom" maxlength="500" placeholder="expediente/index.html">
+  </label>
+  <p class="admin-direct-message-delivery-help">En la presentación «Notificación push» el aviso se envía directamente al dispositivo y no se añade al buzón. Los destinos privados solicitarán iniciar sesión antes de continuar.</p>`;
+adminDirectMessageForm.querySelector('.admin-direct-message-ack').before(adminDirectMessageDeliveryOptions);
 let adminDirectMessageChannel=null;
 const directMessageDate=value=>value?new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'short'}).format(new Date(value)):'—';
 const directMessageState=message=>{
@@ -1666,11 +1700,20 @@ const directMessageState=message=>{
 const renderAdminDirectMessages=messages=>{
   adminDirectMessageSummary.textContent=`${messages.length} comunicación${messages.length===1?'':'es'} registrada${messages.length===1?'':'s'}`;
   adminDirectMessageList.innerHTML=messages.map(message=>{
-    const [label,state]=directMessageState(message),profile=message.expedient_profiles||{};
+    const [label,state]=directMessageState(message),profile=message.expedient_profiles||{},deliveries=message.expedient_push_deliveries||[];
+    const accepted=deliveries.filter(delivery=>['accepted','received','opened'].includes(delivery.status)).length;
+    const received=deliveries.filter(delivery=>['received','opened'].includes(delivery.status)).length;
+    const opened=deliveries.filter(delivery=>delivery.status==='opened').length;
+    const failed=deliveries.filter(delivery=>delivery.status==='failed').length;
+    const pushStats=message.send_push?`<div class="admin-direct-message-stats">
+      <span>ENVIADA <b>${accepted}</b></span><span>RECIBIDA <b>${received}</b></span><span>ABIERTA <b>${opened}</b></span><span>LEÍDA <b>${message.read_at?'SÍ':'NO'}</b></span>
+      ${!deliveries.length?'<em>SIN DISPOSITIVO SUSCRITO</em>':''}${failed?`<em>${failed} FALLO${failed===1?'':'S'}</em>`:''}
+    </div>`:'';
     return `<article class="admin-direct-message-item">
       <header><div><span>${adminEditorEscape(profile.display_name||profile.email||'Destinatario')}</span><strong>${adminEditorEscape(message.subject)}</strong></div><b data-message-state="${state}">${label}</b></header>
       <p>${adminEditorEscape(message.body).replace(/\n/g,'<br>')}</p>
-      <footer><span>${directMessageDate(message.published_at)} · ${adminEditorEscape(message.display_mode)} · prioridad ${adminEditorEscape(message.priority)}</span>${message.requires_ack?'<em>CONFIRMACIÓN SOLICITADA</em>':''}</footer>
+      ${pushStats}
+      <footer><span>${directMessageDate(message.published_at)} · ${adminEditorEscape(message.display_mode)} · prioridad ${adminEditorEscape(message.priority)}${message.deep_link?` · destino ${adminEditorEscape(message.deep_link)}`:''}</span>${message.requires_ack?'<em>CONFIRMACIÓN SOLICITADA</em>':''}</footer>
     </article>`;
   }).join('')||'<p class="admin-direct-message-empty">Todavía no se ha enviado ninguna comunicación.</p>';
 };
@@ -1679,7 +1722,7 @@ const loadAdminDirectMessages=async()=>{
   const recipientSelect=adminDirectMessageForm.elements.user_id;
   const [{data:profiles,error:profilesError},{data:messages,error:messagesError}]=await Promise.all([
     supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').order('display_name'),
-    supabaseClient.from('expedient_messages').select('*,expedient_profiles(display_name,email)').order('published_at',{ascending:false}).limit(100)
+    supabaseClient.from('expedient_messages').select('*,expedient_profiles(display_name,email),expedient_push_deliveries(status,accepted_at,received_at,opened_at,error)').order('published_at',{ascending:false}).limit(100)
   ]);
   if(profilesError||messagesError){
     const error=profilesError||messagesError;
@@ -1694,6 +1737,7 @@ const loadAdminDirectMessages=async()=>{
   if(!adminDirectMessageChannel){
     adminDirectMessageChannel=supabaseClient.channel('admin-direct-messages')
       .on('postgres_changes',{event:'*',schema:'public',table:'expedient_messages'},()=>loadAdminDirectMessages())
+      .on('postgres_changes',{event:'*',schema:'public',table:'expedient_push_deliveries'},()=>loadAdminDirectMessages())
       .subscribe();
   }
 };
@@ -1701,47 +1745,77 @@ const adminMessageModeHelp={
   mailbox:'No aparece sobre la web. Se guarda en el buzón y enciende su indicador de mensajes nuevos.',
   banner:'Aparece como una tarjeta compacta flotante en una esquina y también queda guardado en el buzón.',
   highlight:'Utiliza una tarjeta flotante más grande para dar mayor presencia al mensaje sin bloquear toda la pantalla.',
-  modal:'Se presenta centrado sobre un fondo oscuro. Se aplaza si el destinatario está leyendo un documento o un final.'
+  modal:'Se presenta centrado sobre un fondo oscuro. Se aplaza si el destinatario está leyendo un documento o un final.',
+  push:'Se envía únicamente como notificación del dispositivo. No aparece automáticamente en la web ni se añade al buzón.'
 };
 const adminMessagePriorityHelp={
   normal:'Prioridad normal: presentación neutra y anuncio de accesibilidad no intrusivo.',
   high:'Prioridad alta: aumenta el contraste y el énfasis rojo para que el aviso destaque más.',
   urgent:'Prioridad urgente: borde de alerta reforzado y anuncio inmediato para tecnologías de asistencia.'
 };
-const adminMessageModeLabel={mailbox:'SÓLO EN EL BUZÓN',banner:'AVISO FLOTANTE',highlight:'MENSAJE DESTACADO',modal:'MODAL PRIORITARIO'};
+const adminMessageModeLabel={mailbox:'SÓLO EN EL BUZÓN',banner:'AVISO FLOTANTE',highlight:'MENSAJE DESTACADO',modal:'MODAL PRIORITARIO',push:'NOTIFICACIÓN PUSH'};
 const updateAdminDirectMessagePreview=()=>{
-  const preview=adminDirectMessageForm.querySelector('.admin-direct-message-preview'),mode=adminDirectMessageForm.elements.display_mode.value,priority=adminDirectMessageForm.elements.priority.value,requiresAck=adminDirectMessageForm.elements.requires_ack.checked;
+  const preview=adminDirectMessageForm.querySelector('.admin-direct-message-preview'),mode=adminDirectMessageForm.elements.display_mode.value,priority=adminDirectMessageForm.elements.priority.value,requiresAck=adminDirectMessageForm.elements.requires_ack.checked,deepLinkPreset=adminDirectMessageForm.elements.deep_link_preset.value;
   preview.className=`admin-direct-message-preview mode-${mode} priority-${priority}`;
   preview.querySelector('[data-message-preview-label]').textContent=adminMessageModeLabel[mode];
   preview.querySelector('[data-message-preview-subject]').textContent=adminDirectMessageForm.elements.subject.value||'Asunto del mensaje';
   preview.querySelector('[data-message-preview-body]').textContent=adminDirectMessageForm.elements.body.value||'El texto aparecerá aquí.';
-  preview.querySelector('[data-message-preview-action]').textContent=requiresAck?'CONFIRMAR RECEPCIÓN':mode==='mailbox'?'ABRIR MENSAJE':'ENTENDIDO';
+  preview.querySelector('[data-message-preview-action]').textContent=deepLinkPreset?'ABRIR DESTINO':mode==='push'?'ABRIR KIZUNA':requiresAck?'CONFIRMAR RECEPCIÓN':mode==='mailbox'?'ABRIR MENSAJE':'ENTENDIDO';
   adminDirectMessageForm.querySelector('[data-message-mode-help]').textContent=adminMessageModeHelp[mode];
   adminDirectMessageForm.querySelector('[data-message-priority-help]').textContent=adminMessagePriorityHelp[priority];
 };
 ['subject','body'].forEach(name=>adminDirectMessageForm.elements[name].addEventListener('input',updateAdminDirectMessagePreview));
+const updateAdminDirectMessageDestination=()=>{
+  adminDirectMessageForm.querySelector('[data-deep-link-custom]').hidden=adminDirectMessageForm.elements.deep_link_preset.value!=='custom';
+  updateAdminDirectMessagePreview();
+};
 ['display_mode','priority','requires_ack'].forEach(name=>adminDirectMessageForm.elements[name].addEventListener('change',updateAdminDirectMessagePreview));
+adminDirectMessageForm.elements.deep_link_preset.addEventListener('change',updateAdminDirectMessageDestination);
 updateAdminDirectMessagePreview();
+const normalizeAdminMessageDeepLink=data=>{
+  const preset=String(data.get('deep_link_preset')||'');
+  const value=(preset==='custom'?String(data.get('deep_link_custom')||''):preset).trim();
+  if(!value)return null;
+  if(/^[a-z][a-z0-9+.-]*:/i.test(value)||value.startsWith('//')||/[\u0000-\u001f\u007f]/.test(value))throw new Error('El destino debe ser una ruta interna de KIZUNA.');
+  return value.replace(/^\/+/,'');
+};
 adminDirectMessageForm.onsubmit=async event=>{
   event.preventDefault();
   const submit=adminDirectMessageForm.querySelector('button[type="submit"]'),data=new FormData(adminDirectMessageForm);
   submit.disabled=true;adminDirectMessageStatus.textContent='Enviando comunicación…';
   try{
-    const {error}=await supabaseClient.from('expedient_messages').insert({
+    const sendPush=data.get('display_mode')==='push';
+    const {data:created,error}=await supabaseClient.from('expedient_messages').insert({
       user_id:data.get('user_id'),
       sender_id:currentUser.id,
       subject:String(data.get('subject')||'').trim(),
       body:String(data.get('body')||'').trim(),
       display_mode:data.get('display_mode'),
       priority:data.get('priority'),
-      requires_ack:data.get('requires_ack')==='on'
-    });
+      requires_ack:data.get('requires_ack')==='on',
+      send_push:sendPush,
+      deep_link:normalizeAdminMessageDeepLink(data)
+    }).select('id').single();
     if(error)throw error;
+    let pushResult=null;
+    let pushIssue=null;
+    if(sendPush){
+      const {data:result,error:pushError}=await supabaseClient.functions.invoke('send-expedient-push',{body:{action:'send',messageId:created.id}});
+      if(pushError)pushIssue=pushError;
+      pushResult=result;
+    }
     const recipient=adminDirectMessageForm.elements.user_id.value;
     adminDirectMessageForm.reset();
     adminDirectMessageForm.elements.user_id.value=recipient;
+    updateAdminDirectMessageDestination();
     updateAdminDirectMessagePreview();
-    adminDirectMessageStatus.textContent='Comunicación enviada correctamente ✓';
+    adminDirectMessageStatus.textContent=sendPush
+      ?pushIssue
+        ?'Mensaje guardado, pero la notificación push no pudo enviarse.'
+        :pushResult?.sent
+        ?`Comunicación enviada · ${pushResult.sent} dispositivo${pushResult.sent===1?'':'s'} ✓`
+        :'Mensaje guardado, pero el destinatario aún no ha activado las notificaciones.'
+      :'Comunicación enviada correctamente ✓';
     await loadAdminDirectMessages();
   }catch(error){
     console.error('No se pudo enviar la comunicación.',error);

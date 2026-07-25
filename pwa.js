@@ -22,7 +22,7 @@
 
   const stylesheet=document.createElement('link');
   stylesheet.rel='stylesheet';
-  stylesheet.href=new URL('pwa.css?v=20260725-install-banner01',baseUrl).href;
+  stylesheet.href=new URL('pwa.css?v=20260725-web-push01',baseUrl).href;
   document.head.appendChild(stylesheet);
 
   let installEvent=null;
@@ -33,6 +33,8 @@
   let pendingUpdate=false;
   let updateRequested=false;
   let installCollapseTimer=0;
+  let pushClient=null;
+  let pushUserId=null;
 
   const removeElement=selector=>document.querySelector(selector)?.remove();
 
@@ -119,6 +121,85 @@
       notice.classList.add('is-compact');
       collapseButton.hidden=true;
     },reduced?9000:7000);
+  };
+
+  const base64UrlBytes=value=>{
+    const padding='='.repeat((4-value.length%4)%4);
+    const binary=atob((value+padding).replace(/-/g,'+').replace(/_/g,'/'));
+    return Uint8Array.from(binary,character=>character.charCodeAt(0));
+  };
+
+  const savePushSubscription=async subscription=>{
+    if(!pushClient||!pushUserId||!subscription)return;
+    const serialized=subscription.toJSON();
+    const {error}=await pushClient.rpc('register_expedient_push_subscription',{
+      push_endpoint:subscription.endpoint,
+      push_p256dh:serialized.keys?.p256dh,
+      push_auth:serialized.keys?.auth,
+      push_user_agent:navigator.userAgent,
+      push_platform:isIos()?'ios':/android/i.test(navigator.userAgent)?'android':'web'
+    });
+    if(error)throw error;
+  };
+
+  const enablePush=async status=>{
+    if(!pushClient||!pushUserId)throw new Error('Inicia sesión para activar los avisos.');
+    const permission=await Notification.requestPermission();
+    if(permission!=='granted')throw new Error('El permiso de notificaciones no está concedido.');
+    if(!registration)await register();
+    const currentRegistration=registration||await navigator.serviceWorker.ready;
+    let subscription=await currentRegistration.pushManager.getSubscription();
+    if(!subscription){
+      const {data,error}=await pushClient.functions.invoke('send-expedient-push',{body:{action:'public-key'}});
+      if(error||!data?.publicKey)throw error||new Error('Web Push no está configurado.');
+      subscription=await currentRegistration.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:base64UrlBytes(data.publicKey)
+      });
+    }
+    await savePushSubscription(subscription);
+    if(status)status.textContent='Notificaciones activadas en este dispositivo ✓';
+    setTimeout(()=>document.querySelector('.kizuna-push-consent')?.remove(),1200);
+    return subscription;
+  };
+
+  const showPushConsent=()=>{
+    if(document.querySelector('.kizuna-push-consent,.kizuna-pwa-install')||standalone()===false&&isIos())return;
+    if(!('Notification'in window)||!('PushManager'in window)||Notification.permission!=='default')return;
+    const notice=document.createElement('aside');
+    notice.className='kizuna-push-consent';
+    notice.setAttribute('role','status');
+    notice.innerHTML=`<span aria-hidden="true">✉</span><div><small>MENSAJES DEL ARCHIVO CENTRAL</small><strong>¿Quieres recibir avisos aunque KIZUNA esté cerrada?</strong><p>Podrás desactivarlos cuando quieras desde los ajustes del teléfono.</p><em role="status"></em></div><button type="button" data-push-enable>Activar avisos</button><button type="button" data-push-later>Ahora no</button>`;
+    notice.querySelector('[data-push-later]').onclick=()=>notice.remove();
+    notice.querySelector('[data-push-enable]').onclick=async event=>{
+      const button=event.currentTarget,status=notice.querySelector('em');
+      button.disabled=true;status.textContent='Solicitando permiso…';
+      try{await enablePush(status)}
+      catch(error){status.textContent=error?.message||'No se pudieron activar los avisos.';button.disabled=false}
+    };
+    document.body.appendChild(notice);
+  };
+
+  const connectPush=async options=>{
+    pushClient=options?.client||null;
+    pushUserId=options?.userId||null;
+    if(!pushClient||!pushUserId||!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))return null;
+    if(isIos()&&!standalone())return null;
+    if(!registration)await register();
+    const currentRegistration=registration||await navigator.serviceWorker.ready;
+    const subscription=await currentRegistration.pushManager.getSubscription();
+    if(Notification.permission==='granted'){
+      if(subscription){
+        await savePushSubscription(subscription).catch(error=>console.warn('No se pudo sincronizar la suscripción push.',error));
+        return subscription;
+      }
+      return enablePush().catch(error=>{
+        console.warn('No se pudo recuperar la suscripción push.',error);
+        return null;
+      });
+    }
+    setTimeout(()=>{if(!isBusy())showPushConsent()},1400);
+    return null;
   };
 
   const applyUpdate=()=>{
@@ -217,7 +298,14 @@
     get registration(){return registration},
     get waiting(){return waitingWorker},
     install,
+    connectPush,
+    enablePush,
     checkForUpdates,
     cachePolicy:'static-public-only'
   };
+  if(window.KizunaPendingPushConnection){
+    const pending=window.KizunaPendingPushConnection;
+    delete window.KizunaPendingPushConnection;
+    void connectPush(pending);
+  }
 })();
