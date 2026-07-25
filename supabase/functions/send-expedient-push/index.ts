@@ -18,6 +18,20 @@ const safeDeepLink = (value: unknown) => {
   return link.slice(0, 500)
 }
 
+const readKeyMap = (name: string) => {
+  const raw = Deno.env.get(name)
+  if (!raw) return ''
+  try {
+    const parsed = JSON.parse(raw)
+    if (typeof parsed === 'string') return parsed
+    if (!parsed || typeof parsed !== 'object') return ''
+    const values = Object.values(parsed).filter(value => typeof value === 'string') as string[]
+    return String((parsed as Record<string, unknown>).default ?? values[0] ?? '')
+  } catch {
+    return ''
+  }
+}
+
 Deno.serve(async request => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (request.method !== 'POST') return json({ error: 'Método no permitido.' }, 405)
@@ -25,8 +39,14 @@ Deno.serve(async request => {
   const payload = await request.json().catch(() => ({}))
   const action = String(payload.action ?? 'send')
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  const anonKey =
+    Deno.env.get('SUPABASE_ANON_KEY') ||
+    Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ||
+    readKeyMap('SUPABASE_PUBLISHABLE_KEYS')
+  const serviceRoleKey =
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
+    Deno.env.get('SUPABASE_SECRET_KEY') ||
+    readKeyMap('SUPABASE_SECRET_KEYS')
   const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
   const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
   const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? ''
@@ -34,6 +54,16 @@ Deno.serve(async request => {
   if (action === 'public-key') {
     if (!vapidPublicKey) return json({ error: 'Web Push no está configurado.' }, 503)
     return json({ publicKey: vapidPublicKey })
+  }
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error('Supabase configuration is incomplete', {
+      hasUrl: Boolean(supabaseUrl),
+      hasSecretKey: Boolean(serviceRoleKey),
+    })
+    return json({
+      error: 'La función no dispone de la clave secreta necesaria para consultar Supabase.',
+    }, 503)
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey)
@@ -62,6 +92,12 @@ Deno.serve(async request => {
 
   const authorization = request.headers.get('Authorization')
   if (!authorization) return json({ error: 'Autorización requerida.' }, 401)
+  if (!anonKey) {
+    console.error('Supabase publishable key is not available')
+    return json({
+      error: 'La función no dispone de la clave pública necesaria para validar la sesión.',
+    }, 503)
+  }
   const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } })
   const { data: userData, error: userError } = await userClient.auth.getUser()
   if (userError || !userData.user) return json({ error: 'Sesión no válida.' }, 401)
@@ -77,7 +113,21 @@ Deno.serve(async request => {
     .select('id,user_id,subject,body,priority,deep_link,send_push')
     .eq('id', messageId)
     .maybeSingle()
-  if (messageError || !message) return json({ error: 'Mensaje no localizado.' }, 404)
+  if (messageError) {
+    console.error('Message lookup failed', {
+      messageId,
+      code: messageError.code,
+      message: messageError.message,
+      details: messageError.details,
+      hint: messageError.hint,
+    })
+    return json({
+      error: 'No se pudo consultar el mensaje en Supabase.',
+      detail: messageError.message,
+      code: messageError.code,
+    }, 500)
+  }
+  if (!message) return json({ error: 'Mensaje no localizado.', messageId }, 404)
   if (!message.send_push) return json({ sent: 0, ignored: true })
 
   const { data: subscriptions, error: subscriptionsError } = await adminClient
