@@ -1258,9 +1258,22 @@ function render(options={}){
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       const card=targetId?document.querySelector(`[data-document-id="${targetId}"]`):null;
       if(!card)return;
-      card.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'center'});
-      card.classList.add('is-new-unlock-located');
-      setTimeout(()=>card.classList.remove('is-new-unlock-located'),2600);
+      const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
+      const phone=matchMedia('(max-width:600px)').matches;
+      card.scrollIntoView({behavior:reduced?'auto':'smooth',block:'center'});
+      // En teléfono la lista es de una sola columna y el desplazamiento suele
+      // ser más largo. Esperamos a que termine para que el destello no ocurra
+      // fuera de pantalla mientras la tarjeta todavía se está moviendo.
+      const illuminate=()=>{
+        if(!card.isConnected||card.classList.contains('is-new-unlock-located'))return;
+        card.classList.add('is-new-unlock-located');
+        card.querySelector('button:not(:disabled)')?.focus({preventScroll:true});
+        setTimeout(()=>card.classList.remove('is-new-unlock-located'),phone?3400:2600);
+      };
+      if(phone&&!reduced){
+        let fallback=setTimeout(illuminate,700);
+        addEventListener('scrollend',()=>{clearTimeout(fallback);setTimeout(illuminate,80)},{once:true});
+      }else setTimeout(illuminate,reduced?0:120);
     }));
   }
   // Nunca abras el protocolo final como efecto secundario de renderizar la
