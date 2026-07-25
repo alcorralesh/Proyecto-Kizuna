@@ -1691,6 +1691,41 @@ adminDirectMessageDeliveryOptions.innerHTML=`<p class="system-line">ENTREGA Y DE
 adminDirectMessageForm.querySelector('.admin-direct-message-ack').before(adminDirectMessageDeliveryOptions);
 let adminDirectMessageChannel=null;
 const directMessageDate=value=>value?new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'short'}).format(new Date(value)):'—';
+const directMessageDeviceInfo=subscription=>{
+  if(!subscription)return{title:'Dispositivo eliminado',detail:'La suscripción ya no está disponible'};
+  const ua=String(subscription.user_agent||''),platform=String(subscription.platform||'web').toLowerCase();
+  let device='Navegador web';
+  const samsungModel=ua.match(/;\s*(SM-[A-Z0-9-]+)\s*(?:Build|[;)])/i);
+  if(samsungModel)device=`Samsung ${samsungModel[1].toUpperCase()}`;
+  else if(/ipad/i.test(ua))device='iPad';
+  else if(/iphone/i.test(ua))device='iPhone';
+  else if(/android/i.test(ua))device='Dispositivo Android';
+  else if(/windows/i.test(ua))device='Ordenador Windows';
+  else if(/macintosh|mac os/i.test(ua))device='Mac';
+  else if(/linux/i.test(ua))device='Equipo Linux';
+  let browser='Navegador';
+  if(/SamsungBrowser\//i.test(ua))browser='Samsung Internet';
+  else if(/EdgA?\//i.test(ua))browser='Microsoft Edge';
+  else if(/CriOS\//i.test(ua))browser='Chrome';
+  else if(/Chrome\//i.test(ua))browser='Chrome';
+  else if(/FxiOS\//i.test(ua)||/Firefox\//i.test(ua))browser='Firefox';
+  else if(/Safari\//i.test(ua))browser='Safari';
+  const platformLabel=platform==='android'?'Android':platform==='ios'?'iOS / iPadOS':'Web';
+  return{
+    title:`${device} · ${browser}`,
+    detail:`${platformLabel} · última actividad ${directMessageDate(subscription.last_seen_at)}`
+  };
+};
+const directMessageDeliveryState=delivery=>{
+  const states={
+    queued:['EN COLA','queued'],
+    accepted:['ENVIADA','accepted'],
+    received:['RECIBIDA','received'],
+    opened:['ABIERTA','opened'],
+    failed:['FALLO','failed']
+  };
+  return states[delivery.status]||[String(delivery.status||'DESCONOCIDO').toUpperCase(),'unknown'];
+};
 const directMessageState=message=>{
   if(message.acknowledged_at)return['CONFIRMADO','acknowledged'];
   if(message.read_at)return['LEÍDO','read'];
@@ -1705,10 +1740,24 @@ const renderAdminDirectMessages=messages=>{
     const received=deliveries.filter(delivery=>['received','opened'].includes(delivery.status)).length;
     const opened=deliveries.filter(delivery=>delivery.status==='opened').length;
     const failed=deliveries.filter(delivery=>delivery.status==='failed').length;
+    const deviceRows=deliveries.map(delivery=>{
+      const relation=delivery.expedient_push_subscriptions;
+      const subscription=Array.isArray(relation)?relation[0]:relation;
+      const device=directMessageDeviceInfo(subscription);
+      const [deliveryLabel,deliveryState]=directMessageDeliveryState(delivery);
+      const changedAt=delivery.opened_at||delivery.received_at||delivery.accepted_at||delivery.updated_at;
+      return `<li>
+        <span class="admin-direct-message-device-icon" aria-hidden="true">${subscription?.platform==='android'?'A':subscription?.platform==='ios'?'i':'W'}</span>
+        <span><strong>${adminEditorEscape(device.title)}</strong><small>${adminEditorEscape(device.detail)}</small></span>
+        <b data-delivery-state="${deliveryState}">${deliveryLabel}</b>
+        <time>${directMessageDate(changedAt)}</time>
+        ${delivery.error?`<em title="${adminEditorEscape(delivery.error)}">VER ERROR</em>`:''}
+      </li>`;
+    }).join('');
     const pushStats=message.send_push?`<div class="admin-direct-message-stats">
       <span>ENVIADA <b>${accepted}</b></span><span>RECIBIDA <b>${received}</b></span><span>ABIERTA <b>${opened}</b></span><span>LEÍDA <b>${message.read_at?'SÍ':'NO'}</b></span>
       ${!deliveries.length?'<em>SIN DISPOSITIVO SUSCRITO</em>':''}${failed?`<em>${failed} FALLO${failed===1?'':'S'}</em>`:''}
-    </div>`:'';
+    </div>${deviceRows?`<section class="admin-direct-message-devices"><h3>DISPOSITIVOS DE DESTINO</h3><ul>${deviceRows}</ul></section>`:''}`:'';
     return `<article class="admin-direct-message-item">
       <header><div><span>${adminEditorEscape(profile.display_name||profile.email||'Destinatario')}</span><strong>${adminEditorEscape(message.subject)}</strong></div><b data-message-state="${state}">${label}</b></header>
       <p>${adminEditorEscape(message.body).replace(/\n/g,'<br>')}</p>
@@ -1722,13 +1771,13 @@ const loadAdminDirectMessages=async()=>{
   const recipientSelect=adminDirectMessageForm.elements.user_id;
   const [{data:profiles,error:profilesError},{data:messages,error:messagesError}]=await Promise.all([
     supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').order('display_name'),
-    supabaseClient.from('expedient_messages').select('*,expedient_profiles(display_name,email),expedient_push_deliveries(status,accepted_at,received_at,opened_at,error)').order('published_at',{ascending:false}).limit(100)
+    supabaseClient.from('expedient_messages').select('*,expedient_profiles(display_name,email),expedient_push_deliveries(status,accepted_at,received_at,opened_at,updated_at,error,expedient_push_subscriptions(id,user_agent,platform,last_seen_at,revoked_at))').order('published_at',{ascending:false}).limit(100)
   ]);
   if(profilesError||messagesError){
     const error=profilesError||messagesError;
     console.error('No se pudieron cargar las comunicaciones.',error);
     adminDirectMessageList.innerHTML='<p class="admin-direct-message-empty">No se pudieron cargar los mensajes. Comprueba que has ejecutado el SQL de comunicaciones.</p>';
-    return;
+    return false;
   }
   const previous=recipientSelect.value;
   recipientSelect.innerHTML='<option value="">Selecciona un destinatario</option>'+profiles.filter(profile=>profile.is_active!==false).map(profile=>`<option value="${profile.id}">${adminEditorEscape(profile.display_name||profile.email)} · ${adminEditorEscape(profile.email)}</option>`).join('');
@@ -1740,6 +1789,7 @@ const loadAdminDirectMessages=async()=>{
       .on('postgres_changes',{event:'*',schema:'public',table:'expedient_push_deliveries'},()=>loadAdminDirectMessages())
       .subscribe();
   }
+  return true;
 };
 const adminMessageModeHelp={
   mailbox:'No aparece sobre la web. Se guarda en el buzón y enciende su indicador de mensajes nuevos.',
@@ -1825,7 +1875,22 @@ adminDirectMessageForm.onsubmit=async event=>{
     setTimeout(()=>{adminDirectMessageStatus.textContent=''},3500);
   }
 };
-document.querySelector('#admin-direct-message-refresh').onclick=loadAdminDirectMessages;
+const adminDirectMessageRefresh=document.querySelector('#admin-direct-message-refresh');
+adminDirectMessageRefresh.onclick=async()=>{
+  if(adminDirectMessageRefresh.disabled)return;
+  adminDirectMessageRefresh.disabled=true;
+  adminDirectMessageRefresh.setAttribute('aria-busy','true');
+  adminDirectMessageRefresh.textContent='↻ Actualizando…';
+  const refreshed=await loadAdminDirectMessages();
+  adminDirectMessageRefresh.textContent=refreshed
+    ?`✓ Actualizado ${new Intl.DateTimeFormat('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date())}`
+    :'⚠ Reintentar';
+  adminDirectMessageRefresh.removeAttribute('aria-busy');
+  setTimeout(()=>{
+    adminDirectMessageRefresh.disabled=false;
+    adminDirectMessageRefresh.textContent='↻ Actualizar';
+  },1800);
+};
 
 const mailboxBadge=document.querySelector('#admin-mailbox-badge');
 const mailboxSummary=document.querySelector('#admin-mailbox-summary');
