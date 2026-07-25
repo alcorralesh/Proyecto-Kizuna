@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260725-safe-area01';
+const VERSION='20260725-message-preview01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -14,6 +14,9 @@ const CORE_ASSETS=[
   './pwa.js',
   './pwa.css',
   './styles.css',
+  './recipient-messages.css',
+  './recipient-messages.js',
+  './script.js',
   './assets/kizuna-logo-official.png',
   './assets/kizuna-app-icon-192.png',
   './assets/kizuna-app-icon-512.png',

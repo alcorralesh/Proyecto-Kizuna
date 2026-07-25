@@ -44,7 +44,7 @@ const ar03Cities=['01-Tokyo.png','02-Tokyo_barrios.png','03-Kyoto.png','04-Osaka
 const ar03Temples=['001-Fushimi Inari.png','002-Kiyomizu Dera.png','003-Kinkaku ji.png','004-Todai ji.png','005-Itsukushima.png','006-Senso ji.png','007-Meiji jingu.png','008-Kotoku in.png','009-Ginkaku ji.png','010-Tenryu ji.png','011-Kasuga taisha.png','012-nikko tosho gu.png','013-Hase dera.png','014-Yasaka shrine.png','015-Arashiyama bamboo grove.png','016-Heian jingu.png'];
 const supabaseUrl='https://vcwqkideizdrhzpbghkj.supabase.co';
 const supabaseKey='sb_publishable_h3pjxT8UPZkYqRhLskVdlA_m-ulI4EF';
-let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null,currentDisplayName='Destinatario autorizado',progressHydrated=false,progressSessionVersion=0;
+let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null,currentDisplayName='Destinatario autorizado',progressHydrated=false,progressSessionVersion=0,remoteRecipientMessages=[];
 const recipientName=()=>currentDisplayName||'Destinatario autorizado';
 const updateRecipientName=()=>{
   const fullName=recipientName().trim();
@@ -230,6 +230,7 @@ const handleRecipientExit=async()=>{
   try{
     await progressWriteQueue;
     await recordActivity('logout',null,{source:'private_access'});
+    await window.KizunaRecipientMessages?.stop?.();
     const client=await getSupabase();
     const {error}=await client.auth.signOut({scope:'local'});
     if(error)throw error;
@@ -393,6 +394,16 @@ const loadRemoteProgress=async user=>{
   if(databaseRead.some(id=>!remoteState.read.includes(id))){
     throw new Error('El resumen local no coincide con las lecturas devueltas por Supabase.');
   }
+  await window.KizunaRecipientMessages?.connect?.({
+    client,
+    userId:user.id,
+    context:'private',
+    onChange:items=>{
+      remoteRecipientMessages=items;
+      if(typeof updateMailboxIndicator==='function')updateMailboxIndicator();
+      if(mailbox?.style?.display==='block'&&typeof renderMailbox==='function')renderMailbox();
+    }
+  });
   return remoteState;
 };
 const recordComicPage=async page=>{
@@ -1062,10 +1073,14 @@ const allowed=id=>{const index=sequence.indexOf(id);return index===0||read().inc
 const mailboxButton=document.createElement('button'),mailbox=document.createElement('aside'),publicReturnButton=document.createElement('button');mailboxButton.id='mailbox-toggle';mailboxButton.type='button';mailboxButton.setAttribute('aria-label','Abrir buzón del expediente');mailbox.id='mailbox';mailbox.style.cssText='display:none;position:fixed;right:5vw;top:82px;z-index:30;width:min(450px,calc(100vw - 32px));max-height:72vh;overflow:auto;background:#f6f0e2;color:#202726;border:1px solid #8b887d;box-shadow:12px 14px 30px #0004;padding:22px';publicReturnButton.id='return-public-site';publicReturnButton.type='button';publicReturnButton.innerHTML='<span aria-hidden="true">⌂</span><b>Web</b>';publicReturnButton.setAttribute('aria-label','Volver a la web pública');publicReturnButton.title='Volver a la web pública';publicReturnButton.onclick=()=>{location.href='../index.html'};const headerActions=document.querySelector('.header-actions'),exitButton=document.querySelector('#exit');if(exitButton){exitButton.innerHTML='<span aria-hidden="true">↗</span><b>Salir</b>';exitButton.setAttribute('aria-label','Cerrar sesión');exitButton.title='Cerrar sesión'}headerActions?.prepend(mailboxButton);headerActions?.insertBefore(publicReturnButton,exitButton);dash.appendChild(mailbox);
 const paintMailboxButton=unread=>{mailboxButton.innerHTML=`<span aria-hidden="true">✉</span><b>Buzón</b><i ${unread?'':'hidden'}>${Math.min(99,unread)}</i>`;mailboxButton.classList.toggle('has-unread',unread>0);mailboxButton.setAttribute('aria-label',unread?`Abrir buzón · ${unread} mensaje${unread===1?'':'s'} nuevo${unread===1?'':'s'}`:'Abrir buzón del expediente');mailboxButton.title=mailboxButton.getAttribute('aria-label')};
 const privateHeader=document.querySelector('.dashboard>header'),privateHeaderTools=document.createElement('div');privateHeaderTools.className='private-header-tools';if(privateHeader&&headerActions){privateHeader.insertBefore(privateHeaderTools,headerActions);privateHeaderTools.append(mailboxButton,headerActions)}
-const mailboxMessages=()=>{const done=read(),items=[];for(let i=1;i<=14;i++){const id=`KTB-${String(i).padStart(3,'0')}`;if(!done.includes(id))continue;items.push({id:id,subject:`Lectura confirmada · ${id}`,body:`La consulta del documento ${id} ha sido registrada correctamente. La secuencia autorizada ha sido actualizada.`,order:i})}if(done.includes('KTB-003'))items.push({id:'AC-01',subject:'Archivo complementario localizado',body:'Durante la reconstrucción del expediente se ha localizado el Archivo Complementario AC-01. Su contenido permanece en proceso de clasificación.',order:3.2});if(done.includes('KTB-006'))items.push({id:'AR-01',subject:'Acceso a Archivo Recuperado 01',body:'La documentación operativa ha quedado disponible para su consulta conforme al protocolo de custodia.',order:6.2});if(done.includes('KTB-011'))items.push({id:'AR-06',subject:'Acceso a datos recuperados',body:'Se ha autorizado la consulta de los datos recuperados del dispositivo asociado al expediente.',order:11.2});if(finalFlowClosed())items.push({id:'KTB-014-FINAL',subject:'Expediente archivado',body:'La consulta ha finalizado. El expediente PROJECT JAPAN ha sido archivado con integridad documental preservada.',order:14.2});if(done.includes('AR01-BILLETES'))items.push({id:'AR01-BILLETES',subject:'Registros de transporte verificados',body:'Todos los billetes recuperados de AR-01 han sido confirmados y archivados.',order:6.5});if(ar03Complete())items.push({id:'AR03',subject:'Registros geográficos completados',body:'Las guías de ciudades y las entradas de templos han sido incorporadas al expediente.',order:8.5});if(finalFlowClosed())items.push({id:'FINAL-01',subject:'ATENCIÓN · Archivo localizado',body:'Se ha localizado un archivo durante la verificación final del expediente. Clasificación: No catalogado. Estado: Pendiente de revisión.',order:100,urgent:true});return items.sort((a,b)=>b.order-a.order)};
-const renderMailbox=()=>{const items=mailboxMessages(),seen=Number(getState().mailRead||0),unread=Math.max(0,items.length-seen);paintMailboxButton(unread);mailbox.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #b4ae9f;padding-bottom:14px"><div><p style="margin:0;color:#7e1b19;font:10px var(--mono);letter-spacing:.1em">SISTEMA DE NOTIFICACIONES</p><h3 style="margin:6px 0 0;font:31px var(--serif)">Buzón del expediente</h3></div><button id="mailbox-close" style="border:0;background:none;font:25px var(--serif);color:#7e1b19;cursor:pointer">×</button></div><p style="font:10px/1.6 var(--mono)">${items.length} comunicaciones registradas · más recientes primero</p>${items.map((item,index)=>`<details style="border-top:1px solid ${item.urgent?'#7e1b19':'#c5bdaa'};padding:13px 0;${item.urgent?'background:#f4dfd5;margin:0 -10px;padding:15px 10px;border-left:4px solid #7e1b19':''}"><summary style="cursor:pointer;list-style:none;font:600 13px var(--serif)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${item.urgent||index<unread?'#7e1b19':'#9a998f'};margin-right:8px"></span>${item.subject}<small style="display:block;margin:5px 0 0 16px;font:9px var(--mono);color:#7e1b19">DIVISIÓN DE ARCHIVOS TEMPORALES · ${item.id}</small></summary><p style="margin:12px 0 0 16px;font:12px/1.65 var(--mono)">${item.body}</p>${item.id==='FINAL-01'?'<button id="final-file-from-mail" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Consultar archivo</button>':''}</details>`).join('')||'<p>No hay comunicaciones registradas.</p>'}`;document.querySelector('#mailbox-close').onclick=()=>mailbox.style.display='none';const finalButton=document.querySelector('#final-file-from-mail');if(finalButton)finalButton.onclick=()=>{mailbox.style.display='none';openFinalLocatedFile()}};
-mailboxButton.onclick=()=>{const opening=mailbox.style.display==='none';if(opening){renderMailbox();mailbox.style.display='block';patchState({mailRead:mailboxMessages().length}).finally(()=>{renderMailbox();updateMailboxIndicator()})}else mailbox.style.display='none'};
-const updateMailboxIndicator=()=>{const unread=Math.max(0,mailboxMessages().length-Number(getState().mailRead||0));paintMailboxButton(unread)};
+const mailboxEscape=value=>String(value??'').replace(/[&<>'"]/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
+const automaticMailboxMessages=()=>{const done=read(),items=[];for(let i=1;i<=14;i++){const id=`KTB-${String(i).padStart(3,'0')}`;if(!done.includes(id))continue;items.push({id,subject:`Lectura confirmada · ${id}`,body:`La consulta del documento ${id} ha sido registrada correctamente. La secuencia autorizada ha sido actualizada.`,order:i,source:'system'})}if(done.includes('KTB-003'))items.push({id:'AC-01',subject:'Archivo complementario localizado',body:'Durante la reconstrucción del expediente se ha localizado el Archivo Complementario AC-01. Su contenido permanece en proceso de clasificación.',order:3.2,source:'system'});if(done.includes('KTB-006'))items.push({id:'AR-01',subject:'Acceso a Archivo Recuperado 01',body:'La documentación operativa ha quedado disponible para su consulta conforme al protocolo de custodia.',order:6.2,source:'system'});if(done.includes('KTB-011'))items.push({id:'AR-06',subject:'Acceso a datos recuperados',body:'Se ha autorizado la consulta de los datos recuperados del dispositivo asociado al expediente.',order:11.2,source:'system'});if(finalFlowClosed())items.push({id:'KTB-014-FINAL',subject:'Expediente archivado',body:'La consulta ha finalizado. El expediente PROJECT JAPAN ha sido archivado con integridad documental preservada.',order:14.2,source:'system'});if(done.includes('AR01-BILLETES'))items.push({id:'AR01-BILLETES',subject:'Registros de transporte verificados',body:'Todos los billetes recuperados de AR-01 han sido confirmados y archivados.',order:6.5,source:'system'});if(ar03Complete())items.push({id:'AR03',subject:'Registros geográficos completados',body:'Las guías de ciudades y las entradas de templos han sido incorporadas al expediente.',order:8.5,source:'system'});if(finalFlowClosed())items.push({id:'FINAL-01',subject:'ATENCIÓN · Archivo localizado',body:'Se ha localizado un archivo durante la verificación final del expediente. Clasificación: No catalogado. Estado: Pendiente de revisión.',order:100,urgent:true,source:'system'});return items.sort((a,b)=>b.order-a.order)};
+const mailboxMessages=()=>[...remoteRecipientMessages.map(message=>({...message,id:message.id,order:new Date(message.published_at).getTime(),source:'remote',urgent:message.priority==='urgent'})),...automaticMailboxMessages()].sort((a,b)=>b.order-a.order);
+const mailboxUnreadCount=()=>Math.max(0,automaticMailboxMessages().length-Number(getState().mailRead||0))+remoteRecipientMessages.filter(message=>!message.read_at).length;
+const renderMailbox=()=>{const items=mailboxMessages(),unread=mailboxUnreadCount();paintMailboxButton(unread);mailbox.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #b4ae9f;padding-bottom:14px"><div><p style="margin:0;color:#7e1b19;font:10px var(--mono);letter-spacing:.1em">SISTEMA DE NOTIFICACIONES</p><h3 style="margin:6px 0 0;font:31px var(--serif)">Buzón del expediente</h3></div><button id="mailbox-close" style="border:0;background:none;font:25px var(--serif);color:#7e1b19;cursor:pointer">×</button></div><p style="font:10px/1.6 var(--mono)">${items.length} comunicaciones registradas · más recientes primero</p>${items.map(item=>`<details data-recipient-message="${item.source==='remote'?item.id:''}" style="border-top:1px solid ${item.urgent?'#7e1b19':'#c5bdaa'};padding:13px 0;${item.urgent?'background:#f4dfd5;margin:0 -10px;padding:15px 10px;border-left:4px solid #7e1b19':''}"><summary style="cursor:pointer;list-style:none;font:600 13px var(--serif)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${item.urgent||item.source==='remote'&&!item.read_at?'#7e1b19':'#9a998f'};margin-right:8px"></span>${mailboxEscape(item.subject)}<small style="display:block;margin:5px 0 0 16px;font:9px var(--mono);color:#7e1b19">DIVISIÓN DE ARCHIVOS TEMPORALES · ${item.source==='remote'?new Date(item.published_at).toLocaleDateString('es-ES'):mailboxEscape(item.id)}</small></summary><p style="margin:12px 0 0 16px;font:12px/1.65 var(--mono)">${mailboxEscape(item.body).replace(/\n/g,'<br>')}</p>${item.source==='remote'&&item.requires_ack&&!item.acknowledged_at?`<button data-ack-message="${item.id}" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Confirmar recepción</button>`:''}${item.id==='FINAL-01'?'<button id="final-file-from-mail" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Consultar archivo</button>':''}</details>`).join('')||'<p>No hay comunicaciones registradas.</p>'}`;document.querySelector('#mailbox-close').onclick=()=>mailbox.style.display='none';mailbox.querySelectorAll('details[data-recipient-message]').forEach(details=>details.addEventListener('toggle',()=>{if(details.open&&details.dataset.recipientMessage)window.KizunaRecipientMessages?.markRead(details.dataset.recipientMessage)}));mailbox.querySelectorAll('[data-ack-message]').forEach(button=>button.onclick=()=>window.KizunaRecipientMessages?.acknowledge(button.dataset.ackMessage));const finalButton=document.querySelector('#final-file-from-mail');if(finalButton)finalButton.onclick=()=>{mailbox.style.display='none';openFinalLocatedFile()}};
+mailboxButton.onclick=()=>{const opening=mailbox.style.display==='none';if(opening){renderMailbox();mailbox.style.display='block';patchState({mailRead:automaticMailboxMessages().length}).finally(()=>{renderMailbox();updateMailboxIndicator()})}else mailbox.style.display='none'};
+document.addEventListener('kizuna:open-recipient-mailbox',()=>{if(mailbox.style.display==='none')mailboxButton.click()});
+const updateMailboxIndicator=()=>paintMailboxButton(mailboxUnreadCount());
 
 const expedientTourSteps=[
   {selector:'#mailbox-toggle',eyebrow:'COMUNICACIONES',title:'Tu buzón privado',text:'Aquí aparecerán los avisos y registros que la División de Archivos Temporales envíe durante la consulta.'},
@@ -1586,8 +1601,16 @@ adminSoundView.id='admin-sound-view';adminSoundView.className='admin-view';admin
 adminSoundView.innerHTML=`<p class="system-line">ARCHIVO CENTRAL · AMBIENTACIÓN</p><h1>Diseño de<br><em>sonido.</em></h1><p class="admin-intro">Configura la respuesta sonora del lector. Los cambios se aplican a todos los destinatarios, que conservan su propio botón de silencio.</p><section class="admin-sound-master"><header><div><p class="system-line">CONFIGURACIÓN GENERAL</p><h2>Ambientación del expediente</h2></div><label class="admin-sound-switch"><input id="admin-sound-enabled" type="checkbox" checked><i aria-hidden="true"></i><span data-sound-master-state>Sonido activado</span></label></header><div class="admin-sound-master-controls"><label>Volumen general <output id="admin-sound-master-output">75 %</output><input id="admin-sound-master-volume" type="range" min="0" max="100" value="75"></label><label class="admin-sound-vibration"><input id="admin-sound-vibration" type="checkbox" checked> Vibración háptica compatible</label><button id="admin-sound-test-sequence" type="button">Probar secuencia</button></div></section><section class="admin-sound-library"><header><div><p class="system-line">BIBLIOTECA DE EVENTOS</p><h2>Sonidos de la interfaz</h2></div><label>Filtrar sonidos<input id="admin-sound-search" type="search" placeholder="Documento, carpeta, cierre…"></label></header><div id="admin-sound-list"><p>Cargando biblioteca sonora…</p></div><footer><span id="admin-sound-status" role="status"></span><button id="admin-sound-reset" type="button">Restaurar valores</button><button id="admin-sound-save" type="button">Guardar configuración</button></footer></section>`;
 document.querySelector('.admin-views').appendChild(adminSoundView);
 
-const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView,shop:adminShopView,communications:adminCommunicationsView,sound:adminSoundView};
-const adminViewTitles={users:['USUARIOS','Gestión de expedientes'],mailbox:['BUZÓN','Mensajes recibidos'],media:['MEDIA','Biblioteca de imágenes'],blog:['BLOG','Gestión de artículos'],events:['EVENTOS','Gestión de eventos'],shop:['TIENDA','Catálogo simulado'],communications:['COMUNICACIONES','Avisos de actividad'],sound:['SONIDO','Ambientación del expediente']};
+const adminDirectMessagesNav=document.createElement('button');
+adminDirectMessagesNav.type='button';adminDirectMessagesNav.dataset.adminView='directMessages';adminDirectMessagesNav.innerHTML='<span>09</span>Mensajes';
+document.querySelector('.admin-sidebar').appendChild(adminDirectMessagesNav);
+const adminDirectMessagesView=document.createElement('section');
+adminDirectMessagesView.id='admin-direct-messages-view';adminDirectMessagesView.className='admin-view';adminDirectMessagesView.hidden=true;
+adminDirectMessagesView.innerHTML=`<p class="system-line">ARCHIVO CENTRAL · COMUNICACIÓN DIRECTA</p><h1>Mensajes a<br><em>destinatarios.</em></h1><p class="admin-intro">Envía comunicaciones que permanecerán en el buzón privado y decide cómo deben aparecer al destinatario.</p><div class="admin-direct-messages-layout"><form id="admin-direct-message-form"><p class="system-line">NUEVA COMUNICACIÓN</p><label>Destinatario<select name="user_id" required><option value="">Cargando destinatarios…</option></select></label><label>Asunto<input name="subject" required maxlength="160" placeholder="Actualización del expediente"></label><label>Mensaje<textarea name="body" required maxlength="5000" rows="7" placeholder="Escribe aquí la comunicación…"></textarea></label><div class="admin-direct-message-options"><label>Presentación<select name="display_mode"><option value="mailbox">Sólo en el buzón</option><option value="banner">Aviso flotante</option><option value="highlight">Mensaje destacado</option><option value="modal">Modal prioritario</option></select></label><label>Prioridad<select name="priority"><option value="normal">Normal</option><option value="high">Alta</option><option value="urgent">Urgente</option></select></label></div><div class="admin-direct-message-help"><p data-message-mode-help></p><p data-message-priority-help></p></div><label class="admin-direct-message-ack"><input name="requires_ack" type="checkbox"> Solicitar confirmación de recepción</label><aside class="admin-direct-message-preview mode-mailbox priority-normal"><header><span>VISTA PREVIA</span><b data-message-preview-label>SÓLO EN EL BUZÓN</b></header><div class="admin-direct-message-preview-stage"><article><small>DIVISIÓN DE ARCHIVOS TEMPORALES</small><strong data-message-preview-subject>Asunto del mensaje</strong><p data-message-preview-body>El texto aparecerá aquí.</p><footer><span data-message-preview-action>ABRIR MENSAJE</span></footer></article></div></aside><button type="submit">Enviar comunicación →</button><span id="admin-direct-message-status" role="status"></span></form><section><div class="admin-direct-message-list-heading"><div><p class="system-line">COMUNICACIONES ENVIADAS</p><span id="admin-direct-message-summary"></span></div><button id="admin-direct-message-refresh" type="button">↻ Actualizar</button></div><div id="admin-direct-message-list"><p>Cargando mensajes…</p></div></section></div>`;
+document.querySelector('.admin-views').appendChild(adminDirectMessagesView);
+
+const adminViews={users:document.querySelector('#admin-users-view'),mailbox:document.querySelector('#admin-mailbox-view'),media:document.querySelector('#admin-media-view'),blog:document.querySelector('#admin-blog-view'),events:adminEventsView,shop:adminShopView,communications:adminCommunicationsView,sound:adminSoundView,directMessages:adminDirectMessagesView};
+const adminViewTitles={users:['USUARIOS','Gestión de expedientes'],mailbox:['BUZÓN','Mensajes recibidos'],media:['MEDIA','Biblioteca de imágenes'],blog:['BLOG','Gestión de artículos'],events:['EVENTOS','Gestión de eventos'],shop:['TIENDA','Catálogo simulado'],communications:['COMUNICACIONES','Avisos de actividad'],sound:['SONIDO','Ambientación del expediente'],directMessages:['MENSAJES','Comunicación directa']};
 Object.entries(adminViews).forEach(([name,view])=>{
   const [section,title]=adminViewTitles[name];
   const bar=document.createElement('header');
@@ -1612,7 +1635,110 @@ document.querySelectorAll('.admin-sidebar button').forEach(button=>button.onclic
   if(button.dataset.adminView==='shop')loadAdminProducts();
   if(button.dataset.adminView==='communications')loadAdminCommunications();
   if(button.dataset.adminView==='sound')loadAdminSoundConfig();
+  if(button.dataset.adminView==='directMessages')loadAdminDirectMessages();
 });
+
+const adminDirectMessageForm=document.querySelector('#admin-direct-message-form');
+const adminDirectMessageList=document.querySelector('#admin-direct-message-list');
+const adminDirectMessageSummary=document.querySelector('#admin-direct-message-summary');
+const adminDirectMessageStatus=document.querySelector('#admin-direct-message-status');
+let adminDirectMessageChannel=null;
+const directMessageDate=value=>value?new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'short'}).format(new Date(value)):'—';
+const directMessageState=message=>{
+  if(message.acknowledged_at)return['CONFIRMADO','acknowledged'];
+  if(message.read_at)return['LEÍDO','read'];
+  if(message.displayed_at)return['MOSTRADO','displayed'];
+  return['ENVIADO','sent'];
+};
+const renderAdminDirectMessages=messages=>{
+  adminDirectMessageSummary.textContent=`${messages.length} comunicación${messages.length===1?'':'es'} registrada${messages.length===1?'':'s'}`;
+  adminDirectMessageList.innerHTML=messages.map(message=>{
+    const [label,state]=directMessageState(message),profile=message.expedient_profiles||{};
+    return `<article class="admin-direct-message-item">
+      <header><div><span>${adminEditorEscape(profile.display_name||profile.email||'Destinatario')}</span><strong>${adminEditorEscape(message.subject)}</strong></div><b data-message-state="${state}">${label}</b></header>
+      <p>${adminEditorEscape(message.body).replace(/\n/g,'<br>')}</p>
+      <footer><span>${directMessageDate(message.published_at)} · ${adminEditorEscape(message.display_mode)} · prioridad ${adminEditorEscape(message.priority)}</span>${message.requires_ack?'<em>CONFIRMACIÓN SOLICITADA</em>':''}</footer>
+    </article>`;
+  }).join('')||'<p class="admin-direct-message-empty">Todavía no se ha enviado ninguna comunicación.</p>';
+};
+const loadAdminDirectMessages=async()=>{
+  if(!supabaseClient)return;
+  const recipientSelect=adminDirectMessageForm.elements.user_id;
+  const [{data:profiles,error:profilesError},{data:messages,error:messagesError}]=await Promise.all([
+    supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').order('display_name'),
+    supabaseClient.from('expedient_messages').select('*,expedient_profiles(display_name,email)').order('published_at',{ascending:false}).limit(100)
+  ]);
+  if(profilesError||messagesError){
+    const error=profilesError||messagesError;
+    console.error('No se pudieron cargar las comunicaciones.',error);
+    adminDirectMessageList.innerHTML='<p class="admin-direct-message-empty">No se pudieron cargar los mensajes. Comprueba que has ejecutado el SQL de comunicaciones.</p>';
+    return;
+  }
+  const previous=recipientSelect.value;
+  recipientSelect.innerHTML='<option value="">Selecciona un destinatario</option>'+profiles.filter(profile=>profile.is_active!==false).map(profile=>`<option value="${profile.id}">${adminEditorEscape(profile.display_name||profile.email)} · ${adminEditorEscape(profile.email)}</option>`).join('');
+  if([...recipientSelect.options].some(option=>option.value===previous))recipientSelect.value=previous;
+  renderAdminDirectMessages(messages||[]);
+  if(!adminDirectMessageChannel){
+    adminDirectMessageChannel=supabaseClient.channel('admin-direct-messages')
+      .on('postgres_changes',{event:'*',schema:'public',table:'expedient_messages'},()=>loadAdminDirectMessages())
+      .subscribe();
+  }
+};
+const adminMessageModeHelp={
+  mailbox:'No aparece sobre la web. Se guarda en el buzón y enciende su indicador de mensajes nuevos.',
+  banner:'Aparece como una tarjeta compacta flotante en una esquina y también queda guardado en el buzón.',
+  highlight:'Utiliza una tarjeta flotante más grande para dar mayor presencia al mensaje sin bloquear toda la pantalla.',
+  modal:'Se presenta centrado sobre un fondo oscuro. Se aplaza si el destinatario está leyendo un documento o un final.'
+};
+const adminMessagePriorityHelp={
+  normal:'Prioridad normal: presentación neutra y anuncio de accesibilidad no intrusivo.',
+  high:'Prioridad alta: aumenta el contraste y el énfasis rojo para que el aviso destaque más.',
+  urgent:'Prioridad urgente: borde de alerta reforzado y anuncio inmediato para tecnologías de asistencia.'
+};
+const adminMessageModeLabel={mailbox:'SÓLO EN EL BUZÓN',banner:'AVISO FLOTANTE',highlight:'MENSAJE DESTACADO',modal:'MODAL PRIORITARIO'};
+const updateAdminDirectMessagePreview=()=>{
+  const preview=adminDirectMessageForm.querySelector('.admin-direct-message-preview'),mode=adminDirectMessageForm.elements.display_mode.value,priority=adminDirectMessageForm.elements.priority.value,requiresAck=adminDirectMessageForm.elements.requires_ack.checked;
+  preview.className=`admin-direct-message-preview mode-${mode} priority-${priority}`;
+  preview.querySelector('[data-message-preview-label]').textContent=adminMessageModeLabel[mode];
+  preview.querySelector('[data-message-preview-subject]').textContent=adminDirectMessageForm.elements.subject.value||'Asunto del mensaje';
+  preview.querySelector('[data-message-preview-body]').textContent=adminDirectMessageForm.elements.body.value||'El texto aparecerá aquí.';
+  preview.querySelector('[data-message-preview-action]').textContent=requiresAck?'CONFIRMAR RECEPCIÓN':mode==='mailbox'?'ABRIR MENSAJE':'ENTENDIDO';
+  adminDirectMessageForm.querySelector('[data-message-mode-help]').textContent=adminMessageModeHelp[mode];
+  adminDirectMessageForm.querySelector('[data-message-priority-help]').textContent=adminMessagePriorityHelp[priority];
+};
+['subject','body'].forEach(name=>adminDirectMessageForm.elements[name].addEventListener('input',updateAdminDirectMessagePreview));
+['display_mode','priority','requires_ack'].forEach(name=>adminDirectMessageForm.elements[name].addEventListener('change',updateAdminDirectMessagePreview));
+updateAdminDirectMessagePreview();
+adminDirectMessageForm.onsubmit=async event=>{
+  event.preventDefault();
+  const submit=adminDirectMessageForm.querySelector('button[type="submit"]'),data=new FormData(adminDirectMessageForm);
+  submit.disabled=true;adminDirectMessageStatus.textContent='Enviando comunicación…';
+  try{
+    const {error}=await supabaseClient.from('expedient_messages').insert({
+      user_id:data.get('user_id'),
+      sender_id:currentUser.id,
+      subject:String(data.get('subject')||'').trim(),
+      body:String(data.get('body')||'').trim(),
+      display_mode:data.get('display_mode'),
+      priority:data.get('priority'),
+      requires_ack:data.get('requires_ack')==='on'
+    });
+    if(error)throw error;
+    const recipient=adminDirectMessageForm.elements.user_id.value;
+    adminDirectMessageForm.reset();
+    adminDirectMessageForm.elements.user_id.value=recipient;
+    updateAdminDirectMessagePreview();
+    adminDirectMessageStatus.textContent='Comunicación enviada correctamente ✓';
+    await loadAdminDirectMessages();
+  }catch(error){
+    console.error('No se pudo enviar la comunicación.',error);
+    adminDirectMessageStatus.textContent='No se pudo enviar. Comprueba el SQL y vuelve a intentarlo.';
+  }finally{
+    submit.disabled=false;
+    setTimeout(()=>{adminDirectMessageStatus.textContent=''},3500);
+  }
+};
+document.querySelector('#admin-direct-message-refresh').onclick=loadAdminDirectMessages;
 
 const mailboxBadge=document.querySelector('#admin-mailbox-badge');
 const mailboxSummary=document.querySelector('#admin-mailbox-summary');
@@ -2029,7 +2155,7 @@ const resetClosingDocumentsForAdmin=state=>resetFinalDecisionState({
   finalAlertShown:false,
   finalFileSeen:false
 });
-const adminExit=async()=>{try{if(mailboxChannel&&supabaseClient){await supabaseClient.removeChannel(mailboxChannel);mailboxChannel=null}if(supabaseClient)await supabaseClient.auth.signOut()}finally{currentUser=null;remoteState=null;adminPanel.hidden=true;location.href='../index.html'}};
+const adminExit=async()=>{try{if(mailboxChannel&&supabaseClient){await supabaseClient.removeChannel(mailboxChannel);mailboxChannel=null}if(adminDirectMessageChannel&&supabaseClient){await supabaseClient.removeChannel(adminDirectMessageChannel);adminDirectMessageChannel=null}if(supabaseClient)await supabaseClient.auth.signOut()}finally{currentUser=null;remoteState=null;adminPanel.hidden=true;location.href='../index.html'}};
 document.querySelector('#admin-exit').onclick=adminExit;
 
 // El alta se muestra directamente en su pestaña y continúa solicitándose a
