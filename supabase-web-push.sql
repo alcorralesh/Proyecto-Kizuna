@@ -136,7 +136,11 @@ begin
     user_agent = excluded.user_agent,
     platform = excluded.platform,
     last_seen_at = now(),
-    revoked_at = null,
+    revoked_at = case
+      when public.expedient_push_subscriptions.user_id = auth.uid()
+        then public.expedient_push_subscriptions.revoked_at
+      else null
+    end,
     updated_at = now()
   returning id into subscription_id;
 

@@ -1669,6 +1669,7 @@ const adminDirectMessageForm=document.querySelector('#admin-direct-message-form'
 const adminDirectMessageList=document.querySelector('#admin-direct-message-list');
 const adminDirectMessageSummary=document.querySelector('#admin-direct-message-summary');
 const adminDirectMessageStatus=document.querySelector('#admin-direct-message-status');
+let adminDirectMessagesCache=[];
 const adminDirectMessageDeliveryOptions=document.createElement('section');
 adminDirectMessageDeliveryOptions.className='admin-direct-message-delivery-options';
 adminDirectMessageDeliveryOptions.innerHTML=`<p class="system-line">ENTREGA Y DESTINO</p>
@@ -1726,6 +1727,52 @@ const directMessageDeliveryState=delivery=>{
   };
   return states[delivery.status]||[String(delivery.status||'DESCONOCIDO').toUpperCase(),'unknown'];
 };
+const renderAdminPushDevices=async userId=>{
+  const target=document.querySelector('#admin-push-devices');
+  if(!target)return;
+  target.innerHTML='<p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4><p>Cargando suscripciones push…</p>';
+  const {data,error}=await supabaseClient.from('expedient_push_subscriptions')
+    .select('id,user_agent,platform,created_at,last_seen_at,revoked_at')
+    .eq('user_id',userId)
+    .order('last_seen_at',{ascending:false});
+  if(error){
+    console.error('No se pudieron consultar los dispositivos push.',error);
+    target.innerHTML='<p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4><p>No se pudieron consultar los dispositivos.</p>';
+    return;
+  }
+  const subscriptions=data||[],active=subscriptions.filter(item=>!item.revoked_at);
+  target.innerHTML=`<header><div><p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4></div><strong>${active.length} ACTIVO${active.length===1?'':'S'}</strong></header>
+    <p class="admin-push-devices-note">Revocar detiene las notificaciones en ese navegador sin borrar el historial. El propio dispositivo podrá registrarse otra vez si vuelve a autorizarlas.</p>
+    <ul>${subscriptions.map(subscription=>{
+      const device=directMessageDeviceInfo(subscription),revoked=Boolean(subscription.revoked_at);
+      return `<li class="${revoked?'is-revoked':''}" data-push-subscription="${subscription.id}">
+        <span class="admin-direct-message-device-icon" aria-hidden="true">${subscription.platform==='android'?'A':subscription.platform==='ios'?'i':'W'}</span>
+        <span><strong>${adminEditorEscape(device.title)}</strong><small>${adminEditorEscape(device.detail)}</small></span>
+        <b>${revoked?'REVOCADO':'ACTIVO'}</b>
+        <button type="button" data-push-device-action="${revoked?'reactivate':'revoke'}" data-push-subscription-id="${subscription.id}">${revoked?'Reactivar dispositivo':'Revocar dispositivo'}</button>
+      </li>`;
+    }).join('')||'<li class="is-empty">Este destinatario todavía no ha autorizado ningún dispositivo.</li>'}</ul>
+    <span id="admin-push-device-status" role="status"></span>`;
+  target.querySelectorAll('[data-push-device-action]').forEach(button=>button.onclick=async()=>{
+    const row=button.closest('[data-push-subscription]'),name=row?.querySelector('span:nth-child(2) strong')?.textContent||'este dispositivo';
+    const reactivating=button.dataset.pushDeviceAction==='reactivate';
+    if(!confirm(reactivating?`¿Reactivar ${name}? Podrá volver a recibir notificaciones push.`:`¿Revocar ${name}? Dejará de recibir nuevas notificaciones push.`))return;
+    const status=target.querySelector('#admin-push-device-status');
+    button.disabled=true;status.textContent=reactivating?'Reactivando dispositivo…':'Revocando dispositivo…';
+    const now=new Date().toISOString();
+    const {error:revokeError}=await supabaseClient.from('expedient_push_subscriptions')
+      .update({revoked_at:reactivating?null:now,updated_at:now})
+      .eq('id',button.dataset.pushSubscriptionId)
+      .eq('user_id',userId);
+    if(revokeError){
+      console.error('No se pudo revocar el dispositivo.',revokeError);
+      status.textContent='No se pudo revocar el dispositivo.';
+      button.disabled=false;
+      return;
+    }
+    await renderAdminPushDevices(userId);
+  });
+};
 const directMessageState=message=>{
   if(message.acknowledged_at)return['CONFIRMADO','acknowledged'];
   if(message.read_at)return['LEÍDO','read'];
@@ -1733,8 +1780,14 @@ const directMessageState=message=>{
   return['ENVIADO','sent'];
 };
 const renderAdminDirectMessages=messages=>{
-  adminDirectMessageSummary.textContent=`${messages.length} comunicación${messages.length===1?'':'es'} registrada${messages.length===1?'':'s'}`;
-  adminDirectMessageList.innerHTML=messages.map(message=>{
+  const selectedUserId=adminDirectMessageForm.elements.user_id.value;
+  const visibleMessages=selectedUserId?messages.filter(message=>message.user_id===selectedUserId):messages;
+  const recipientOption=selectedUserId?adminDirectMessageForm.elements.user_id.selectedOptions[0]:null;
+  const recipientLabel=recipientOption?.textContent?.split(' · ')[0]||'';
+  adminDirectMessageSummary.textContent=selectedUserId
+    ?`${visibleMessages.length} comunicación${visibleMessages.length===1?'':'es'} de ${recipientLabel}`
+    :`${visibleMessages.length} comunicación${visibleMessages.length===1?'':'es'} registrada${visibleMessages.length===1?'':'s'}`;
+  adminDirectMessageList.innerHTML=visibleMessages.map(message=>{
     const [label,state]=directMessageState(message),profile=message.expedient_profiles||{},deliveries=message.expedient_push_deliveries||[];
     const accepted=deliveries.filter(delivery=>['accepted','received','opened'].includes(delivery.status)).length;
     const received=deliveries.filter(delivery=>['received','opened'].includes(delivery.status)).length;
@@ -1764,7 +1817,7 @@ const renderAdminDirectMessages=messages=>{
       ${pushStats}
       <footer><span>${directMessageDate(message.published_at)} · ${adminEditorEscape(message.display_mode)} · prioridad ${adminEditorEscape(message.priority)}${message.deep_link?` · destino ${adminEditorEscape(message.deep_link)}`:''}</span>${message.requires_ack?'<em>CONFIRMACIÓN SOLICITADA</em>':''}</footer>
     </article>`;
-  }).join('')||'<p class="admin-direct-message-empty">Todavía no se ha enviado ninguna comunicación.</p>';
+  }).join('')||`<p class="admin-direct-message-empty">${selectedUserId?'Todavía no se ha enviado ninguna comunicación a este destinatario.':'Todavía no se ha enviado ninguna comunicación.'}</p>`;
 };
 const loadAdminDirectMessages=async()=>{
   if(!supabaseClient)return;
@@ -1782,7 +1835,8 @@ const loadAdminDirectMessages=async()=>{
   const previous=recipientSelect.value;
   recipientSelect.innerHTML='<option value="">Selecciona un destinatario</option>'+profiles.filter(profile=>profile.is_active!==false).map(profile=>`<option value="${profile.id}">${adminEditorEscape(profile.display_name||profile.email)} · ${adminEditorEscape(profile.email)}</option>`).join('');
   if([...recipientSelect.options].some(option=>option.value===previous))recipientSelect.value=previous;
-  renderAdminDirectMessages(messages||[]);
+  adminDirectMessagesCache=messages||[];
+  renderAdminDirectMessages(adminDirectMessagesCache);
   if(!adminDirectMessageChannel){
     adminDirectMessageChannel=supabaseClient.channel('admin-direct-messages')
       .on('postgres_changes',{event:'*',schema:'public',table:'expedient_messages'},()=>loadAdminDirectMessages())
@@ -1791,6 +1845,7 @@ const loadAdminDirectMessages=async()=>{
   }
   return true;
 };
+adminDirectMessageForm.elements.user_id.addEventListener('change',()=>renderAdminDirectMessages(adminDirectMessagesCache));
 const adminMessageModeHelp={
   mailbox:'No aparece sobre la web. Se guarda en el buzón y enciende su indicador de mensajes nuevos.',
   banner:'Aparece como una tarjeta compacta flotante en una esquina y también queda guardado en el buzón.',
@@ -2624,6 +2679,12 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   passwordRecovery.className='admin-password-recovery';
   passwordRecovery.innerHTML=`<p class="system-line">RECUPERACIÓN DE ACCESO</p><h4>Cambiar contraseña temporal</h4><p>Utiliza esta opción si el destinatario olvida su contraseña. El expediente y todo su progreso se conservan.</p><form id="admin-reset-password-form"><label>Nueva contraseña temporal<input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="Mínimo 8 caracteres"></label><button type="submit">Cambiar contraseña</button><span id="admin-password-status" role="status"></span></form><p class="admin-password-note">Comunica la nueva contraseña al destinatario por un canal privado. La contraseña anterior no puede consultarse.</p>`;
   identityDetails.after(passwordRecovery);
+  const pushDevices=document.createElement('section');
+  pushDevices.id='admin-push-devices';
+  pushDevices.className='admin-push-devices';
+  pushDevices.innerHTML='<p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4><p>Cargando suscripciones push…</p>';
+  passwordRecovery.after(pushDevices);
+  renderAdminPushDevices(profile.id);
   const legalAccepted=Boolean(current.legalAccepted),legalVersion=Number(current.legalVersion||1);
   const legalAcceptedDate=current.legalAcceptedAt&&!Number.isNaN(Date.parse(current.legalAcceptedAt))?new Date(current.legalAcceptedAt).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):null;
   const legalSettings=document.createElement('section');
