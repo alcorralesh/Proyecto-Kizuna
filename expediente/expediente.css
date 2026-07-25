@@ -366,7 +366,16 @@ body:has(#viewer[open]){overflow:hidden}
 #viewer.is-fallback-fullscreen{position:fixed;inset:0;z-index:20000;display:block}.reader-shell:fullscreen,#viewer:fullscreen{width:100%;height:100%;background:#151b19}#viewer.is-reader-fullscreen .reader-shell{height:100dvh}
 /* Safari no ofrece pantalla completa fiable para un dialog. En dispositivos
    tactiles usamos un modo inmersivo propio que conserva scroll y pellizco. */
-@media (max-width:1100px),(hover:none),(pointer:coarse){
+/* Modos compactos por espacio real:
+   - teléfono vertical: hasta 600 px;
+   - teléfono horizontal: hasta 1000 × 520 px;
+   - tablet vertical: 601–1100 px;
+   - tablet horizontal táctil: 901–1400 px con al menos 600 px de alto.
+   pointer:coarse nunca decide por sí solo la composición. */
+@media (max-width:600px),
+       (orientation:portrait) and (min-width:601px) and (max-width:1100px),
+       (orientation:landscape) and (max-width:1000px) and (max-height:520px),
+       (orientation:landscape) and (min-width:901px) and (max-width:1400px) and (min-height:600px) and (pointer:coarse){
   #viewer.is-reader-fullscreen .reader-shell{position:relative;display:block;overflow:hidden;background:#0d1210}
   #viewer.is-reader-fullscreen .reader-toolbar{position:absolute;inset:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) auto max(8px,env(safe-area-inset-left));display:flex;justify-content:space-between;min-height:0;padding:0;border:0;background:transparent;pointer-events:none;z-index:20}
   #viewer.is-reader-fullscreen .reader-toolbar .close,#viewer.is-reader-fullscreen .reader-tools{pointer-events:auto}
@@ -974,7 +983,10 @@ body:has(#viewer[open]){overflow:hidden}
 }
 
 .case-head.is-complete{min-height:245px;padding-bottom:100px!important}
-@media(max-width:1180px), (max-width:1400px) and (pointer:coarse){
+@media (max-width:600px),
+       (orientation:portrait) and (min-width:601px) and (max-width:1100px),
+       (orientation:landscape) and (max-width:1000px) and (max-height:520px),
+       (orientation:landscape) and (min-width:901px) and (max-width:1400px) and (min-height:600px) and (pointer:coarse){
   .case-head.is-complete{min-height:0;padding-bottom:12px!important}
   .case-head #completion-record{
     position:relative!important;
@@ -1703,7 +1715,10 @@ body:has(#viewer[open]){overflow:hidden}
 /* En iPhone, tanto la PWA como el navegador conservan zonas ocupadas por el
    sistema. La barra del lector forma parte del flujo para que nunca tape la
    cabecera ni la primera viñeta del cómic. */
-@media(max-width:1100px),(hover:none),(pointer:coarse){
+@media (max-width:600px),
+       (orientation:portrait) and (min-width:601px) and (max-width:1100px),
+       (orientation:landscape) and (max-width:1000px) and (max-height:520px),
+       (orientation:landscape) and (min-width:901px) and (max-width:1400px) and (min-height:600px) and (pointer:coarse){
   #viewer.is-reader-fullscreen:has(#doc-body[data-comic-page]) .reader-shell{
     display:grid;
     grid-template-rows:auto minmax(0,1fr);
