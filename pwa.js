@@ -182,31 +182,40 @@
     return subscription;
   };
 
-  const showPushConsentResult=(notice,granted)=>{
+  const showPushConsentResult=(notice,granted,onSettled)=>{
     notice.classList.add('is-result',granted?'is-authorized':'is-unavailable');
     notice.innerHTML=`<div class="kizuna-push-consent-card">
       <header><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><b>${granted?'CANAL SEGURO':'CANAL LOCAL'}</b></header>
       <div class="kizuna-push-consent-result">
         <p>ESTADO</p>
-        <h2><i aria-hidden="true">${granted?'●':'○'}</i> ${granted?'Terminal registrado':'Canal no disponible'}</h2>
+        <h2 id="kizuna-push-consent-title"><i aria-hidden="true">${granted?'●':'○'}</i> ${granted?'Terminal registrado':'Canal no disponible'}</h2>
         ${granted
           ?'<strong>Canal Seguro establecido.</strong><p>Las futuras comunicaciones podrán entregarse<br>aunque el expediente permanezca cerrado.</p>'
           :'<p>Podrás consultar toda la información desde<br>el expediente, aunque algunas comunicaciones<br>extraordinarias podrían no entregarse en el<br>momento previsto.</p>'}
       </div>
       <button type="button" data-push-close>Continuar al expediente <span>→</span></button>
     </div>`;
-    notice.querySelector('[data-push-close]').onclick=()=>closePushConsent(notice);
+    notice.querySelector('[data-push-close]').onclick=()=>closePushConsent(notice,onSettled,granted?'authorized':'declined');
   };
 
-  const closePushConsent=notice=>{
+  const closePushConsent=(notice,onSettled,result)=>{
     notice.classList.remove('is-visible');
     document.documentElement.classList.remove('kizuna-push-modal-open');
-    setTimeout(()=>notice.remove(),240);
+    setTimeout(()=>{
+      notice.remove();
+      onSettled?.({status:result});
+    },240);
   };
 
-  const showPushConsent=()=>{
-    if(document.querySelector('.kizuna-push-consent,.kizuna-pwa-install')||standalone()===false&&isIos())return;
-    if(!('Notification'in window)||!('PushManager'in window)||Notification.permission!=='default')return;
+  const showPushConsent=()=>new Promise(resolve=>{
+    if(document.querySelector('.kizuna-push-consent,.kizuna-pwa-install')||standalone()===false&&isIos()){
+      resolve({status:'not_shown'});
+      return;
+    }
+    if(!('Notification'in window)||!('PushManager'in window)||Notification.permission!=='default'){
+      resolve({status:'not_required'});
+      return;
+    }
     const notice=document.createElement('aside');
     notice.className='kizuna-push-consent';
     notice.setAttribute('role','dialog');
@@ -234,7 +243,7 @@
         await recordPushActivity('push_channel_declined',{permission:Notification.permission});
       }
       catch(error){console.warn('No se pudo registrar la preferencia de notificaciones.',error)}
-      showPushConsentResult(notice,false);
+      showPushConsentResult(notice,false,resolve);
     };
     notice.querySelector('[data-push-enable]').onclick=async event=>{
       const button=event.currentTarget,status=notice.querySelector('.kizuna-push-consent-status');
@@ -242,14 +251,14 @@
       try{
         await enablePush(status);
         await recordPushActivity('push_channel_authorized',{permission:Notification.permission});
-        showPushConsentResult(notice,true);
+        showPushConsentResult(notice,true,resolve);
       }catch(error){
         if(Notification.permission==='denied'){
           try{
             await savePushPreference('declined');
             await recordPushActivity('push_channel_declined',{permission:Notification.permission});
           }catch(preferenceError){console.warn('No se pudo registrar la preferencia de notificaciones.',preferenceError)}
-          showPushConsentResult(notice,false);
+          showPushConsentResult(notice,false,resolve);
           return;
         }
         status.textContent=error?.message||'No se pudieron activar los avisos.';
@@ -259,9 +268,9 @@
     document.body.appendChild(notice);
     document.documentElement.classList.add('kizuna-push-modal-open');
     requestAnimationFrame(()=>notice.classList.add('is-visible'));
-  };
+  });
 
-  const connectPush=async options=>{
+  const connectPushInternal=async options=>{
     pushClient=options?.client||null;
     pushUserId=options?.userId||null;
     pushActivityRecorder=options?.recordActivity||null;
@@ -294,8 +303,20 @@
       await savePushPreference('declined').catch(error=>console.warn('No se pudo sincronizar la preferencia de notificaciones.',error));
       return null;
     }
-    setTimeout(()=>{if(!isBusy())showPushConsent()},1400);
-    return null;
+    await new Promise(resolve=>setTimeout(resolve,1400));
+    while(isBusy())await new Promise(resolve=>setTimeout(resolve,250));
+    return showPushConsent();
+  };
+
+  const connectPush=async options=>{
+    let result=null;
+    try{
+      result=await connectPushInternal(options);
+      return result;
+    }finally{
+      options?.onSettled?.(result);
+      document.dispatchEvent(new CustomEvent('kizuna:push-flow-settled',{detail:result||{status:'unavailable'}}));
+    }
   };
 
   const applyUpdate=()=>{

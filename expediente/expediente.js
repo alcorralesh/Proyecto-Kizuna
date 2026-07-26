@@ -46,7 +46,7 @@ const EARLY_ACCESS_VERSION=1;
 const ONBOARDING_VERSION=2;
 const supabaseUrl='https://vcwqkideizdrhzpbghkj.supabase.co';
 const supabaseKey='sb_publishable_h3pjxT8UPZkYqRhLskVdlA_m-ulI4EF';
-let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null,currentDisplayName='Destinatario autorizado',progressHydrated=false,progressSessionVersion=0,remoteRecipientMessages=[],recipientPushConnection=null,recipientPushConnected=false;
+let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null,currentDisplayName='Destinatario autorizado',progressHydrated=false,progressSessionVersion=0,remoteRecipientMessages=[],recipientPushConnection=null,recipientPushConnected=false,recipientPushReadyPromise=null;
 const recipientName=()=>currentDisplayName||'Destinatario autorizado';
 const updateRecipientName=()=>{
   const fullName=recipientName().trim();
@@ -252,6 +252,7 @@ const handleRecipientExit=async()=>{
     progressHydrated=false;
     recipientPushConnection=null;
     recipientPushConnected=false;
+    recipientPushReadyPromise=null;
     location.replace('../index.html');
   }catch(error){
     console.error('No se pudo cerrar la sesión privada.',error);
@@ -323,10 +324,25 @@ const earlyAccessAcknowledged=state=>{
   return Number(progress.earlyAccessVersion||0)>=EARLY_ACCESS_VERSION&&Boolean(progress.earlyAccessAcknowledgedAt);
 };
 const connectRecipientPush=()=>{
-  if(recipientPushConnected||!recipientPushConnection)return;
+  if(recipientPushConnected)return recipientPushReadyPromise||Promise.resolve({status:'already_connected'});
+  if(!recipientPushConnection)return Promise.resolve({status:'unavailable'});
   recipientPushConnected=true;
-  if(window.KizunaPWA?.connectPush)void window.KizunaPWA.connectPush(recipientPushConnection);
-  else window.KizunaPendingPushConnection=recipientPushConnection;
+  if(window.KizunaPWA?.connectPush){
+    recipientPushReadyPromise=Promise.resolve(window.KizunaPWA.connectPush(recipientPushConnection));
+  }else{
+    recipientPushReadyPromise=new Promise(resolve=>{
+      window.KizunaPendingPushConnection={...recipientPushConnection,onSettled:resolve};
+    });
+  }
+  recipientPushReadyPromise=recipientPushReadyPromise.catch(error=>{
+    console.warn('No se pudo completar la configuración de comunicaciones.',error);
+    return {status:'error'};
+  });
+  return recipientPushReadyPromise;
+};
+const startExpedientOnboarding=async()=>{
+  await connectRecipientPush();
+  maybeStartExpedientTour();
 };
 const enterExpedientAfterAuthorization=()=>{
   loading.hidden=true;
@@ -334,8 +350,7 @@ const enterExpedientAfterAuthorization=()=>{
     gate.hidden=true;
     dash.hidden=false;
     render({focusNext:true});
-    maybeStartExpedientTour();
-    connectRecipientPush();
+    void startExpedientOnboarding();
   }else{
     dash.hidden=true;
     gate.hidden=false;
@@ -708,6 +723,7 @@ const loadRemoteProgress=async user=>{
     recordActivity:(activityKind,details={})=>recordActivity(activityKind,'PUSH',{source:'push_consent',...details})
   };
   recipientPushConnected=false;
+  recipientPushReadyPromise=null;
   return remoteState;
 };
 const recordComicPage=async page=>{
@@ -1511,7 +1527,7 @@ const startExpedientTraining=()=>{
         <h2>${folderMode?'Confirmación individual.':'Abrir no significa leer.'}</h2>
         <div class="training-document-copy">${folderMode?'<p>Los documentos contenidos en una carpeta también deben confirmarse individualmente.</p><p>Cuando todos los registros del lote estén leídos, se habilitará su documento de continuidad.</p>':'<p>Consulta el contenido completo antes de incorporarlo al expediente.</p><p>Utiliza los controles superiores para ampliar, reducir, ajustar o abrir el documento a pantalla completa.</p><blockquote>El proceso solo avanza cuando pulsas «Confirmar lectura».</blockquote>'}</div>
       </article></main>
-      <footer class="training-reader-foot"><p><b>${folderMode?'DOCUMENTO DE CARPETA':'DOCUMENTO COMPLETO'}</b><span>Desplaza para leer · Pellizca para ampliar</span></p><button type="button" data-training-confirm>Confirmar lectura <span>→</span></button></footer>
+      <footer class="training-reader-foot"><p><b>${folderMode?'DOCUMENTO DE CARPETA':'DOCUMENTO COMPLETO'}</b><span>Desplaza para leer · Pellizca para ampliar</span></p><aside class="training-coach"><span>${folderMode?'PASO 03':'PASO 01'}</span><strong>${folderMode?'Confirma también cada documento incluido en una carpeta.':'Cuando termines de leer, pulsa aquí. Abrirlo no es suficiente.'}</strong><i aria-hidden="true">→</i></aside><button class="training-guided-action" type="button" data-training-confirm>Confirmar lectura <span>→</span></button></footer>
     </section>`;
     bindReaderTools();
     stage.querySelector('[data-training-confirm]').onclick=()=>{
@@ -1523,11 +1539,12 @@ const startExpedientTraining=()=>{
     stage.innerHTML=`<section class="training-folder">
       <header><div><p class="system-line">ÍNDICE DE LA CARPETA · ENTRENAMIENTO</p><h2>Lote documental de prueba</h2><p>Cada registro se confirma por separado y siguiendo el orden autorizado.</p></div><strong>${folderDocumentRead?'2':'1'} <small>de 2 consultados</small></strong></header>
       <div class="training-folder-progress"><i style="width:${folderDocumentRead?'100':'50'}%"></i></div>
+      <aside class="training-coach training-folder-coach"><span>${folderDocumentRead?'PASO 04':'PASO 02'}</span><strong>${folderDocumentRead?'El lote está completo. Confírmalo para desbloquear la continuidad.':'Abre el único registro pendiente y confirma su lectura.'}</strong><i aria-hidden="true">↓</i></aside>
       <div class="training-folder-list">
         <article class="is-read"><span>01</span><div><h3>Registro de muestra</h3><p>LECTURA CONFIRMADA</p></div><strong>✓ CONSULTADO</strong></article>
-        <article class="${folderDocumentRead?'is-read':'is-pending'}"><span>02</span><div><h3>Documento pendiente</h3><p>${folderDocumentRead?'LECTURA CONFIRMADA':'ABRE Y CONFIRMA SU LECTURA'}</p></div>${folderDocumentRead?'<strong>✓ CONSULTADO</strong>':'<button type="button" data-training-open-folder-doc>Abrir documento</button>'}</article>
+        <article class="${folderDocumentRead?'is-read':'is-pending'}"><span>02</span><div><h3>Documento pendiente</h3><p>${folderDocumentRead?'LECTURA CONFIRMADA':'ABRE Y CONFIRMA SU LECTURA'}</p></div>${folderDocumentRead?'<strong>✓ CONSULTADO</strong>':'<button class="training-guided-action" type="button" data-training-open-folder-doc>Abrir documento</button>'}</article>
       </div>
-      <article class="training-continuity ${folderDocumentRead?'is-unlocked':'is-locked'}"><span>KTB</span><div><p>DOCUMENTO DE CONTINUIDAD</p><h3>KTB-SIM · Actualización del expediente</h3><small>${folderDocumentRead?'LOTE COMPLETO · CONTINUIDAD AUTORIZADA':'BLOQUEADO HASTA COMPLETAR EL LOTE'}</small></div><button type="button" data-training-complete-batch ${folderDocumentRead?'':'disabled'}>Confirmar lote y continuar <span>→</span></button></article>
+      <article class="training-continuity ${folderDocumentRead?'is-unlocked':'is-locked'}"><span>KTB</span><div><p>DOCUMENTO DE CONTINUIDAD</p><h3>KTB-SIM · Actualización del expediente</h3><small>${folderDocumentRead?'LOTE COMPLETO · CONTINUIDAD AUTORIZADA':'BLOQUEADO HASTA COMPLETAR EL LOTE'}</small></div><button class="${folderDocumentRead?'training-guided-action':''}" type="button" data-training-complete-batch ${folderDocumentRead?'':'disabled'}>Confirmar lote y continuar <span>→</span></button></article>
       <p class="training-folder-note">${folderDocumentRead?'Has confirmado todos los documentos. El KTB de continuidad ya está disponible.':'Abre el registro pendiente. Confirmarlo completará el lote y desbloqueará el KTB.'}</p>
     </section>`;
     stage.querySelector('[data-training-open-folder-doc]')?.addEventListener('click',()=>renderReader(true));
@@ -2006,7 +2023,7 @@ document.querySelector('#gate-consent').onchange=event=>document.querySelector('
 document.querySelector('#gate-continue').onclick=async()=>{
   await patchState({legalAccepted:true,legalAcceptedAt:new Date().toISOString(),legalVersion:Number(getState().legalVersion||1)});
   await recordActivity('legal_terms_accepted',null,{version:Number(getState().legalVersion||1)});
-  gate.hidden=true;dash.hidden=false;render({focusNext:true});maybeStartExpedientTour();connectRecipientPush();
+  gate.hidden=true;dash.hidden=false;render({focusNext:true});void startExpedientOnboarding();
 };
 document.querySelector('#exit').onclick=handleRecipientExit;
 
@@ -3558,7 +3575,7 @@ setTimeout(()=>{
       access.hidden=true;
       adminAccess.hidden=true;
       loading.hidden=true;
-      if(getState().legalAccepted){gate.hidden=true;dash.hidden=false;render({focusNext:true});maybeStartExpedientTour()}
+      if(getState().legalAccepted){gate.hidden=true;dash.hidden=false;render({focusNext:true});void startExpedientOnboarding()}
       else{gate.hidden=false;dash.hidden=true}
     }catch(error){console.warn('No se pudo restaurar la sesión del expediente.',error);message.textContent='';access.hidden=false}
   };
