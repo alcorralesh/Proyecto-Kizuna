@@ -204,7 +204,7 @@ const normalizeActivityRecord=(eventType,details={})=>supportedActivityEventType
   ?{eventType,details}
   :{eventType:'document_confirmed',details:{...details,activity_kind:eventType}};
 const recordActivity=async(eventType,documentId=null,details={})=>{
-  if(!currentUser)return;
+  if(!currentUser)return null;
   try{
     const client=await getSupabase();
     const activity=normalizeActivityRecord(eventType,details);
@@ -217,9 +217,11 @@ const recordActivity=async(eventType,documentId=null,details={})=>{
     if(error)throw error;
     const canNotify=(eventType==='document_confirmed'&&documentId!=='ALBERTO')||(eventType==='supplementary_file_consulted'&&documentId==='FINAL-01');
     if(canNotify&&data?.id)void client.functions.invoke('notify-expedient-activity',{body:{activityId:data.id}}).catch(error=>console.warn('No se pudo solicitar el aviso de actividad.',error));
+    return data||null;
   }catch(error){
     // El expediente continúa aunque el registro secundario no esté disponible.
     console.warn('No se pudo registrar la actividad del expediente.',error);
+    return null;
   }
 };
 const handleRecipientExit=async()=>{
@@ -691,7 +693,11 @@ const loadRemoteProgress=async user=>{
       if(mailbox?.style?.display==='block'&&typeof renderMailbox==='function')renderMailbox();
     }
   });
-  recipientPushConnection={client,userId:user.id};
+  recipientPushConnection={
+    client,
+    userId:user.id,
+    recordActivity:(activityKind,details={})=>recordActivity(activityKind,'PUSH',{source:'push_consent',...details})
+  };
   recipientPushConnected=false;
   return remoteState;
 };
@@ -726,6 +732,7 @@ const markFinalFileConsulted=async source=>{
   });
   if(!read().includes('FINAL-01'))throw new Error('Supabase no confirmó la lectura de FINAL-01.');
   await recordActivity('supplementary_file_consulted','FINAL-01',{source,closure_resumed:true});
+  await recordActivity('expedient_completed','FINAL-01',{source,closure_stage:'closed'});
 };
 const originalOpenComicViewer=openComicViewer;
 openComicViewer=page=>{
@@ -749,7 +756,8 @@ setTimeout(()=>{
        const {data,error}=await client.auth.signInWithPassword({email,password});
        if(error)throw error;
        const loadedProgress=await loadRemoteProgress(data.user);
-       await recordActivity('login',null,{source:'private_access'});
+       const loginActivity=await recordActivity('login',null,{source:'credentials'});
+       if(!loginActivity)console.warn('La sesión se inició, pero no pudo añadirse al registro de actividad.');
        message.textContent='';
       openDashboard(loadedProgress);
     }catch(error){message.textContent=recipientAccessErrorMessage(error);console.error(error)}finally{submit.disabled=false}
@@ -992,6 +1000,7 @@ setTimeout(()=>{
     if(id.startsWith('KTB-')){
       syncKtb(id,()=>{if(id==='KTB-014')startFinale();else{viewer.close();render()}});
       void recordActivity('document_confirmed',id,{source:'recipient_consultation'}).catch(error=>console.warn('No se pudo registrar la actividad.',error));
+      if(id==='KTB-014')void recordActivity('final_closure_started',id,{source:'recipient_consultation',closure_stage:'verification'});
       return;
     }
     viewer.close();render();
@@ -1551,6 +1560,14 @@ function render(options={}){
     return `<article class="document ${isFolder(id)?'folder-document':''} ${ok?'':'locked'} ${isClosing?'final-flow-card':''} ${newlyUnlocked?'is-new-unlock':''}" data-document-id="${id}">${newlyUnlocked?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">${isClosing?'◐ ':seen?'✓ ':ok?'○ ':'⌕ '}${id}</span><h3>${name(id)}</h3><p class="document-card-status">${status}</p>${folderProgress}<button type="button" data-id="${id}" ${ok?'':'disabled'} ${isClosing?'data-final-resume':''}>${ok?label:'Acceso restringido'}</button></article>`
   }).join('')+supplementary+alternative;
   if(newUnlocks.length){
+    newUnlocks.forEach(id=>{
+      const activityKind=isFolder(id)
+        ?'folder_unlocked'
+        :id==='AC-01'
+          ?'supplementary_archive_unlocked'
+          :'document_unlocked';
+      void recordActivity(activityKind,id,{source:'sequence_unlock'});
+    });
     void patchState({seenUnlocks:[...new Set([...seenUnlocks,...newUnlocks])]});
     requestAnimationFrame(()=>document.querySelectorAll('.is-new-unlock').forEach(card=>{
       if(card.matches('[data-document-id="AC-01"].is-ac-reveal'))revealComicCard(card);
@@ -2895,7 +2912,7 @@ const renderAdminActivityLegacy=async userId=>{
     if(!data?.length){target.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3 style="margin:7px 0 16px;font:27px var(--serif)">Actividad reciente</h3><p>Aún no hay actividad registrada para este destinatario.</p>';return}
     const rows=data.map(item=>{
       const activityKind=item.details?.activity_kind||item.event_type;
-      const title=activityKind==='alt00_discovered'?'ALT-00 descubierto':activityKind==='alt00_completed'?'ALT-00 completado · 10 páginas':activityKind==='login'?'Inicio de sesión verificado':activityKind==='logout'?'Cierre de sesión':activityKind==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:activityKind==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:activityKind==='onboarding_completed'?'Guía inicial completada':activityKind==='onboarding_skipped'?'Guía inicial omitida':activityKind==='onboarding_reset'?'Guía inicial reactivada por administración':activityKind==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas leídas`:activityKind==='supplementary_file_consulted'?'Archivo final consultado':activityKind==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado confirmado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
+      const title=activityKind==='alt00_discovered'?'ALT-00 descubierto':activityKind==='alt00_completed'?'ALT-00 completado · 10 páginas':activityKind==='login'?'Inicio de sesión verificado':activityKind==='session_restored'?'Acceso al expediente · sesión recuperada':activityKind==='logout'?'Cierre de sesión':activityKind==='push_channel_authorized'?'Terminal autorizado para comunicaciones':activityKind==='push_channel_declined'?'Canal de comunicaciones rechazado':activityKind==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:activityKind==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:activityKind==='onboarding_completed'?'Guía inicial completada':activityKind==='onboarding_skipped'?'Guía inicial omitida':activityKind==='onboarding_reset'?'Guía inicial reactivada por administración':activityKind==='folder_unlocked'?`Carpeta desbloqueada · ${item.document_id||'Archivo recuperado'}`:activityKind==='supplementary_archive_unlocked'?`Archivo complementario desbloqueado · ${item.document_id||'AC-01'}`:activityKind==='document_unlocked'?`Documento desbloqueado · ${item.document_id||'Documento'}`:activityKind==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas leídas`:activityKind==='final_closure_started'?'Protocolo de cierre iniciado':activityKind==='expedient_completed'?'Expediente cerrado correctamente':activityKind==='supplementary_file_consulted'?'Archivo final consultado':activityKind==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado confirmado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
       const date=new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'});
       return `<li style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:11px 0;border-top:1px solid #ddd1ba;font:13px var(--serif)"><strong>${title}</strong><small style="font:9px var(--mono);color:#7e1b19;white-space:nowrap">${date}</small></li>`;
     }).join('');
@@ -3302,7 +3319,34 @@ const renderAdminActivity=async userId=>{
   const full=document.querySelector('#admin-activity-log'),preview=document.querySelector('#admin-activity-preview'),last=document.querySelector('#admin-last-activity');if(!full)return;
   try{const {data,error}=await supabaseClient.from('expedient_activity_log').select('event_type,document_id,details,created_at').eq('user_id',userId).order('created_at',{ascending:false});if(error)throw error;const items=data||[];if(last)last.textContent=items[0]?new Date(items[0].created_at).toLocaleDateString('es-ES'):'Sin actividad';
     const albertoResponses={japon:'Sí. Nos vamos a Japón.',ramen:'Acepto... pero quiero mucho ramen.',claro:'¿De verdad pensabas que iba a decir que no?'};
-    const activityTitle=item=>{const kind=item.details?.activity_kind||item.event_type;return kind==='early_access_acknowledged'?'Liberación anticipada AT-03 confirmada':kind==='alt00_discovered'?'ALT-00 descubierto':kind==='alt00_completed'?'ALT-00 completado · 10 páginas':kind==='alberto_message_opened'?'Carta de Alberto abierta':kind==='alberto_response_submitted'?`Respuesta a la carta de Alberto · ${albertoResponses[item.details?.response]||'Respuesta registrada'}`:kind==='login'?'Inicio de sesión verificado':kind==='logout'?'Cierre de sesión':kind==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:kind==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:kind==='onboarding_completed'?'Guía inicial completada':kind==='onboarding_skipped'?'Guía inicial omitida':kind==='onboarding_reset'?'Guía inicial reactivada por administración':kind==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas`:kind==='supplementary_file_consulted'?'Archivo final consultado':kind==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`};
+    const activityTitle=item=>{
+      const kind=item.details?.activity_kind||item.event_type;
+      if(kind==='early_access_acknowledged')return'Liberación anticipada AT-03 confirmada';
+      if(kind==='alt00_discovered')return'ALT-00 descubierto';
+      if(kind==='alt00_completed')return'ALT-00 completado · 10 páginas';
+      if(kind==='alberto_message_opened')return'Carta de Alberto abierta';
+      if(kind==='alberto_response_submitted')return`Respuesta a la carta de Alberto · ${albertoResponses[item.details?.response]||'Respuesta registrada'}`;
+      if(kind==='login')return'Inicio de sesión verificado';
+      if(kind==='session_restored')return'Acceso al expediente · sesión recuperada';
+      if(kind==='logout')return'Cierre de sesión';
+      if(kind==='push_channel_authorized')return'Terminal autorizado para comunicaciones';
+      if(kind==='push_channel_declined')return'Canal de comunicaciones rechazado';
+      if(kind==='folder_unlocked')return`Carpeta desbloqueada · ${item.document_id||'Archivo recuperado'}`;
+      if(kind==='supplementary_archive_unlocked')return`Archivo complementario desbloqueado · ${item.document_id||'AC-01'}`;
+      if(kind==='document_unlocked')return`Documento desbloqueado · ${item.document_id||'Documento'}`;
+      if(kind==='final_closure_started')return'Protocolo de cierre iniciado';
+      if(kind==='expedient_completed')return'Expediente cerrado correctamente';
+      if(kind==='legal_terms_accepted')return`Bases legales aceptadas · versión ${item.details?.version||1}`;
+      if(kind==='legal_terms_reset')return`Nueva versión de bases legales · versión ${item.details?.version||1}`;
+      if(kind==='onboarding_completed')return'Guía inicial completada';
+      if(kind==='onboarding_skipped')return'Guía inicial omitida';
+      if(kind==='onboarding_reset')return'Guía inicial reactivada por administración';
+      if(kind==='comic_page_read')return`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas`;
+      if(kind==='supplementary_file_consulted')return'Archivo final consultado';
+      if(kind==='expedient_reset')return'Expediente reiniciado por administración';
+      if(item.details?.source?.startsWith('recovered_file'))return`Archivo recuperado · ${item.document_id||'Documento'}`;
+      return`Lectura confirmada · ${item.document_id||'Documento'}`;
+    };
     const row=item=>`<li><time>${new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})}</time><strong>${adminEditorEscape(activityTitle(item))}</strong></li>`;
     if(!items.length){full.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Aún no hay actividad registrada para este destinatario.</p>';if(preview)preview.innerHTML='<p>Sin actividad registrada.</p>';return}
     full.innerHTML=`<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p class="admin-activity-count">${items.length} registros</p><ol class="admin-activity-list">${items.map(row).join('')}</ol>`;if(preview)preview.innerHTML=`<ol class="admin-activity-list compact">${items.slice(0,3).map(row).join('')}</ol>`;
@@ -3380,6 +3424,8 @@ setTimeout(()=>{
       if(!session||isAdmin(session.user)){access.hidden=false;return}
       currentUser=session.user;
       await loadRemoteProgress(session.user);
+      const restoredActivity=await recordActivity('session_restored',null,{source:'persisted_session'});
+      if(!restoredActivity)console.warn('La sesión se restauró, pero no pudo añadirse al registro de actividad.');
       message.textContent='';
       access.hidden=true;
       adminAccess.hidden=true;

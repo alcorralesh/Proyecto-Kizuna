@@ -35,6 +35,7 @@
   let installCollapseTimer=0;
   let pushClient=null;
   let pushUserId=null;
+  let pushActivityRecorder=null;
 
   const removeElement=selector=>document.querySelector(selector)?.remove();
 
@@ -150,6 +151,16 @@
     if(error)throw error;
   };
 
+  const recordPushActivity=async(activityKind,details={})=>{
+    if(typeof pushActivityRecorder!=='function')return null;
+    try{
+      return await pushActivityRecorder(activityKind,details);
+    }catch(error){
+      console.warn('No se pudo registrar la decisión sobre las notificaciones.',error);
+      return null;
+    }
+  };
+
   const enablePush=async status=>{
     if(!pushClient||!pushUserId)throw new Error('Inicia sesión para activar los avisos.');
     const permission=await Notification.requestPermission();
@@ -218,7 +229,10 @@
     </div>`;
     notice.querySelector('[data-push-later]').onclick=async event=>{
       event.currentTarget.disabled=true;
-      try{await savePushPreference('declined')}
+      try{
+        await savePushPreference('declined');
+        await recordPushActivity('push_channel_declined',{permission:Notification.permission});
+      }
       catch(error){console.warn('No se pudo registrar la preferencia de notificaciones.',error)}
       showPushConsentResult(notice,false);
     };
@@ -227,10 +241,14 @@
       button.disabled=true;status.textContent='Solicitando permiso…';
       try{
         await enablePush(status);
+        await recordPushActivity('push_channel_authorized',{permission:Notification.permission});
         showPushConsentResult(notice,true);
       }catch(error){
         if(Notification.permission==='denied'){
-          try{await savePushPreference('declined')}catch(preferenceError){console.warn('No se pudo registrar la preferencia de notificaciones.',preferenceError)}
+          try{
+            await savePushPreference('declined');
+            await recordPushActivity('push_channel_declined',{permission:Notification.permission});
+          }catch(preferenceError){console.warn('No se pudo registrar la preferencia de notificaciones.',preferenceError)}
           showPushConsentResult(notice,false);
           return;
         }
@@ -246,6 +264,7 @@
   const connectPush=async options=>{
     pushClient=options?.client||null;
     pushUserId=options?.userId||null;
+    pushActivityRecorder=options?.recordActivity||null;
     if(!pushClient||!pushUserId||!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))return null;
     if(isIos()&&!standalone())return null;
     const {data:preference,error:preferenceError}=await pushClient
