@@ -2751,18 +2751,29 @@ body.expedient-training-open{overflow:hidden}
   }
 
   #viewer:has(.folder-sequence-index) .reader-content.is-folder .paper {
-    padding-bottom: 28px;
+    padding-bottom: 52px;
   }
 
   #viewer:has(.folder-sequence-index) .folder-sequence-index > footer {
-    margin: 13px 0 4px;
-    padding-top: 10px;
+    position: relative;
+    isolation: isolate;
+    margin: 13px -8px 8px;
+    padding: 10px 8px 18px;
+    border-bottom: 1px solid #b9ad99;
+    background: linear-gradient(180deg, #e9ddc7, #efe5d2);
   }
 
   #viewer:has(.folder-sequence-index) .folder-next-phase {
+    width: 100%;
+    margin: 0;
     grid-template-columns: 34px minmax(0, 1fr) auto;
     gap: 8px;
     padding: 11px 10px;
+    background-clip: padding-box;
+  }
+
+  #viewer:has(.folder-sequence-index) .folder-next-phase:not(.is-complete):not(.is-locked) {
+    background: linear-gradient(115deg, #171f1d 0, #202b27 62%, #17201d 100%);
   }
 
   #viewer:has(.folder-sequence-index) .folder-next-symbol {
