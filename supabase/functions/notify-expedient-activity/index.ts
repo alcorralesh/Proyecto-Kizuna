@@ -14,6 +14,35 @@ const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c
 
 const preferenceFor = (activity: { event_type: string; document_id: string | null; details: Record<string, unknown> | null }) => {
   const details = activity.details ?? {}
+  const activityKind = String(details.activity_kind ?? activity.event_type)
+  if (activityKind === 'early_access_acknowledged') {
+    return { key: 'narrative:early-access', action: 'Liberación anticipada confirmada', reference: 'AT-03' }
+  }
+  if (activityKind === 'supplementary_archive_unlocked' && activity.document_id === 'AC-01') {
+    return { key: 'narrative:ac01-unlocked', action: 'Registro ilustrado desbloqueado', reference: 'AC-01' }
+  }
+  if (activityKind === 'folder_unlocked' && /^AR-0[1-6]$/.test(activity.document_id ?? '')) {
+    return {
+      key: `narrative:${String(activity.document_id).toLowerCase()}-unlocked`,
+      action: 'Archivo recuperado desbloqueado',
+      reference: String(activity.document_id),
+    }
+  }
+  if (activity.event_type === 'comic_page_read' && Number(details.read) >= Number(details.total ?? 11)) {
+    return { key: 'narrative:comic-completed', action: 'Registro ilustrado completado', reference: 'AC-01 · 11/11' }
+  }
+  if (activityKind === 'final_closure_started') {
+    return { key: 'narrative:closure-started', action: 'Protocolo de cierre iniciado', reference: 'KTB-014' }
+  }
+  if (activityKind === 'expedient_completed') {
+    return { key: 'narrative:expedient-completed', action: 'Expediente cerrado correctamente', reference: 'PROJECT JAPAN' }
+  }
+  if (activityKind === 'alt00_discovered') {
+    return { key: 'narrative:alt00-discovered', action: 'Línea temporal descartada descubierta', reference: 'ALT-00' }
+  }
+  if (activityKind === 'alt00_completed') {
+    return { key: 'narrative:alt00-completed', action: 'Línea temporal descartada completada', reference: 'ALT-00 · 10/10' }
+  }
   if (activity.event_type === 'supplementary_file_consulted' && activity.document_id === 'FINAL-01') {
     return { key: 'special:final-opened', action: 'Archivo final abierto', reference: 'FINAL-01' }
   }
@@ -106,4 +135,3 @@ Deno.serve(async request => {
   if (deliveryError && deliveryError.code !== '23505') console.warn('No se pudo registrar la entrega:', deliveryError.message)
   return json({ sent: true, id: emailData.id ?? null })
 })
-

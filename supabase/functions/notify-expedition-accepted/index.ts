@@ -55,6 +55,13 @@ Deno.serve(async request => {
   if (!state.completed || !state.albertoResponseAccepted) {
     return json({ error: 'La expedición todavía no ha sido aceptada.' }, 409)
   }
+  const { data: preference, error: preferenceError } = await adminClient
+    .from('expedient_communication_preferences')
+    .select('enabled')
+    .eq('event_key', 'narrative:expedition-accepted')
+    .maybeSingle()
+  if (preferenceError) return json({ error: preferenceError.message }, 400)
+  if (!preference?.enabled) return json({ sent: false, disabled: true })
   if (state.acceptanceEmailSentAt) {
     return json({ sent: false, duplicate: true, id: state.acceptanceEmailId ?? null })
   }

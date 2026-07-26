@@ -215,7 +215,15 @@ const recordActivity=async(eventType,documentId=null,details={})=>{
       details:activity.details
     }).select('id').single();
     if(error)throw error;
-    const canNotify=(eventType==='document_confirmed'&&documentId!=='ALBERTO')||(eventType==='supplementary_file_consulted'&&documentId==='FINAL-01');
+    const canNotify=
+      (eventType==='document_confirmed'&&documentId!=='ALBERTO')||
+      (eventType==='supplementary_file_consulted'&&documentId==='FINAL-01')||
+      eventType==='early_access_acknowledged'||
+      eventType==='supplementary_archive_unlocked'||
+      eventType==='folder_unlocked'||
+      (eventType==='comic_page_read'&&Number(details.read)>=Number(details.total||11))||
+      eventType==='final_closure_started'||
+      eventType==='expedient_completed';
     if(canNotify&&data?.id)void client.functions.invoke('notify-expedient-activity',{body:{activityId:data.id}}).catch(error=>console.warn('No se pudo solicitar el aviso de actividad.',error));
     return data||null;
   }catch(error){
@@ -3025,6 +3033,15 @@ document.querySelector('#admin-sound-save').onclick=async()=>{const button=docum
 
 const adminCommunicationEntries=()=>[
   ...progressKeys.map(id=>({key:`document:${id}`,code:id,title:adminRecordTitle(id),group:id.startsWith('KTB-')?'Secuencia principal':'Archivos recuperados'})),
+  {key:'narrative:early-access',code:'AT-03',title:'Liberación anticipada confirmada',group:'Hitos narrativos'},
+  {key:'narrative:ac01-unlocked',code:'AC-01',title:'Registro ilustrado desbloqueado',group:'Hitos narrativos'},
+  ...['AR-01','AR-02','AR-03','AR-04','AR-05','AR-06'].map(id=>({key:`narrative:${id.toLowerCase()}-unlocked`,code:id,title:`${id} desbloqueado`,group:'Hitos narrativos'})),
+  {key:'narrative:comic-completed',code:'AC-01 · 11/11',title:'Registro ilustrado completado',group:'Hitos narrativos'},
+  {key:'narrative:closure-started',code:'CIERRE',title:'Protocolo de cierre iniciado',group:'Hitos narrativos'},
+  {key:'narrative:expedient-completed',code:'ARCHIVO',title:'Expediente cerrado correctamente',group:'Hitos narrativos'},
+  {key:'narrative:alt00-discovered',code:'ALT-00',title:'Línea temporal descartada descubierta',group:'Hitos narrativos'},
+  {key:'narrative:alt00-completed',code:'ALT-00 · 10/10',title:'Línea temporal descartada completada',group:'Hitos narrativos'},
+  {key:'narrative:expedition-accepted',code:'DECISIÓN FINAL',title:'Expedición aceptada por el destinatario',group:'Hitos narrativos'},
   {key:'special:final-opened',code:'FINAL-01',title:'Apertura del documento final',group:'Acciones especiales'},
   {key:'special:alberto-opened',code:'ALBERTO',title:'Apertura del mensaje de Alberto',group:'Acciones especiales'},
 ];
@@ -3038,7 +3055,7 @@ const renderAdminCommunications=(preservePosition=false)=>{
   const query=String(document.querySelector('#admin-communications-search')?.value||'').trim().toLowerCase();
   const filter=document.querySelector('#admin-communications-filter')?.value||'all';
   const entries=adminCommunicationEntries().filter(entry=>{const enabled=adminCommunicationPreferences.get(entry.key)===true;return(!query||`${entry.code} ${entry.title} ${entry.group}`.toLowerCase().includes(query))&&(filter==='all'||(filter==='enabled'&&enabled)||(filter==='disabled'&&!enabled))});
-  const groups=['Secuencia principal','Archivos recuperados','Acciones especiales'];
+  const groups=['Secuencia principal','Archivos recuperados','Hitos narrativos','Acciones especiales'];
   target.innerHTML=groups.map(group=>{const items=entries.filter(entry=>entry.group===group);if(!items.length)return'';const allItems=adminCommunicationEntries().filter(entry=>entry.group===group),enabledCount=allItems.filter(entry=>adminCommunicationPreferences.get(entry.key)===true).length;return `<section class="admin-communication-group"><header><div><span>${group}</span><strong data-communication-group-count="${group}">${enabledCount} de ${allItems.length} activos</strong></div><nav><button type="button" data-communication-group-action="enable" data-communication-group="${group}">Activar grupo</button><button type="button" data-communication-group-action="disable" data-communication-group="${group}">Desactivar grupo</button></nav></header><div>${items.map(entry=>{const enabled=adminCommunicationPreferences.get(entry.key)===true;return `<label class="admin-communication-row ${enabled?'is-enabled':''}" data-communication-search="${adminEditorEscape(`${entry.code} ${entry.title}`.toLowerCase())}"><span class="admin-communication-code">${adminEditorEscape(entry.code)}</span><span><strong>${adminEditorEscape(entry.title)}</strong><small>${enabled?'Se enviará un correo':'Sin aviso por correo'}</small></span><input type="checkbox" data-communication-key="${adminEditorEscape(entry.key)}" ${enabled?'checked':''}><i aria-hidden="true"></i></label>`}).join('')}</div></section>`}).join('')||'<p class="admin-communications-empty">No hay avisos que coincidan con el filtro.</p>';
   target.querySelectorAll('[data-communication-key]').forEach(input=>input.onchange=()=>{adminCommunicationPreferences.set(input.dataset.communicationKey,input.checked);const activeFilter=document.querySelector('#admin-communications-filter')?.value||'all';if(activeFilter!=='all'){renderAdminCommunications(true);return}const row=input.closest('.admin-communication-row');row?.classList.toggle('is-enabled',input.checked);const description=row?.querySelector('small');if(description)description.textContent=input.checked?'Se enviará un correo':'Sin aviso por correo';updateAdminCommunicationGroupCounts()});
   target.querySelectorAll('[data-communication-group-action]').forEach(button=>button.onclick=()=>{const enabled=button.dataset.communicationGroupAction==='enable';adminCommunicationEntries().filter(entry=>entry.group===button.dataset.communicationGroup).forEach(entry=>adminCommunicationPreferences.set(entry.key,enabled));renderAdminCommunications(true)});
