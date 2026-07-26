@@ -166,7 +166,7 @@ Deno.serve(async (request) => {
       loadingSeen: false,
       onboardingCompleted: false,
       onboardingCompletedAt: null,
-      onboardingVersion: 1,
+      onboardingVersion: 2,
       seenUnlocks: [],
     }
     const { error: progressError } = await adminClient
@@ -248,7 +248,7 @@ Deno.serve(async (request) => {
       loadingSeen: false,
       onboardingCompleted: false,
       onboardingCompletedAt: null,
-      onboardingVersion: 1,
+      onboardingVersion: 2,
       seenUnlocks: [],
     },
   })

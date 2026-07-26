@@ -43,6 +43,7 @@ folders['AR-01'].files.push({id:'AR01-04',title:'Boarding pass · José Cuadrado
 const ar03Cities=['01-Tokyo.png','02-Tokyo_barrios.png','03-Kyoto.png','04-Osaka.png','05-Nara.png','06-Hiroshima.png','07-Miyajima.png','08-Nikko.png','09-Hakone.png','10-Kamakura.png','11-Yokohama.png','12-Kanazawa.png'];
 const ar03Temples=['001-Fushimi Inari.png','002-Kiyomizu Dera.png','003-Kinkaku ji.png','004-Todai ji.png','005-Itsukushima.png','006-Senso ji.png','007-Meiji jingu.png','008-Kotoku in.png','009-Ginkaku ji.png','010-Tenryu ji.png','011-Kasuga taisha.png','012-nikko tosho gu.png','013-Hase dera.png','014-Yasaka shrine.png','015-Arashiyama bamboo grove.png','016-Heian jingu.png'];
 const EARLY_ACCESS_VERSION=1;
+const ONBOARDING_VERSION=2;
 const supabaseUrl='https://vcwqkideizdrhzpbghkj.supabase.co';
 const supabaseKey='sb_publishable_h3pjxT8UPZkYqRhLskVdlA_m-ulI4EF';
 let supabaseClient=null,currentUser=null,remoteState=null,supabaseScript=null,currentDisplayName='Destinatario autorizado',progressHydrated=false,progressSessionVersion=0,remoteRecipientMessages=[],recipientPushConnection=null,recipientPushConnected=false;
@@ -70,7 +71,7 @@ updateCompletionHeader=done=>{
 };
 let transientProgressState=null;
 const transientState=()=>normalizeFinalState(transientProgressState||emptyProgressState());
-const emptyProgressState=()=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,comicReadPages:[],alt00Discovered:false,alt00DiscoveredAt:null,alt00Completed:false,alt00CompletedAt:null,alt00LastPage:1,earlyAccessVersion:EARLY_ACCESS_VERSION,earlyAccessShownAt:null,earlyAccessAcknowledgedAt:null,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,loadingSeen:false,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:1,seenUnlocks:[]});
+const emptyProgressState=()=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,comicReadPages:[],alt00Discovered:false,alt00DiscoveredAt:null,alt00Completed:false,alt00CompletedAt:null,alt00LastPage:1,earlyAccessVersion:EARLY_ACCESS_VERSION,earlyAccessShownAt:null,earlyAccessAcknowledgedAt:null,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,loadingSeen:false,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:ONBOARDING_VERSION,seenUnlocks:[]});
 const resetFinalDecisionState=state=>({
   ...state,
   albertoMessageRead:false,
@@ -1465,11 +1466,80 @@ const expedientTourSteps=[
 ];
 let expedientTourActive=false,expedientTourTimer=null,expedientTourController=null;
 const closeExpedientTour=async result=>{
-  const root=document.querySelector('#expedient-tour');if(!root)return;
-  expedientTourActive=false;clearTimeout(expedientTourTimer);expedientTourController?.abort();expedientTourController=null;root.remove();document.body.classList.remove('expedient-tour-open');
+  const roots=[...document.querySelectorAll('#expedient-tour,#expedient-training')];if(!roots.length)return;
+  expedientTourActive=false;clearTimeout(expedientTourTimer);expedientTourController?.abort();expedientTourController=null;roots.forEach(root=>root.remove());document.body.classList.remove('expedient-tour-open','expedient-training-open');
   const completedAt=new Date().toISOString();
-  await patchState({onboardingCompleted:true,onboardingCompletedAt:completedAt,onboardingVersion:1,onboardingResult:result});
-  await recordActivity(result==='completed'?'onboarding_completed':'onboarding_skipped',null,{version:1});
+  await patchState({onboardingCompleted:true,onboardingCompletedAt:completedAt,onboardingVersion:ONBOARDING_VERSION,onboardingResult:result});
+  await recordActivity(result==='completed'?'onboarding_completed':'onboarding_skipped',null,{version:ONBOARDING_VERSION,training:true});
+  render({focusNext:true});
+};
+const startExpedientTraining=()=>{
+  document.querySelector('#expedient-tour')?.remove();
+  expedientTourController?.abort();expedientTourController=new AbortController();
+  document.body.classList.add('expedient-training-open');
+  const root=document.createElement('section');
+  root.id='expedient-training';root.className='expedient-training';root.setAttribute('aria-label','Simulacro de consulta del expediente');
+  root.innerHTML=`<div class="expedient-training-backdrop"></div><article class="training-terminal" role="dialog" aria-modal="true">
+    <header class="training-terminal-head"><div><span>ENTORNO DE ENTRENAMIENTO</span><strong>SIMULACRO DE CONSULTA</strong></div><button type="button" data-training-skip>Omitir guía</button></header>
+    <div class="training-stage" aria-live="polite"></div>
+  </article>`;
+  document.body.appendChild(root);
+  const stage=root.querySelector('.training-stage');
+  let folderDocumentRead=false,zoom=100;
+  const skip=()=>{
+    if(root.querySelector('.training-skip-confirm'))return;
+    const confirmPanel=document.createElement('section');confirmPanel.className='training-skip-confirm';confirmPanel.innerHTML='<div role="alertdialog" aria-modal="true" aria-labelledby="training-skip-title"><p class="system-line">PROTOCOLO DE ENTRENAMIENTO</p><h2 id="training-skip-title">¿Omitir la guía?</h2><p>Este entrenamiento no podrá repetirse salvo que KIZUNA vuelva a autorizarlo desde administración.</p><footer><button type="button" data-training-skip-cancel>Continuar entrenamiento</button><button type="button" data-training-skip-confirm>Omitir definitivamente</button></footer></div>';
+    root.appendChild(confirmPanel);confirmPanel.querySelector('[data-training-skip-cancel]').onclick=()=>confirmPanel.remove();confirmPanel.querySelector('[data-training-skip-confirm]').onclick=()=>void closeExpedientTour('skipped');confirmPanel.querySelector('[data-training-skip-cancel]').focus();
+  };
+  root.querySelector('[data-training-skip]').onclick=skip;
+  const bindReaderTools=()=>{
+    const paper=stage.querySelector('.training-paper'),output=stage.querySelector('[data-training-zoom]');if(!paper||!output)return;
+    const paint=()=>{output.textContent=`${zoom} %`;paper.style.setProperty('--training-zoom',String(zoom/100))};
+    stage.querySelector('[data-training-tool="out"]').onclick=()=>{zoom=Math.max(75,zoom-25);paint()};
+    stage.querySelector('[data-training-tool="in"]').onclick=()=>{zoom=Math.min(150,zoom+25);paint()};
+    stage.querySelector('[data-training-tool="fit"]').onclick=()=>{zoom=100;paint()};
+    stage.querySelector('[data-training-tool="full"]').onclick=()=>root.classList.toggle('is-training-fullscreen');
+    paint();
+  };
+  const renderReader=(folderMode=false)=>{
+    zoom=100;
+    stage.innerHTML=`<section class="training-reader">
+      <header class="training-reader-toolbar">
+        <div class="training-reader-heading"><span>${folderMode?'SIM-AR-02':'SIM-001'}</span><div><h2>${folderMode?'Registro pendiente':'Documento de entrenamiento'}</h2><p>ARCHIVO DE PRUEBA · SIN REGISTRO EN SUPABASE</p></div><strong>PENDIENTE DE CONFIRMACIÓN</strong></div>
+        <nav aria-label="Controles del documento"><button type="button" data-training-tool="out" aria-label="Reducir zoom">−</button><output data-training-zoom>100 %</output><button type="button" data-training-tool="in" aria-label="Aumentar zoom">+</button><button type="button" data-training-tool="fit">Ajustar</button><button type="button" data-training-tool="full" aria-label="Pantalla completa">⛶</button></nav>
+      </header>
+      <main class="training-reader-content"><article class="training-paper">
+        <p class="training-stamp">DOCUMENTO DE PRUEBA</p><p class="system-line">${folderMode?'REGISTRO 02 · LOTE SIM-AR':'PROTOCOLO DE CONSULTA · SIM-001'}</p>
+        <h2>${folderMode?'Confirmación individual.':'Abrir no significa leer.'}</h2>
+        <div class="training-document-copy">${folderMode?'<p>Los documentos contenidos en una carpeta también deben confirmarse individualmente.</p><p>Cuando todos los registros del lote estén leídos, se habilitará su documento de continuidad.</p>':'<p>Consulta el contenido completo antes de incorporarlo al expediente.</p><p>Utiliza los controles superiores para ampliar, reducir, ajustar o abrir el documento a pantalla completa.</p><blockquote>El proceso solo avanza cuando pulsas «Confirmar lectura».</blockquote>'}</div>
+      </article></main>
+      <footer class="training-reader-foot"><p><b>${folderMode?'DOCUMENTO DE CARPETA':'DOCUMENTO COMPLETO'}</b><span>Desplaza para leer · Pellizca para ampliar</span></p><button type="button" data-training-confirm>Confirmar lectura <span>→</span></button></footer>
+    </section>`;
+    bindReaderTools();
+    stage.querySelector('[data-training-confirm]').onclick=()=>{
+      if(folderMode){folderDocumentRead=true;renderFolder();return}
+      renderFolder();
+    };
+  };
+  const renderFolder=()=>{
+    stage.innerHTML=`<section class="training-folder">
+      <header><div><p class="system-line">ÍNDICE DE LA CARPETA · ENTRENAMIENTO</p><h2>Lote documental de prueba</h2><p>Cada registro se confirma por separado y siguiendo el orden autorizado.</p></div><strong>${folderDocumentRead?'2':'1'} <small>de 2 consultados</small></strong></header>
+      <div class="training-folder-progress"><i style="width:${folderDocumentRead?'100':'50'}%"></i></div>
+      <div class="training-folder-list">
+        <article class="is-read"><span>01</span><div><h3>Registro de muestra</h3><p>LECTURA CONFIRMADA</p></div><strong>✓ CONSULTADO</strong></article>
+        <article class="${folderDocumentRead?'is-read':'is-pending'}"><span>02</span><div><h3>Documento pendiente</h3><p>${folderDocumentRead?'LECTURA CONFIRMADA':'ABRE Y CONFIRMA SU LECTURA'}</p></div>${folderDocumentRead?'<strong>✓ CONSULTADO</strong>':'<button type="button" data-training-open-folder-doc>Abrir documento</button>'}</article>
+      </div>
+      <article class="training-continuity ${folderDocumentRead?'is-unlocked':'is-locked'}"><span>KTB</span><div><p>DOCUMENTO DE CONTINUIDAD</p><h3>KTB-SIM · Actualización del expediente</h3><small>${folderDocumentRead?'LOTE COMPLETO · CONTINUIDAD AUTORIZADA':'BLOQUEADO HASTA COMPLETAR EL LOTE'}</small></div><button type="button" data-training-complete-batch ${folderDocumentRead?'':'disabled'}>Confirmar lote y continuar <span>→</span></button></article>
+      <p class="training-folder-note">${folderDocumentRead?'Has confirmado todos los documentos. El KTB de continuidad ya está disponible.':'Abre el registro pendiente. Confirmarlo completará el lote y desbloqueará el KTB.'}</p>
+    </section>`;
+    stage.querySelector('[data-training-open-folder-doc]')?.addEventListener('click',()=>renderReader(true));
+    stage.querySelector('[data-training-complete-batch]')?.addEventListener('click',renderTrainingSummary);
+  };
+  const renderTrainingSummary=()=>{
+    stage.innerHTML=`<section class="training-summary"><p class="system-line">PROTOCOLO DE CONSULTA APRENDIDO</p><h2>Entrenamiento<br><em>completado.</em></h2><ol><li><span>01</span>Abrir un documento no confirma su lectura.</li><li><span>02</span>Cada documento debe confirmarse individualmente.</li><li><span>03</span>Los lotes se completan siguiendo el orden autorizado.</li><li><span>04</span>El progreso real se guarda en el Archivo Central.</li></ol><p>Las acciones de este simulacro no han modificado tu expediente.</p><button type="button" data-training-finish>Comenzar expediente real <span>→</span></button></section>`;
+    stage.querySelector('[data-training-finish]').onclick=()=>void closeExpedientTour('completed');
+  };
+  renderReader(false);
 };
 const startExpedientTour=()=>{
   if(expedientTourActive||getState().onboardingCompleted||dash.hidden)return;
@@ -1497,11 +1567,11 @@ const startExpedientTour=()=>{
     const step=available[index],target=document.querySelector(step.selector);if(!target)return;
     const rect=target.getBoundingClientRect();if(rect.top<82||rect.bottom>innerHeight-70)target.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'center',inline:'nearest'});
     count.textContent=`PASO ${String(index+1).padStart(2,'0')} DE ${String(available.length).padStart(2,'0')}`;eyebrow.textContent=step.eyebrow;title.textContent=step.title;text.textContent=step.text;
-    progress.innerHTML=available.map((_,stepIndex)=>`<i class="${stepIndex===index?'active':stepIndex<index?'done':''}"></i>`).join('');back.hidden=index===0;next.innerHTML=index===available.length-1?'Comenzar expediente <span>→</span>':'Siguiente <span>→</span>';
+    progress.innerHTML=available.map((_,stepIndex)=>`<i class="${stepIndex===index?'active':stepIndex<index?'done':''}"></i>`).join('');back.hidden=index===0;next.innerHTML=index===available.length-1?'Iniciar simulacro <span>→</span>':'Siguiente <span>→</span>';
     card.classList.remove('is-visible');clearTimeout(expedientTourTimer);expedientTourTimer=setTimeout(()=>{position();card.classList.add('is-visible');next.focus({preventScroll:true})},matchMedia('(prefers-reduced-motion:reduce)').matches?0:240);
   };
   back.onclick=()=>{if(index>0){index--;showStep()}};
-  next.onclick=()=>{if(index===available.length-1){void closeExpedientTour('completed');return}index++;showStep()};
+  next.onclick=()=>{if(index===available.length-1){startExpedientTraining();return}index++;showStep()};
   root.querySelector('[data-tour-skip]').onclick=()=>void closeExpedientTour('skipped');
   root.addEventListener('keydown',event=>{if(event.key==='Escape')void closeExpedientTour('skipped');if(event.key==='ArrowRight')next.click();if(event.key==='ArrowLeft'&&!back.hidden)back.click()});
   addEventListener('resize',position,{signal:expedientTourController.signal});
@@ -2807,7 +2877,7 @@ document.querySelector('#admin-shop-refresh').onclick=loadAdminProducts;
 [adminShopSearch,adminShopCategory,adminShopVisibility].forEach(control=>control.addEventListener(control.tagName==='INPUT'?'input':'change',renderAdminProductList));
 
 const isAdmin=user=>user?.app_metadata?.role==='admin';
-const safeState=state=>normalizeFinalState({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,comicReadPages:[],alt00Discovered:false,alt00DiscoveredAt:null,alt00Completed:false,alt00CompletedAt:null,alt00LastPage:1,earlyAccessVersion:EARLY_ACCESS_VERSION,earlyAccessShownAt:null,earlyAccessAcknowledgedAt:null,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:1,seenUnlocks:[],...(state||{})});
+const safeState=state=>normalizeFinalState({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,comicReadPages:[],alt00Discovered:false,alt00DiscoveredAt:null,alt00Completed:false,alt00CompletedAt:null,alt00LastPage:1,earlyAccessVersion:EARLY_ACCESS_VERSION,earlyAccessShownAt:null,earlyAccessAcknowledgedAt:null,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:ONBOARDING_VERSION,seenUnlocks:[],...(state||{})});
 const adminProgressSortTime=row=>{
   const value=row?.state?.adminSavedAt||row?.updated_at||'';
   const time=Date.parse(value);
@@ -3209,7 +3279,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   const onboardingCompleted=Boolean(current.onboardingCompleted),onboardingCompletedDate=current.onboardingCompletedAt&&!Number.isNaN(Date.parse(current.onboardingCompletedAt))?new Date(current.onboardingCompletedAt).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):null;
   const onboardingSettings=document.createElement('section');
   onboardingSettings.className='admin-message-settings admin-onboarding-settings';
-  onboardingSettings.innerHTML=`<p class="system-line">GUÍA INICIAL · VERSIÓN ${Number(current.onboardingVersion||1)}</p><h4>Recorrido del expediente</h4><p class="admin-legal-state ${onboardingCompleted?'accepted':'pending'}"><strong>${onboardingCompleted?'GUÍA COMPLETADA':'PENDIENTE DE MOSTRAR'}</strong>${onboardingCompletedDate?`<span>${adminEditorEscape(onboardingCompletedDate)}</span>`:''}</p><p>${onboardingCompleted?'El recorrido no volverá a aparecer automáticamente. Puedes prepararlo para el próximo acceso.':'La guía se mostrará cuando el destinatario vuelva a entrar en su expediente.'}</p><button type="button" id="admin-reset-onboarding" ${onboardingCompleted?'':'disabled'}>Mostrar guía de nuevo</button><span id="admin-onboarding-status" role="status"></span>`;
+  onboardingSettings.innerHTML=`<p class="system-line">GUÍA INICIAL · VERSIÓN ${ONBOARDING_VERSION}</p><h4>Recorrido y simulacro documental</h4><p class="admin-legal-state ${onboardingCompleted?'accepted':'pending'}"><strong>${onboardingCompleted?'GUÍA COMPLETADA':'PENDIENTE DE MOSTRAR'}</strong>${onboardingCompletedDate?`<span>${adminEditorEscape(onboardingCompletedDate)}</span>`:''}</p><p>${onboardingCompleted?'El recorrido no volverá a aparecer automáticamente. Puedes prepararlo para el próximo acceso.':'La guía y el entrenamiento de lectura se mostrarán cuando el destinatario vuelva a entrar en su expediente.'}</p><button type="button" id="admin-reset-onboarding" ${onboardingCompleted?'':'disabled'}>Mostrar guía de nuevo</button><span id="admin-onboarding-status" role="status"></span>`;
   settingsPanel.insertBefore(onboardingSettings,dangerZone);
   const albertoSettings=document.createElement('section'),expedientCompleted=Boolean(current.completed&&selected.has('KTB-014'));
   albertoSettings.className='admin-message-settings admin-alberto-settings';
@@ -3348,10 +3418,10 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
     const button=document.querySelector('#admin-reset-onboarding'),status=document.querySelector('#admin-onboarding-status');
     if(!await adminConfirm({title:'Reactivar recorrido inicial',message:`La guía volverá a mostrarse a ${profile.display_name||profile.email} en su próximo acceso al expediente.`,confirmLabel:'Mostrar guía'}))return;
     button.disabled=true;status.textContent='Preparando la guía…';
-    const nextState={...current,onboardingCompleted:false,onboardingCompletedAt:null,onboardingResult:null,onboardingResetAt:new Date().toISOString(),onboardingVersion:Number(current.onboardingVersion||1)};
+    const nextState={...current,onboardingCompleted:false,onboardingCompletedAt:null,onboardingResult:null,onboardingResetAt:new Date().toISOString(),onboardingVersion:ONBOARDING_VERSION};
     try{
       const savedState=await saveAdminProgressState(profile.id,nextState);
-      const activity=normalizeActivityRecord('onboarding_reset',{version:Number(current.onboardingVersion||1),source:'administration'});
+      const activity=normalizeActivityRecord('onboarding_reset',{version:ONBOARDING_VERSION,source:'administration'});
       const {error:activityError}=await supabaseClient.from('expedient_activity_log').insert({user_id:profile.id,event_type:activity.eventType,document_id:null,details:activity.details});
       if(activityError)console.warn('La guía se reactivó, pero no pudo registrarse en la actividad.',activityError);
       renderAdminEditor(profile,savedState,'settings');
