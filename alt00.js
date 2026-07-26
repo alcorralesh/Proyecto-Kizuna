@@ -467,10 +467,13 @@ window.KizunaFinale=(()=>{
     const reveal=()=>{
       if(!overlay.isConnected||anomaly.classList.contains('is-revealed'))return;
       stage.classList.add('is-interference');
+      anomaly.classList.add('is-detecting');
       setTimeout(()=>{
         anomaly.classList.add('is-revealed');
+        anomaly.classList.remove('is-detecting');
         stage.classList.remove('is-interference');
-      },reducedMotion()?0:520);
+        stage.classList.add('is-resolved');
+      },reducedMotion()?0:820);
     };
     const close=()=>{
       if(settings.requestFinaleClose){settings.requestFinaleClose();return}
@@ -488,7 +491,7 @@ window.KizunaFinale=(()=>{
       });
     };
     requestAnimationFrame(()=>stage.classList.add('is-visible'));
-    setTimeout(reveal,reducedMotion()?900:2700);
+    setTimeout(reveal,reducedMotion()?500:1250);
     return overlay;
   };
 
