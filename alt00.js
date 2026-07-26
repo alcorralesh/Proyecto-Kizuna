@@ -412,7 +412,7 @@ window.KizunaFinale=(()=>{
   };
 
   const previewResponseOutcome=(options={})=>{
-    const settings={assetBase:'../',displayName:'José Cuadrado',anomalyOnly:false,overlay:null,...options};
+    const settings={assetBase:'../',displayName:'José Cuadrado',preview:true,anomalyOnly:false,overlay:null,lastPage:1,onSecretState:()=>{},...options};
     const existingOverlay=settings.overlay;
     if(!existingOverlay)removeActive();
     const overlay=existingOverlay||document.createElement('section');
@@ -423,7 +423,7 @@ window.KizunaFinale=(()=>{
     if(settings.anomalyOnly)overlay.setAttribute('aria-label','Registro alternativo ALT-00 detectado');
     else overlay.setAttribute('aria-labelledby','alt00-response-title');
     overlay.innerHTML=`
-      <p class="kizuna-finale-preview">VISTA DE PRUEBA · NO SE GUARDARÁ NINGÚN CAMBIO</p>
+      <p class="kizuna-finale-preview" ${settings.preview?'':'hidden'}>VISTA DE PRUEBA · NO SE GUARDARÁ NINGÚN CAMBIO</p>
       <article class="alt00-response-stage ${settings.anomalyOnly?'is-anomaly-only':''}">
         <header>
           <div><img src="${settings.assetBase}assets/kizuna-logo-official.png" alt=""><span>DIVISIÓN DE ARCHIVOS TEMPORALES<small>COMITÉ KIZUNA · RESPUESTA PERSONAL</small></span></div>
@@ -456,7 +456,7 @@ window.KizunaFinale=(()=>{
         </main>
         <footer>
           <span>Este registro no pertenece a la línea temporal autorizada.</span>
-          <button type="button" class="alt00-response-exit">Cerrar y volver a Administración</button>
+          <button type="button" class="alt00-response-exit">${settings.preview?'Cerrar y volver a Administración':'Cerrar y volver a KIZUNA'}</button>
         </footer>
       </article>`;
     if(!overlay.isConnected)document.body.appendChild(overlay);
@@ -464,6 +464,7 @@ window.KizunaFinale=(()=>{
     activeOverlay=overlay;
     const stage=overlay.querySelector('.alt00-response-stage');
     const anomaly=overlay.querySelector('.alt00-response-anomaly');
+    let discoveryQueued=false;
     const reveal=()=>{
       if(!overlay.isConnected||anomaly.classList.contains('is-revealed'))return;
       stage.classList.add('is-interference');
@@ -473,6 +474,11 @@ window.KizunaFinale=(()=>{
         anomaly.classList.remove('is-detecting');
         stage.classList.remove('is-interference');
         stage.classList.add('is-resolved');
+        if(!settings.preview&&!discoveryQueued){
+          discoveryQueued=true;
+          Promise.resolve(settings.onSecretState({kind:'discovered',page:Math.max(1,Number(settings.lastPage)||1)}))
+            .catch(error=>console.warn('No se pudo registrar la detección de ALT-00.',error));
+        }
       },reducedMotion()?0:820);
     };
     const close=()=>{
@@ -485,8 +491,9 @@ window.KizunaFinale=(()=>{
     overlay.querySelector('.alt00-response-open').onclick=()=>{
       openComic({
         assetBase:settings.assetBase,
-        startPage:1,
-        preview:true,
+        startPage:Math.max(1,Number(settings.lastPage)||1),
+        preview:settings.preview,
+        onSecretState:settings.onSecretState,
         onClose:()=>stage.classList.add('is-returned')
       });
     };
