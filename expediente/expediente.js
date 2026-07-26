@@ -436,6 +436,121 @@ const showEarlyAccessSequence=({preview=false,onComplete=()=>{}}={})=>{
   };
   return scene;
 };
+const showEarlyAccessAuthorizationSimulation=({profile={},state={}}={})=>{
+  document.querySelector('.early-auth-simulation')?.remove();
+  const escapeValue=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+  const displayName=escapeValue(profile.display_name||profile.email||'Destinatario autorizado');
+  const email=escapeValue(profile.email||'usuario@kizuna.test');
+  const readCount=Array.isArray(state?.read)?state.read.length:0;
+  const scene=document.createElement('section');
+  scene.className='early-auth-simulation';
+  scene.setAttribute('role','dialog');
+  scene.setAttribute('aria-modal','true');
+  scene.setAttribute('aria-labelledby','early-auth-simulation-title');
+  scene.innerHTML=`<div class="early-auth-simulation-scan" aria-hidden="true"></div>
+    <button class="early-auth-simulation-close" type="button" aria-label="Cerrar simulación">×</button>
+    <div class="early-auth-simulation-shell">
+      <header class="early-auth-simulation-brand">
+        <img src="../assets/kizuna-logo-official.png" alt="">
+        <span>KIZUNA<small>DIVISIÓN DE ARCHIVOS TEMPORALES</small></span>
+        <b>SIMULACIÓN · SIN ESCRITURAS</b>
+      </header>
+      <article class="early-auth-simulation-card">
+        <div class="early-auth-simulation-heading">
+          <div>
+            <p class="system-line">VERIFICANDO AUTORIZACIÓN</p>
+            <h1 id="early-auth-simulation-title">Acceso<br><em>en validación.</em></h1>
+          </div>
+          <span class="early-auth-simulation-code">KTB-EXP<br>00184</span>
+        </div>
+        <div class="early-auth-simulation-progress" aria-hidden="true"><i></i></div>
+        <div class="early-auth-simulation-grid">
+          <section class="early-auth-simulation-recipient">
+            <p>DESTINATARIO LOCALIZADO</p>
+            <h2>${displayName}</h2>
+            <dl><div><dt>Correo de acceso</dt><dd>${email}</dd></div><div><dt>Expediente asociado</dt><dd>KTB-EXP-2026-JP-00184</dd></div><div><dt>Registros recuperados</dt><dd>${readCount}</dd></div></dl>
+          </section>
+          <section class="early-auth-simulation-checks" aria-live="polite">
+            <ol>
+              <li data-step="identity"><i></i><span>Verificando identidad del destinatario</span><b>EN CURSO</b></li>
+              <li data-step="progress"><i></i><span>Recuperando estado desde Archivo Central</span><b>EN ESPERA</b></li>
+              <li data-step="date"><i></i><span>Registrando fecha de acceso actual</span><b>EN ESPERA</b></li>
+              <li data-step="window"><i></i><span>Comparando ventana de entrega prevista</span><b>EN ESPERA</b></li>
+            </ol>
+          </section>
+        </div>
+        <section class="early-auth-simulation-dates" aria-live="polite">
+          <div><span>FECHA DE ACCESO DETECTADA</span><strong>${earlyAccessDateLabel()}</strong></div>
+          <div><span>LIBERACIÓN ORIGINAL PREVISTA</span><strong>29 DE AGOSTO DE 2026</strong></div>
+          <p><i></i><span>Las fechas todavía no han sido comparadas.</span></p>
+        </section>
+        <footer>
+          <p>Vista previa de Administración. El expediente seleccionado no se modificará.</p>
+          <button type="button" class="early-auth-simulation-advance">Acelerar verificación <b>→</b></button>
+        </footer>
+      </article>
+    </div>`;
+  document.body.appendChild(scene);
+  document.body.classList.add('early-access-open');
+  requestAnimationFrame(()=>scene.classList.add('is-visible'));
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const progress=scene.querySelector('.early-auth-simulation-progress i');
+  const title=scene.querySelector('h1');
+  const datePanel=scene.querySelector('.early-auth-simulation-dates');
+  const dateStatus=datePanel.querySelector('p span');
+  const advance=scene.querySelector('.early-auth-simulation-advance');
+  const stepNames=['identity','progress','date','window'];
+  const timers=[];
+  let anomalyDetected=false,transitioned=false;
+  const setStep=(name,status)=>{
+    const item=scene.querySelector(`[data-step="${name}"]`);
+    if(!item)return;
+    item.classList.toggle('is-complete',status==='complete');
+    item.classList.toggle('is-error',status==='error');
+    item.classList.toggle('is-active',status==='active');
+    item.querySelector('b').textContent=status==='complete'?'CONFIRMADO':status==='error'?'NO COINCIDENTE':status==='active'?'EN CURSO':'EN ESPERA';
+  };
+  const close=()=>{
+    timers.forEach(clearTimeout);
+    scene.remove();
+    document.body.classList.remove('early-access-open');
+  };
+  const openDiagnostic=()=>{
+    if(transitioned)return;
+    transitioned=true;
+    timers.forEach(clearTimeout);
+    scene.classList.add('is-transitioning');
+    setTimeout(()=>{
+      scene.remove();
+      showEarlyAccessSequence({preview:true});
+    },reduced?120:650);
+  };
+  const detectAnomaly=()=>{
+    if(anomalyDetected){openDiagnostic();return}
+    anomalyDetected=true;
+    timers.forEach(clearTimeout);
+    stepNames.slice(0,3).forEach(name=>setStep(name,'complete'));
+    setStep('window','error');
+    progress.style.width='68%';
+    title.innerHTML='Validación<br><em>interrumpida.</em>';
+    datePanel.classList.add('is-mismatch');
+    dateStatus.textContent='La fecha de acceso no coincide con la ventana autorizada.';
+    scene.classList.add('is-anomaly');
+    advance.innerHTML='Abrir diagnóstico AT-03 <b>→</b>';
+    timers.push(setTimeout(openDiagnostic,reduced?2200:4200));
+  };
+  const timeline=[
+    [350,()=>{setStep('identity','active');progress.style.width='12%'}],
+    [1250,()=>{setStep('identity','complete');setStep('progress','active');progress.style.width='31%'}],
+    [2400,()=>{setStep('progress','complete');setStep('date','active');progress.style.width='48%'}],
+    [3600,()=>{setStep('date','complete');setStep('window','active');progress.style.width='61%';datePanel.classList.add('is-checking');dateStatus.textContent='Comparando fechas autorizadas…'}],
+    [5400,detectAnomaly]
+  ];
+  timeline.forEach(([delay,callback])=>timers.push(setTimeout(callback,reduced?Math.max(100,delay*.35):delay)));
+  advance.onclick=()=>anomalyDetected?openDiagnostic():detectAnomaly();
+  scene.querySelector('.early-auth-simulation-close').onclick=close;
+  return scene;
+};
 const save=items=>patchState({read:items});
 const persistReadMarker=async(id,button,options={})=>{
   const pendingLabel=options.pendingLabel||'Guardando en Supabase…';
@@ -2954,7 +3069,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   const earlyAccessDate=current.earlyAccessAcknowledgedAt&&!Number.isNaN(Date.parse(current.earlyAccessAcknowledgedAt))?new Date(current.earlyAccessAcknowledgedAt).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):null;
   const earlyAccessSettings=document.createElement('section');
   earlyAccessSettings.className='admin-message-settings admin-early-access-settings';
-  earlyAccessSettings.innerHTML=`<p class="system-line">LIBERACIÓN ANTICIPADA · AT-03</p><h4>Apertura cinematográfica</h4><p class="admin-legal-state ${earlyAccessAccepted?'accepted':'pending'}"><strong>${earlyAccessAccepted?'AUTORIZACIÓN MOSTRADA':'PENDIENTE DE MOSTRAR'}</strong>${earlyAccessDate?`<span>${adminEditorEscape(earlyAccessDate)}</span>`:''}</p><p>${earlyAccessAccepted?'El destinatario ya confirmó la liberación anticipada. Puedes reproducirla aquí sin alterar su expediente.':'La secuencia aparecerá después de «Acceso autorizado» en su próximo inicio de sesión.'}</p><button type="button" id="admin-preview-early-access">Reproducir apertura anticipada</button><small>VISTA DE PRUEBA · SIN ESCRITURAS EN SUPABASE</small>`;
+  earlyAccessSettings.innerHTML=`<p class="system-line">LIBERACIÓN ANTICIPADA · AT-03</p><h4>Autorización y anomalía temporal</h4><p class="admin-legal-state ${earlyAccessAccepted?'accepted':'pending'}"><strong>${earlyAccessAccepted?'AUTORIZACIÓN MOSTRADA':'PENDIENTE DE MOSTRAR'}</strong>${earlyAccessDate?`<span>${adminEditorEscape(earlyAccessDate)}</span>`:''}</p><p>Simula el flujo completo: verificación de la sesión, comparación de fechas, detección AT-03 y comunicado de liberación anticipada.</p><button type="button" id="admin-preview-early-access">Simular autorización y anomalía</button><small>VISTA DE PRUEBA · SIN ESCRITURAS EN SUPABASE</small>`;
   settingsPanel.insertBefore(earlyAccessSettings,dangerZone);
   const legalAccepted=Boolean(current.legalAccepted),legalVersion=Number(current.legalVersion||1);
   const legalAcceptedDate=current.legalAcceptedAt&&!Number.isNaN(Date.parse(current.legalAcceptedAt))?new Date(current.legalAcceptedAt).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):null;
@@ -3082,7 +3197,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   };
   const toggleAccess=async()=>{const nextActive=!isActive;if(!await adminConfirm({title:nextActive?'Reactivar acceso':'Desactivar acceso',message:nextActive?`Se restaurará el acceso de ${profile.display_name||profile.email} a su expediente.`:`${profile.display_name||profile.email} no podrá iniciar sesión hasta que vuelvas a reactivar su cuenta.`,confirmLabel:nextActive?'Reactivar cuenta':'Desactivar cuenta',danger:!nextActive}))return;const buttons=[document.querySelector('#admin-toggle-user'),document.querySelector('#admin-side-toggle-user')];buttons.forEach(button=>button.disabled=true);try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'set-active',userId:profile.id,active:nextActive}});if(error)throw error;profile.is_active=data?.isActive===undefined?nextActive:data.isActive;renderAdminEditor(profile,current)}catch(error){console.error(error);buttons.forEach(button=>button.disabled=false);document.querySelector('#admin-identity-status').textContent=await functionErrorMessage(error)}};
   document.querySelector('#admin-toggle-user').onclick=toggleAccess;document.querySelector('#admin-side-toggle-user').onclick=toggleAccess;
-  document.querySelector('#admin-preview-early-access').onclick=()=>showEarlyAccessSequence({preview:true});
+  document.querySelector('#admin-preview-early-access').onclick=()=>showEarlyAccessAuthorizationSimulation({profile,state:current});
   document.querySelector('#admin-play-finale').onclick=()=>{if(!window.KizunaFinale){alert('No se ha podido cargar la vista previa del final.');return}window.KizunaFinale.play({assetBase:'../',preview:true,lastPage:1})};
   document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!await adminConfirm({title:'Reabrir la decisión final',message:`El mensaje de Alberto volverá a mostrarse a ${profile.display_name||profile.email} y podrá responderlo de nuevo.`,confirmLabel:'Reabrir mensaje'}))return;button.disabled=true;status.textContent='Restaurando mensaje…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};try{const savedState=await saveAdminProgressState(profile.id,nextState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent='No se ha podido restaurar el mensaje.';button.disabled=false}};
   document.querySelector('#admin-renew-legal').onclick=async()=>{
