@@ -1229,6 +1229,115 @@ const enhanceDocumentImagesLegacy=()=>{
 imageToolsStyle.remove();
 const readerTools=document.querySelector('.reader-tools'),readerZoom=document.querySelector('#reader-zoom'),readerStatus=document.querySelector('#reader-status'),readerCode=document.querySelector('#reader-code'),readerContent=document.querySelector('.reader-content'),readerPosition=document.querySelector('.reader-position'),readerHint=document.querySelector('.reader-hint');
 const readerCloseButton=document.querySelector('#viewer .reader-toolbar .close');
+const readerShareButton=document.createElement('button');
+readerShareButton.type='button';
+readerShareButton.hidden=true;
+readerShareButton.dataset.readerAction='share';
+readerShareButton.className='reader-share-trigger';
+readerShareButton.setAttribute('aria-label','Compartir copia del documento');
+readerShareButton.title='Compartir copia';
+readerShareButton.innerHTML='<span aria-hidden="true">↗</span><b>Compartir</b>';
+readerTools.insertBefore(readerShareButton,readerTools.querySelector('[data-reader-action="full"]'));
+const readerShareSheet=document.createElement('section');
+readerShareSheet.className='reader-share-sheet';
+readerShareSheet.hidden=true;
+readerShareSheet.setAttribute('role','dialog');
+readerShareSheet.setAttribute('aria-modal','true');
+readerShareSheet.setAttribute('aria-labelledby','reader-share-title');
+readerShareSheet.innerHTML=`<article>
+  <header><div><p>COPIA DEL ARCHIVO</p><h3 id="reader-share-title">Compartir documento</h3></div><button type="button" data-share-action="close" aria-label="Cerrar">×</button></header>
+  <p class="reader-share-file" data-share-file>Preparando copia autorizada…</p>
+  <div class="reader-share-actions">
+    <button type="button" data-share-action="native" disabled><span aria-hidden="true">↗</span><b>Compartir archivo</b><small>Correo, mensajería y otras aplicaciones</small></button>
+    <button type="button" data-share-action="download" disabled><span aria-hidden="true">↓</span><b>Descargar copia</b><small>Guardar la imagen en este dispositivo</small></button>
+  </div>
+  <p class="reader-share-status" data-share-status aria-live="polite"></p>
+</article>`;
+viewer.appendChild(readerShareSheet);
+let readerSharePrepared=null,readerSharePreparing=null;
+const currentReaderImage=()=>document.querySelector('#doc-body>.image-inspector img');
+const readerShareFilename=blob=>{
+  const mimeExtension={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'}[blob.type];
+  const source=currentReaderImage()?.currentSrc||currentReaderImage()?.src||'';
+  const sourceExtension=source.match(/\.([a-z0-9]{2,5})(?:[?#]|$)/i)?.[1]?.toLowerCase();
+  const extension=mimeExtension||sourceExtension||'png';
+  const code=String(active||'DOCUMENTO').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9-]+/gi,'-').replace(/^-|-$/g,'').toUpperCase();
+  return `KIZUNA-${code||'DOCUMENTO'}.${extension}`;
+};
+const prepareReaderShare=()=>{
+  const image=currentReaderImage();
+  if(!image)return Promise.reject(new Error('No hay una imagen disponible para compartir.'));
+  const source=image.currentSrc||image.src;
+  if(readerSharePrepared?.source===source)return Promise.resolve(readerSharePrepared);
+  if(readerSharePreparing?.source===source)return readerSharePreparing.promise;
+  const promise=fetch(source,{credentials:'same-origin'}).then(response=>{
+    if(!response.ok)throw new Error(`No se pudo obtener el archivo (${response.status}).`);
+    return response.blob();
+  }).then(blob=>{
+    const file=new File([blob],readerShareFilename(blob),{type:blob.type||'image/png',lastModified:Date.now()});
+    readerSharePrepared={source,file,blob};
+    return readerSharePrepared;
+  }).finally(()=>{if(readerSharePreparing?.source===source)readerSharePreparing=null});
+  readerSharePreparing={source,promise};
+  return promise;
+};
+const closeReaderShare=()=>{
+  readerShareSheet.classList.remove('is-open');
+  setTimeout(()=>{if(!readerShareSheet.classList.contains('is-open'))readerShareSheet.hidden=true},180);
+  readerShareButton.focus({preventScroll:true});
+};
+const openReaderShare=()=>{
+  const image=currentReaderImage();
+  if(!image)return;
+  const nativeButton=readerShareSheet.querySelector('[data-share-action="native"]');
+  const downloadButton=readerShareSheet.querySelector('[data-share-action="download"]');
+  const fileLabel=readerShareSheet.querySelector('[data-share-file]');
+  const status=readerShareSheet.querySelector('[data-share-status]');
+  readerSharePrepared=null;
+  nativeButton.disabled=true;
+  downloadButton.disabled=true;
+  nativeButton.hidden=false;
+  fileLabel.textContent='Preparando copia autorizada…';
+  status.textContent='';
+  readerShareSheet.hidden=false;
+  requestAnimationFrame(()=>readerShareSheet.classList.add('is-open'));
+  prepareReaderShare().then(prepared=>{
+    const canNative=typeof navigator.share==='function'&&(!navigator.canShare||navigator.canShare({files:[prepared.file]}));
+    nativeButton.hidden=!canNative;
+    nativeButton.disabled=!canNative;
+    downloadButton.disabled=false;
+    fileLabel.textContent=prepared.file.name;
+    if(!canNative)status.textContent='Este navegador permite descargar la copia, pero no compartir archivos directamente.';
+  }).catch(error=>{
+    console.error('No se pudo preparar el documento para compartir.',error);
+    fileLabel.textContent='Copia no disponible';
+    status.textContent='No se ha podido preparar este archivo. Inténtalo de nuevo.';
+  });
+};
+readerShareButton.addEventListener('click',openReaderShare);
+viewer.addEventListener('cancel',event=>{
+  if(readerShareSheet.hidden)return;
+  event.preventDefault();
+  closeReaderShare();
+});
+readerShareSheet.addEventListener('click',event=>{
+  if(event.target===readerShareSheet||event.target.closest('[data-share-action="close"]')){closeReaderShare();return}
+  const nativeButton=event.target.closest('[data-share-action="native"]');
+  const downloadButton=event.target.closest('[data-share-action="download"]');
+  const status=readerShareSheet.querySelector('[data-share-status]');
+  if(nativeButton&&readerSharePrepared){
+    status.textContent='';
+    navigator.share({files:[readerSharePrepared.file],title:`KIZUNA · ${active}`,text:'Copia de un documento recuperado del expediente KIZUNA.'}).then(closeReaderShare).catch(error=>{
+      if(error?.name!=='AbortError'){console.warn('No se pudo abrir el menú para compartir.',error);status.textContent='No se ha podido abrir el menú para compartir.'}
+    });
+  }
+  if(downloadButton&&readerSharePrepared){
+    const url=URL.createObjectURL(readerSharePrepared.blob),link=document.createElement('a');
+    link.href=url;link.download=readerSharePrepared.file.name;document.body.appendChild(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    status.textContent='Descarga iniciada.';
+  }
+});
 let readerPreviousBodyOverflow='';
 const setReaderFullscreenState=activeState=>{
   viewer.classList.toggle('is-reader-fullscreen',activeState);
@@ -1263,6 +1372,7 @@ const syncReaderChrome=()=>{
   readerPosition.innerHTML=comicImage?`PÁGINA ${comicPage} <span>·</span> ${comicPages} DE 11 RECUPERADAS`:folderView?'ÍNDICE DE CARPETA <span>·</span> ARCHIVO RECUPERADO':'DOCUMENTO COMPLETO <span>·</span> FINAL DEL DOCUMENTO';
   readerHint.innerHTML=comicImage?'Navega entre las páginas disponibles':folderView?'Selecciona un documento para abrirlo':'Desplaza para leer <span>·</span> Pellizca para ampliar';
   readerTools.hidden=!hasImage;
+  readerShareButton.hidden=!hasImage;
   comicPrevious.hidden=!comicImage;
   comicFollowing.hidden=!comicImage;
   const activeBatchMarker=active==='AR01-BILLETES'?'AR01-BILLETES':active==='AR03-cities'?'AR03-CITIES-COMPLETE':active==='AR03-temples'?'AR03-TEMPLES-COMPLETE':'';
@@ -1402,7 +1512,7 @@ const enhanceDocumentImages=()=>{
 document.addEventListener('fullscreenchange',()=>setReaderFullscreenState(document.fullscreenElement===viewer));
 readerBackExpedient.onclick=()=>{viewer.close();render()};
 readerBackFolder.onclick=()=>{if(readerReturnToFolder==='tickets')openTicketMosaic();else if(readerReturnToFolder==='cities'||readerReturnToFolder==='temples')openAr03Mosaic(readerReturnToFolder);else if(readerReturnToFolder==='AR-03')openAr03();else if(readerReturnToFolder)openFolder(readerReturnToFolder)};
-viewer.addEventListener('close',()=>{clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery');readerReturnToFolder=null;readerCanConfirm=false;readerChromeActive='';comicPrevious.hidden=true;comicFollowing.hidden=true;const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin='';delete body.dataset.comicPage;delete body.dataset.comicPages;if(viewer.classList.contains('is-fallback-fullscreen')){viewer.classList.remove('is-fallback-fullscreen');document.body.style.overflow=readerPreviousBodyOverflow}if(document.fullscreenElement===viewer)document.exitFullscreen();setReaderFullscreenState(false)});
+viewer.addEventListener('close',()=>{closeReaderShare();readerSharePrepared=null;readerSharePreparing=null;clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery');readerReturnToFolder=null;readerCanConfirm=false;readerChromeActive='';comicPrevious.hidden=true;comicFollowing.hidden=true;const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin='';delete body.dataset.comicPage;delete body.dataset.comicPages;if(viewer.classList.contains('is-fallback-fullscreen')){viewer.classList.remove('is-fallback-fullscreen');document.body.style.overflow=readerPreviousBodyOverflow}if(document.fullscreenElement===viewer)document.exitFullscreen();setReaderFullscreenState(false)});
 const documentImageObserver=new MutationObserver(()=>enhanceDocumentImages());documentImageObserver.observe(document.querySelector('#doc-body'),{childList:true});document.addEventListener('keydown',event=>{if(!viewer.open)return;if(event.key==='ArrowLeft'&&!comicPrevious.hidden&&!comicPrevious.disabled){event.preventDefault();comicPrevious.click()}if(event.key==='ArrowRight'&&!comicFollowing.hidden&&!comicFollowing.disabled){event.preventDefault();comicFollowing.click()}});
 const allowed=id=>{const index=sequence.indexOf(id);return index===0||read().includes(sequence[index-1])};const roman=value=>{const table=[[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];let result='';for(const [number,symbol] of table){while(value>=number){result+=symbol;value-=number}}return result};
 const mailboxButton=document.createElement('button'),mailbox=document.createElement('aside'),publicReturnButton=document.createElement('button');mailboxButton.id='mailbox-toggle';mailboxButton.type='button';mailboxButton.setAttribute('aria-label','Abrir buzón del expediente');mailbox.id='mailbox';mailbox.style.cssText='display:none;position:fixed;right:5vw;top:82px;z-index:30;width:min(450px,calc(100vw - 32px));max-height:72vh;overflow:auto;background:#f6f0e2;color:#202726;border:1px solid #8b887d;box-shadow:12px 14px 30px #0004;padding:22px';publicReturnButton.id='return-public-site';publicReturnButton.type='button';publicReturnButton.innerHTML='<span aria-hidden="true">⌂</span><b>Web</b>';publicReturnButton.setAttribute('aria-label','Volver a la web pública');publicReturnButton.title='Volver a la web pública';publicReturnButton.onclick=()=>{location.href='../index.html'};const headerActions=document.querySelector('.header-actions'),exitButton=document.querySelector('#exit');if(exitButton){exitButton.innerHTML='<span aria-hidden="true">↗</span><b>Salir</b>';exitButton.setAttribute('aria-label','Cerrar sesión');exitButton.title='Cerrar sesión'}headerActions?.prepend(mailboxButton);headerActions?.insertBefore(publicReturnButton,exitButton);dash.appendChild(mailbox);
