@@ -2746,21 +2746,37 @@ body.expedient-training-open{overflow:hidden}
    zona propia en vertical y el sello deja de superponerse en horizontal. */
 @media (orientation: portrait) and (max-width: 600px) and (pointer: coarse) {
   #viewer:has(.folder-sequence-index) .reader-content.is-folder {
+    display: block;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding-bottom: max(18px, env(safe-area-inset-bottom));
     scroll-padding-bottom: 24px;
   }
 
   #viewer:has(.folder-sequence-index) .reader-content.is-folder .paper {
-    padding-bottom: 52px;
+    display: block;
+    box-sizing: border-box;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+    padding-bottom: 28px;
+  }
+
+  #viewer:has(.folder-sequence-index) .folder-sequence-index {
+    display: flex;
+    height: auto !important;
+    min-height: 0 !important;
+    flex-direction: column;
   }
 
   #viewer:has(.folder-sequence-index) .folder-sequence-index > footer {
     position: relative;
     isolation: isolate;
-    margin: 13px -8px 8px;
-    padding: 10px 8px 18px;
+    flex: none;
+    margin: 13px 0 8px;
+    padding: 10px 0 14px;
     border-bottom: 1px solid #b9ad99;
-    background: linear-gradient(180deg, #e9ddc7, #efe5d2);
+    background: transparent;
   }
 
   #viewer:has(.folder-sequence-index) .folder-next-phase {
