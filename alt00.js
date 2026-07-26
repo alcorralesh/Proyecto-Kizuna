@@ -412,17 +412,19 @@ window.KizunaFinale=(()=>{
   };
 
   const previewResponseOutcome=(options={})=>{
-    const settings={assetBase:'../',displayName:'José Cuadrado',...options};
-    removeActive();
-    const overlay=document.createElement('section');
+    const settings={assetBase:'../',displayName:'José Cuadrado',anomalyOnly:false,overlay:null,...options};
+    const existingOverlay=settings.overlay;
+    if(!existingOverlay)removeActive();
+    const overlay=existingOverlay||document.createElement('section');
     overlay.id='alt00-response-preview';
     overlay.className='kizuna-cinematic-finale';
     overlay.setAttribute('role','dialog');
     overlay.setAttribute('aria-modal','true');
-    overlay.setAttribute('aria-labelledby','alt00-response-title');
+    if(settings.anomalyOnly)overlay.setAttribute('aria-label','Registro alternativo ALT-00 detectado');
+    else overlay.setAttribute('aria-labelledby','alt00-response-title');
     overlay.innerHTML=`
       <p class="kizuna-finale-preview">VISTA DE PRUEBA · NO SE GUARDARÁ NINGÚN CAMBIO</p>
-      <article class="alt00-response-stage">
+      <article class="alt00-response-stage ${settings.anomalyOnly?'is-anomaly-only':''}">
         <header>
           <div><img src="${settings.assetBase}assets/kizuna-logo-official.png" alt=""><span>DIVISIÓN DE ARCHIVOS TEMPORALES<small>COMITÉ KIZUNA · RESPUESTA PERSONAL</small></span></div>
           <b>DECISIÓN REGISTRADA</b>
@@ -457,7 +459,7 @@ window.KizunaFinale=(()=>{
           <button type="button" class="alt00-response-exit">Cerrar y volver a Administración</button>
         </footer>
       </article>`;
-    document.body.appendChild(overlay);
+    if(!overlay.isConnected)document.body.appendChild(overlay);
     document.body.classList.add('alberto-overlay-open','kizuna-finale-open');
     activeOverlay=overlay;
     const stage=overlay.querySelector('.alt00-response-stage');
@@ -470,7 +472,11 @@ window.KizunaFinale=(()=>{
         stage.classList.remove('is-interference');
       },reducedMotion()?0:520);
     };
-    const close=()=>{overlay.classList.add('is-closing');setTimeout(removeActive,reducedMotion()?0:260)};
+    const close=()=>{
+      if(settings.requestFinaleClose){settings.requestFinaleClose();return}
+      overlay.classList.add('is-closing');
+      setTimeout(removeActive,reducedMotion()?0:260);
+    };
     overlay.querySelector('.alt00-response-close').onclick=close;
     overlay.querySelector('.alt00-response-exit').onclick=close;
     overlay.querySelector('.alt00-response-open').onclick=()=>{
@@ -490,6 +496,7 @@ window.KizunaFinale=(()=>{
     const settings={
       assetBase:'',
       preview:false,
+      responseOutcome:false,
       lastPage:1,
       onSecretState:()=>{},
       onClose:()=>{},
@@ -545,11 +552,18 @@ window.KizunaFinale=(()=>{
     const logo=overlay.querySelector('#alberto-finale-logo');
     const note=overlay.querySelector('#alberto-system-note');
     let skipped=false;
+    const showEnding=()=>{
+      if(settings.responseOutcome){
+        previewResponseOutcome({...settings,overlay,anomalyOnly:true});
+        return;
+      }
+      showCredits(overlay,settings);
+    };
     overlay.querySelector('.kizuna-finale-skip').onclick=event=>{
       if(skipped)return;
       skipped=true;
       event.currentTarget.hidden=true;
-      showCredits(overlay,settings);
+      showEnding();
     };
     await delay(500);
     if(skipped)return overlay;
@@ -580,7 +594,7 @@ window.KizunaFinale=(()=>{
     note.classList.remove('is-changing');
     note.classList.add('is-farewell');
     await delay(2600);
-    if(!skipped)showCredits(overlay,settings);
+    if(!skipped)showEnding();
     return overlay;
   };
 
