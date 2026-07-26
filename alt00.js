@@ -411,6 +411,81 @@ window.KizunaFinale=(()=>{
     if(credits.isConnected)exit.classList.add('is-visible');
   };
 
+  const previewResponseOutcome=(options={})=>{
+    const settings={assetBase:'../',displayName:'José Cuadrado',...options};
+    removeActive();
+    const overlay=document.createElement('section');
+    overlay.id='alt00-response-preview';
+    overlay.className='kizuna-cinematic-finale';
+    overlay.setAttribute('role','dialog');
+    overlay.setAttribute('aria-modal','true');
+    overlay.setAttribute('aria-labelledby','alt00-response-title');
+    overlay.innerHTML=`
+      <p class="kizuna-finale-preview">VISTA DE PRUEBA · NO SE GUARDARÁ NINGÚN CAMBIO</p>
+      <article class="alt00-response-stage">
+        <header>
+          <div><img src="${settings.assetBase}assets/kizuna-logo-official.png" alt=""><span>DIVISIÓN DE ARCHIVOS TEMPORALES<small>COMITÉ KIZUNA · RESPUESTA PERSONAL</small></span></div>
+          <b>DECISIÓN REGISTRADA</b>
+          <button type="button" class="alt00-response-close" aria-label="Cerrar vista previa">×</button>
+        </header>
+        <main>
+          <section class="alt00-response-decision">
+            <p class="alt00-response-kicker">LÍNEA TEMPORAL ELEGIDA</p>
+            <h1 id="alt00-response-title">Tu decisión<br><em>queda confirmada.</em></h1>
+            <p class="alt00-response-copy">La respuesta personal ha sido incorporada al expediente archivado. No se requieren nuevas verificaciones.</p>
+            <dl>
+              <div><dt>Destinatario</dt><dd>${String(settings.displayName).replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]))}</dd></div>
+              <div><dt>Respuesta</dt><dd>ACEPTADA</dd></div>
+              <div><dt>Estado</dt><dd>LÍNEA TEMPORAL CONFIRMADA</dd></div>
+            </dl>
+            <blockquote>La historia continúa.</blockquote>
+          </section>
+          <section class="alt00-response-anomaly" aria-live="polite">
+            <div class="alt00-response-signal" aria-hidden="true"><i></i><span>SEÑAL RESIDUAL DETECTADA</span></div>
+            <div class="alt00-response-file">
+              <p>ANEXO RETROSPECTIVO AUTORIZADO</p>
+              <h2><span>PROTOCOLO OMEGA</span>ALT‑00</h2>
+              <h3>Línea temporal descartada</h3>
+              <p>El Comité KIZUNA ha liberado una simulación vinculada a la decisión que no fue elegida.</p>
+              <dl><div><dt>Clasificación</dt><dd>EXPEDIENTE ALTERNATIVO</dd></div><div><dt>Contenido</dt><dd>10 PÁGINAS DISPONIBLES</dd></div></dl>
+              <button type="button" class="alt00-response-open">Consultar la otra posibilidad <b>→</b></button>
+            </div>
+          </section>
+        </main>
+        <footer>
+          <span>Este registro no pertenece a la línea temporal autorizada.</span>
+          <button type="button" class="alt00-response-exit">Cerrar y volver a Administración</button>
+        </footer>
+      </article>`;
+    document.body.appendChild(overlay);
+    document.body.classList.add('alberto-overlay-open','kizuna-finale-open');
+    activeOverlay=overlay;
+    const stage=overlay.querySelector('.alt00-response-stage');
+    const anomaly=overlay.querySelector('.alt00-response-anomaly');
+    const reveal=()=>{
+      if(!overlay.isConnected||anomaly.classList.contains('is-revealed'))return;
+      stage.classList.add('is-interference');
+      setTimeout(()=>{
+        anomaly.classList.add('is-revealed');
+        stage.classList.remove('is-interference');
+      },reducedMotion()?0:520);
+    };
+    const close=()=>{overlay.classList.add('is-closing');setTimeout(removeActive,reducedMotion()?0:260)};
+    overlay.querySelector('.alt00-response-close').onclick=close;
+    overlay.querySelector('.alt00-response-exit').onclick=close;
+    overlay.querySelector('.alt00-response-open').onclick=()=>{
+      openComic({
+        assetBase:settings.assetBase,
+        startPage:1,
+        preview:true,
+        onClose:()=>stage.classList.add('is-returned')
+      });
+    };
+    requestAnimationFrame(()=>stage.classList.add('is-visible'));
+    setTimeout(reveal,reducedMotion()?900:2700);
+    return overlay;
+  };
+
   const play=async(options={})=>{
     const settings={
       assetBase:'',
@@ -509,5 +584,5 @@ window.KizunaFinale=(()=>{
     return overlay;
   };
 
-  return{play,openComic,close:removeActive};
+  return{play,openComic,previewResponseOutcome,close:removeActive};
 })();
