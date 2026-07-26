@@ -338,7 +338,7 @@ const showEarlyAccessSequence=({preview=false,onComplete=()=>{}}={})=>{
   scene.setAttribute('role','dialog');
   scene.setAttribute('aria-modal','true');
   scene.setAttribute('aria-labelledby','early-access-title');
-  scene.innerHTML=`<div class="early-access-noise" aria-hidden="true"></div><header><img src="../assets/kizuna-logo-official.png" alt=""><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>PROTOCOLO DE LIBERACIÓN · AT-03</strong></div><b>ESTADO · CRÍTICO</b></header><div class="early-access-stage"><section class="early-access-diagnostic"><p class="early-access-kicker">ANOMALÍA TEMPORAL DETECTADA</p><h1 id="early-access-title">La fecha prevista<br><em>ha dejado de ser válida.</em></h1><dl><div><dt>Clasificación</dt><dd>AT-03</dd></div><div><dt>Estado</dt><dd class="critical">CRÍTICO</dd></div><div><dt>Fecha de acceso detectada</dt><dd>${earlyAccessDateLabel()}</dd></div><div><dt>Ventana de entrega</dt><dd class="critical">NO COINCIDENTE</dd></div></dl><ol aria-label="Verificación temporal"><li>Iniciando verificación temporal…</li><li>Comprobando ventana de entrega autorizada…</li><li>Analizando estabilidad de acontecimientos futuros…</li><li>Solicitando autorización al Comité KIZUNA…</li></ol><p class="early-access-skip">Pulsa para estabilizar la señal</p></section><article class="early-access-communique" aria-live="polite"><div class="early-access-seal" aria-hidden="true">LIBERACIÓN<br>ANTICIPADA</div><header class="early-access-communique-heading"><p class="system-line">COMUNICADO EXTRAORDINARIO · COMITÉ KIZUNA</p><h2><span>Acceso autorizado</span><em>con efecto inmediato.</em></h2><blockquote><span>MENSAJE DEL COMITÉ KIZUNA</span>«Hay futuros que pueden esperar. Este no era uno de ellos.»</blockquote></header><div class="early-access-copy"><p><strong>Resultado:</strong> La fecha de acceso no coincide con la fecha originalmente prevista para la liberación de este expediente.</p><p>Se ha detectado una alteración significativa en la línea temporal desde la emisión de esta documentación.</p><p>Tras una nueva evaluación de estabilidad, el <strong>Comité KIZUNA</strong> ha autorizado de forma extraordinaria la <strong>liberación anticipada del expediente</strong>.</p><p>Las simulaciones más recientes indican que mantener el protocolo bloqueado hasta la fecha inicialmente prevista podría comprometer la estabilidad de los acontecimientos futuros.</p><p>Por este motivo, la restricción temporal ha sido revocada y el acceso queda autorizado con efecto inmediato. Toda la información contenida en este expediente deberá considerarse <strong>prioritaria</strong>.</p></div><footer><p role="status"></p><button type="button">${preview?'Cerrar vista previa':'Continuar al expediente'} <b>→</b></button></footer></article></div></section>`;
+  scene.innerHTML=`<div class="early-access-noise" aria-hidden="true"></div><header><img src="../assets/kizuna-logo-official.png" alt=""><div><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><strong>PROTOCOLO DE LIBERACIÓN · AT-03</strong></div><b>ESTADO · CRÍTICO</b></header><div class="early-access-stage"><section class="early-access-diagnostic"><p class="early-access-kicker">ANOMALÍA TEMPORAL DETECTADA</p><h1 id="early-access-title">Este expediente<br><em>no debía abrirse todavía.</em></h1><dl><div><dt>Clasificación</dt><dd>AT-03</dd></div><div><dt>Estado</dt><dd class="critical">CRÍTICO</dd></div><div><dt>Fecha de acceso detectada</dt><dd>${earlyAccessDateLabel()}</dd></div><div><dt>Ventana de entrega</dt><dd class="critical">NO COINCIDENTE</dd></div></dl><ol aria-label="Verificación temporal"><li>Iniciando verificación temporal…</li><li>Comprobando ventana de entrega autorizada…</li><li>Analizando estabilidad de acontecimientos futuros…</li><li>Solicitando autorización al Comité KIZUNA…</li></ol><p class="early-access-skip">Pulsa para estabilizar la señal</p></section><article class="early-access-communique" aria-live="polite"><div class="early-access-seal" aria-hidden="true">LIBERACIÓN<br>ANTICIPADA</div><header class="early-access-communique-heading"><p class="system-line">COMUNICADO EXTRAORDINARIO · COMITÉ KIZUNA</p><h2><span>Acceso autorizado</span><em>con efecto inmediato.</em></h2><blockquote><span>MENSAJE DEL COMITÉ KIZUNA</span>«Hay futuros que pueden esperar. Este no era uno de ellos.»</blockquote></header><div class="early-access-copy"><p><strong>Resultado:</strong> La fecha de acceso no coincide con la fecha originalmente prevista para la liberación de este expediente.</p><p>Se ha detectado una alteración significativa en la línea temporal desde la emisión de esta documentación.</p><p>Tras una nueva evaluación de estabilidad, el <strong>Comité KIZUNA</strong> ha autorizado de forma extraordinaria la <strong>liberación anticipada del expediente</strong>.</p><p>Las simulaciones más recientes indican que mantener el protocolo bloqueado hasta la fecha inicialmente prevista podría comprometer la estabilidad de los acontecimientos futuros.</p><p>Por este motivo, la restricción temporal ha sido revocada y el acceso queda autorizado con efecto inmediato. Toda la información contenida en este expediente deberá considerarse <strong>prioritaria</strong>.</p></div><footer><p role="status"></p><button type="button">${preview?'Cerrar vista previa':'Continuar al expediente'} <b>→</b></button></footer></article></div></section>`;
   document.body.appendChild(scene);
   document.body.classList.add('early-access-open');
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -436,14 +436,37 @@ const showEarlyAccessSequence=({preview=false,onComplete=()=>{}}={})=>{
   };
   return scene;
 };
-const showEarlyAccessAuthorizationSimulation=({profile={},state={}}={})=>{
+const showEarlyAccessAuthorizationSimulation=({profile={},state={},mode='anomaly'}={})=>{
   document.querySelector('.early-auth-simulation')?.remove();
   const escapeValue=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
   const displayName=escapeValue(profile.display_name||profile.email||'Destinatario autorizado');
   const email=escapeValue(profile.email||'usuario@kizuna.test');
   const readCount=Array.isArray(state?.read)?state.read.length:0;
+  const anomalyMode=mode!=='normal';
+  const totalRecords=typeof progressKeys==='undefined'?71:progressKeys.length;
+  const integrity=Math.round(readCount/Math.max(1,totalRecords)*100);
+  const steps=anomalyMode
+    ?[
+      ['identity','Verificando identidad del destinatario'],
+      ['progress','Recuperando estado desde Archivo Central'],
+      ['date','Registrando fecha de acceso actual'],
+      ['window','Comparando ventana de entrega prevista']
+    ]
+    :[
+      ['identity','Verificando identidad del destinatario'],
+      ['progress','Recuperando progreso desde Supabase'],
+      ['permissions','Validando nivel de autorización'],
+      ['session','Preparando sesión del expediente']
+    ];
+  const detailMarkup=anomalyMode
+    ?`<div><span>FECHA DE ACCESO DETECTADA</span><strong>${earlyAccessDateLabel()}</strong></div>
+      <div><span>LIBERACIÓN ORIGINAL PREVISTA</span><strong>29 DE AGOSTO DE 2026</strong></div>
+      <p><i></i><span>Las fechas todavía no han sido comparadas.</span></p>`
+    :`<div><span>DOCUMENTOS CONSULTADOS</span><strong>${readCount} DE ${totalRecords}</strong></div>
+      <div><span>INTEGRIDAD DEL EXPEDIENTE</span><strong>${integrity} %</strong></div>
+      <p><i></i><span>Recuperando el estado autorizado desde Supabase.</span></p>`;
   const scene=document.createElement('section');
-  scene.className='early-auth-simulation';
+  scene.className=`early-auth-simulation ${anomalyMode?'is-anomaly-preview':'is-normal-preview'}`;
   scene.setAttribute('role','dialog');
   scene.setAttribute('aria-modal','true');
   scene.setAttribute('aria-labelledby','early-auth-simulation-title');
@@ -453,7 +476,7 @@ const showEarlyAccessAuthorizationSimulation=({profile={},state={}}={})=>{
       <header class="early-auth-simulation-brand">
         <img src="../assets/kizuna-logo-official.png" alt="">
         <span>KIZUNA<small>DIVISIÓN DE ARCHIVOS TEMPORALES</small></span>
-        <b>SIMULACIÓN · SIN ESCRITURAS</b>
+        <b>${anomalyMode?'PRIMER ACCESO · AT-03':'ACCESO HABITUAL · SIMULACIÓN'}</b>
       </header>
       <article class="early-auth-simulation-card">
         <div class="early-auth-simulation-heading">
@@ -472,17 +495,12 @@ const showEarlyAccessAuthorizationSimulation=({profile={},state={}}={})=>{
           </section>
           <section class="early-auth-simulation-checks" aria-live="polite">
             <ol>
-              <li data-step="identity"><i></i><span>Verificando identidad del destinatario</span><b>EN CURSO</b></li>
-              <li data-step="progress"><i></i><span>Recuperando estado desde Archivo Central</span><b>EN ESPERA</b></li>
-              <li data-step="date"><i></i><span>Registrando fecha de acceso actual</span><b>EN ESPERA</b></li>
-              <li data-step="window"><i></i><span>Comparando ventana de entrega prevista</span><b>EN ESPERA</b></li>
+              ${steps.map(([name,label],index)=>`<li data-step="${name}"><i></i><span>${label}</span><b>${index?'EN ESPERA':'EN CURSO'}</b></li>`).join('')}
             </ol>
           </section>
         </div>
         <section class="early-auth-simulation-dates" aria-live="polite">
-          <div><span>FECHA DE ACCESO DETECTADA</span><strong>${earlyAccessDateLabel()}</strong></div>
-          <div><span>LIBERACIÓN ORIGINAL PREVISTA</span><strong>29 DE AGOSTO DE 2026</strong></div>
-          <p><i></i><span>Las fechas todavía no han sido comparadas.</span></p>
+          ${detailMarkup}
         </section>
         <footer>
           <p>Vista previa de Administración. El expediente seleccionado no se modificará.</p>
@@ -499,9 +517,9 @@ const showEarlyAccessAuthorizationSimulation=({profile={},state={}}={})=>{
   const datePanel=scene.querySelector('.early-auth-simulation-dates');
   const dateStatus=datePanel.querySelector('p span');
   const advance=scene.querySelector('.early-auth-simulation-advance');
-  const stepNames=['identity','progress','date','window'];
+  const stepNames=steps.map(([name])=>name);
   const timers=[];
-  let anomalyDetected=false,transitioned=false;
+  let anomalyDetected=false,normalCompleted=false,transitioned=false;
   const setStep=(name,status)=>{
     const item=scene.querySelector(`[data-step="${name}"]`);
     if(!item)return;
@@ -539,15 +557,33 @@ const showEarlyAccessAuthorizationSimulation=({profile={},state={}}={})=>{
     advance.innerHTML='Abrir diagnóstico AT-03 <b>→</b>';
     timers.push(setTimeout(openDiagnostic,reduced?2200:4200));
   };
-  const timeline=[
+  const completeNormal=()=>{
+    if(normalCompleted){close();return}
+    normalCompleted=true;
+    timers.forEach(clearTimeout);
+    stepNames.forEach(name=>setStep(name,'complete'));
+    progress.style.width='100%';
+    title.innerHTML='Acceso<br><em>autorizado.</em>';
+    datePanel.classList.add('is-normal-complete');
+    dateStatus.textContent='Sesión preparada. El progreso coincide con el Archivo Central.';
+    scene.classList.add('is-authorized-normal');
+    advance.innerHTML='Cerrar simulación <b>→</b>';
+  };
+  const timeline=anomalyMode?[
     [350,()=>{setStep('identity','active');progress.style.width='12%'}],
     [1250,()=>{setStep('identity','complete');setStep('progress','active');progress.style.width='31%'}],
     [2400,()=>{setStep('progress','complete');setStep('date','active');progress.style.width='48%'}],
     [3600,()=>{setStep('date','complete');setStep('window','active');progress.style.width='61%';datePanel.classList.add('is-checking');dateStatus.textContent='Comparando fechas autorizadas…'}],
     [5400,detectAnomaly]
+  ]:[
+    [350,()=>{setStep('identity','active');progress.style.width='14%'}],
+    [1200,()=>{setStep('identity','complete');setStep('progress','active');progress.style.width='38%'}],
+    [2250,()=>{setStep('progress','complete');setStep('permissions','active');progress.style.width='62%'}],
+    [3300,()=>{setStep('permissions','complete');setStep('session','active');progress.style.width='84%';datePanel.classList.add('is-checking');dateStatus.textContent='Sincronizando autorización y progreso…'}],
+    [4500,completeNormal]
   ];
   timeline.forEach(([delay,callback])=>timers.push(setTimeout(callback,reduced?Math.max(100,delay*.35):delay)));
-  advance.onclick=()=>anomalyDetected?openDiagnostic():detectAnomaly();
+  advance.onclick=()=>anomalyMode?(anomalyDetected?openDiagnostic():detectAnomaly()):(normalCompleted?close():completeNormal());
   scene.querySelector('.early-auth-simulation-close').onclick=close;
   return scene;
 };
@@ -3069,7 +3105,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   const earlyAccessDate=current.earlyAccessAcknowledgedAt&&!Number.isNaN(Date.parse(current.earlyAccessAcknowledgedAt))?new Date(current.earlyAccessAcknowledgedAt).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):null;
   const earlyAccessSettings=document.createElement('section');
   earlyAccessSettings.className='admin-message-settings admin-early-access-settings';
-  earlyAccessSettings.innerHTML=`<p class="system-line">LIBERACIÓN ANTICIPADA · AT-03</p><h4>Autorización y anomalía temporal</h4><p class="admin-legal-state ${earlyAccessAccepted?'accepted':'pending'}"><strong>${earlyAccessAccepted?'AUTORIZACIÓN MOSTRADA':'PENDIENTE DE MOSTRAR'}</strong>${earlyAccessDate?`<span>${adminEditorEscape(earlyAccessDate)}</span>`:''}</p><p>Simula el flujo completo: verificación de la sesión, comparación de fechas, detección AT-03 y comunicado de liberación anticipada.</p><button type="button" id="admin-preview-early-access">Simular autorización y anomalía</button><small>VISTA DE PRUEBA · SIN ESCRITURAS EN SUPABASE</small>`;
+  earlyAccessSettings.innerHTML=`<p class="system-line">LIBERACIÓN ANTICIPADA · AT-03</p><h4>Autorización de la sesión</h4><p class="admin-legal-state ${earlyAccessAccepted?'accepted':'pending'}"><strong>${earlyAccessAccepted?'AUTORIZACIÓN MOSTRADA':'PENDIENTE DE MOSTRAR'}</strong>${earlyAccessDate?`<span>${adminEditorEscape(earlyAccessDate)}</span>`:''}</p><p>Compara el primer acceso excepcional con los inicios de sesión posteriores, que recuperan el progreso y autorizan la consulta sin repetir la anomalía.</p><div class="admin-early-access-actions"><button type="button" id="admin-preview-early-access">Primer acceso · AT-03</button><button type="button" id="admin-preview-normal-access">Acceso habitual</button></div><small>VISTAS DE PRUEBA · SIN ESCRITURAS EN SUPABASE</small>`;
   settingsPanel.insertBefore(earlyAccessSettings,dangerZone);
   const legalAccepted=Boolean(current.legalAccepted),legalVersion=Number(current.legalVersion||1);
   const legalAcceptedDate=current.legalAcceptedAt&&!Number.isNaN(Date.parse(current.legalAcceptedAt))?new Date(current.legalAcceptedAt).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):null;
@@ -3197,7 +3233,8 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   };
   const toggleAccess=async()=>{const nextActive=!isActive;if(!await adminConfirm({title:nextActive?'Reactivar acceso':'Desactivar acceso',message:nextActive?`Se restaurará el acceso de ${profile.display_name||profile.email} a su expediente.`:`${profile.display_name||profile.email} no podrá iniciar sesión hasta que vuelvas a reactivar su cuenta.`,confirmLabel:nextActive?'Reactivar cuenta':'Desactivar cuenta',danger:!nextActive}))return;const buttons=[document.querySelector('#admin-toggle-user'),document.querySelector('#admin-side-toggle-user')];buttons.forEach(button=>button.disabled=true);try{const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action:'set-active',userId:profile.id,active:nextActive}});if(error)throw error;profile.is_active=data?.isActive===undefined?nextActive:data.isActive;renderAdminEditor(profile,current)}catch(error){console.error(error);buttons.forEach(button=>button.disabled=false);document.querySelector('#admin-identity-status').textContent=await functionErrorMessage(error)}};
   document.querySelector('#admin-toggle-user').onclick=toggleAccess;document.querySelector('#admin-side-toggle-user').onclick=toggleAccess;
-  document.querySelector('#admin-preview-early-access').onclick=()=>showEarlyAccessAuthorizationSimulation({profile,state:current});
+  document.querySelector('#admin-preview-early-access').onclick=()=>showEarlyAccessAuthorizationSimulation({profile,state:current,mode:'anomaly'});
+  document.querySelector('#admin-preview-normal-access').onclick=()=>showEarlyAccessAuthorizationSimulation({profile,state:current,mode:'normal'});
   document.querySelector('#admin-play-finale').onclick=()=>{if(!window.KizunaFinale){alert('No se ha podido cargar la vista previa del final.');return}window.KizunaFinale.play({assetBase:'../',preview:true,lastPage:1})};
   document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!await adminConfirm({title:'Reabrir la decisión final',message:`El mensaje de Alberto volverá a mostrarse a ${profile.display_name||profile.email} y podrá responderlo de nuevo.`,confirmLabel:'Reabrir mensaje'}))return;button.disabled=true;status.textContent='Restaurando mensaje…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};try{const savedState=await saveAdminProgressState(profile.id,nextState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent='No se ha podido restaurar el mensaje.';button.disabled=false}};
   document.querySelector('#admin-renew-legal').onclick=async()=>{
