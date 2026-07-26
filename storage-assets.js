@@ -51,8 +51,8 @@
     img.dataset.localAsset=img.getAttribute('src')||source;
     img.decoding='async';
     if(variant==='thumb'){
-      img.loading='lazy';
-      img.fetchPriority='low';
+      img.loading=img.dataset.storageLoading==='eager'?'eager':'lazy';
+      img.fetchPriority=img.dataset.storagePriority||'low';
     }
 
     const originalUrl=assetUrl(path,'original');
