@@ -436,7 +436,7 @@ const showEarlyAccessSequence=({preview=false,onComplete=()=>{}}={})=>{
   };
   return scene;
 };
-const showEarlyAccessAuthorizationSimulation=({profile={},state={},mode='anomaly'}={})=>{
+const showEarlyAccessAuthorizationSimulation=({profile={},state={},mode='anomaly',preview=true,onComplete=()=>{}}={})=>{
   document.querySelector('.early-auth-simulation')?.remove();
   const escapeValue=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
   const displayName=escapeValue(profile.display_name||profile.email||'Destinatario autorizado');
@@ -471,7 +471,7 @@ const showEarlyAccessAuthorizationSimulation=({profile={},state={},mode='anomaly
   scene.setAttribute('aria-modal','true');
   scene.setAttribute('aria-labelledby','early-auth-simulation-title');
   scene.innerHTML=`<div class="early-auth-simulation-scan" aria-hidden="true"></div>
-    <button class="early-auth-simulation-close" type="button" aria-label="Cerrar simulación">×</button>
+    <button class="early-auth-simulation-close" type="button" aria-label="Cerrar simulación" ${preview?'':'hidden'}>×</button>
     <div class="early-auth-simulation-shell">
       <header class="early-auth-simulation-brand">
         <img src="../assets/kizuna-logo-official.png" alt="">
@@ -533,6 +533,10 @@ const showEarlyAccessAuthorizationSimulation=({profile={},state={},mode='anomaly
     scene.remove();
     document.body.classList.remove('early-access-open');
   };
+  const finishAuthorization=()=>{
+    close();
+    onComplete();
+  };
   const openDiagnostic=()=>{
     if(transitioned)return;
     transitioned=true;
@@ -540,7 +544,7 @@ const showEarlyAccessAuthorizationSimulation=({profile={},state={},mode='anomaly
     scene.classList.add('is-transitioning');
     setTimeout(()=>{
       scene.remove();
-      showEarlyAccessSequence({preview:true});
+      showEarlyAccessSequence({preview,onComplete});
     },reduced?120:650);
   };
   const detectAnomaly=()=>{
@@ -567,7 +571,7 @@ const showEarlyAccessAuthorizationSimulation=({profile={},state={},mode='anomaly
     datePanel.classList.add('is-normal-complete');
     dateStatus.textContent='Sesión preparada. El progreso coincide con el Archivo Central.';
     scene.classList.add('is-authorized-normal');
-    advance.innerHTML='Cerrar simulación <b>→</b>';
+    advance.innerHTML=`${preview?'Cerrar simulación':'Continuar al expediente'} <b>→</b>`;
   };
   const timeline=anomalyMode?[
     [350,()=>{setStep('identity','active');progress.style.width='12%'}],
@@ -583,7 +587,7 @@ const showEarlyAccessAuthorizationSimulation=({profile={},state={},mode='anomaly
     [4500,completeNormal]
   ];
   timeline.forEach(([delay,callback])=>timers.push(setTimeout(callback,reduced?Math.max(100,delay*.35):delay)));
-  advance.onclick=()=>anomalyMode?(anomalyDetected?openDiagnostic():detectAnomaly()):(normalCompleted?close():completeNormal());
+  advance.onclick=()=>anomalyMode?(anomalyDetected?openDiagnostic():detectAnomaly()):(normalCompleted?(preview?close():finishAuthorization()):completeNormal());
   scene.querySelector('.early-auth-simulation-close').onclick=close;
   return scene;
 };
@@ -796,6 +800,20 @@ setTimeout(()=>{
   };
   openDashboard=loadedProgress=>{
     const state=normalizeFinalState(loadedProgress||remoteState||emptyProgressState());
+    if(!earlyAccessAcknowledged(state)){
+      access.hidden=true;
+      loading.hidden=true;
+      gate.hidden=true;
+      dash.hidden=true;
+      showEarlyAccessAuthorizationSimulation({
+        profile:{display_name:recipientName(),email:currentUser?.email||''},
+        state,
+        mode:'anomaly',
+        preview:false,
+        onComplete:enterExpedientAfterAuthorization
+      });
+      return;
+    }
     const done=Array.isArray(state.read)?[...state.read]:[];
     const consulted=sequence.filter(id=>done.includes(id)),total=sequence.length;
     const completed=finalFlowClosed();
