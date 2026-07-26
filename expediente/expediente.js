@@ -765,8 +765,6 @@ setTimeout(()=>{
        const {data,error}=await client.auth.signInWithPassword({email,password});
        if(error)throw error;
        const loadedProgress=await loadRemoteProgress(data.user);
-       const loginActivity=await recordActivity('login',null,{source:'credentials'});
-       if(!loginActivity)console.warn('La sesión se inició, pero no pudo añadirse al registro de actividad.');
        message.textContent='';
       openDashboard(loadedProgress);
     }catch(error){message.textContent=recipientAccessErrorMessage(error);console.error(error)}finally{submit.disabled=false}
@@ -3539,6 +3537,8 @@ setTimeout(()=>{
       if(isAdmin(data.user)){await client.auth.signOut();throw new Error('Las cuentas administrativas deben usar el acceso privado.')}
       currentUser=data.user;
       const loadedProgress=await loadRemoteProgress(data.user);
+      const loginActivity=await recordActivity('login',null,{source:'credentials'});
+      if(!loginActivity)console.warn('La sesión se inició, pero no pudo añadirse al registro de actividad.');
       message.textContent='';
       openDashboard(loadedProgress);
     }catch(error){message.textContent=recipientAccessErrorMessage(error);console.error(error)}finally{submit.disabled=false}

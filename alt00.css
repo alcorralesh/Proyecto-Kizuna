@@ -326,3 +326,9 @@ body.kizuna-finale-open{overflow:hidden}
   #alt00-viewer.is-immersive .alt00-reader-foot>button:disabled{opacity:0;pointer-events:none}
 }
 @media(prefers-reduced-motion:reduce){.kizuna-cinematic-finale *,#alt00-viewer *{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+
+@media (orientation: landscape) and (min-width: 601px) and (max-width: 1000px) and (max-height: 520px) and (pointer: coarse) {
+  .alt00-credit-reel > p {
+    font-size: 8px !important;
+  }
+}

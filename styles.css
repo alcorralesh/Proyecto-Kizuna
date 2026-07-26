@@ -266,3 +266,9 @@ body.quiz-open{overflow:hidden}
     height:calc(100svh - 68px - env(safe-area-inset-top))
   }
 }
+
+@media (orientation: landscape) and (min-width: 601px) and (max-width: 1000px) and (max-height: 520px) and (pointer: coarse) {
+  #alberto-decision .alberto-decision-label {
+    font-size: 8px !important;
+  }
+}
