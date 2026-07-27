@@ -8,6 +8,11 @@
 
   const slides = [
     {
+      src: 'assets/kyoto-hero.png',
+      caption: 'KIOTO · PRIMERA LUZ',
+      position: '58% center'
+    },
+    {
       src: 'assets/hero/tokyo-blue-hour.webp',
       caption: 'TOKIO · DESPUÉS DE LA LLUVIA',
       position: '62% center'
@@ -35,13 +40,14 @@
   ];
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const initialIndex = Math.floor(Math.random() * slides.length);
   const slideElements = slides.map((slide, index) => {
     const element = document.createElement('div');
     element.className = 'hero-carousel-slide';
     element.style.backgroundImage = `url("${slide.src}")`;
     element.style.backgroundPosition = slide.position;
     element.setAttribute('aria-hidden', 'true');
-    if (index === 0) {
+    if (index === initialIndex) {
       element.classList.add('is-active');
       element.setAttribute('aria-hidden', 'false');
     }
@@ -64,7 +70,7 @@
     dot.type = 'button';
     dot.className = 'hero-carousel-dot';
     dot.setAttribute('aria-label', `Mostrar ${slide.caption.toLocaleLowerCase('es')}`);
-    dot.setAttribute('aria-current', index === 0 ? 'true' : 'false');
+    dot.setAttribute('aria-current', index === initialIndex ? 'true' : 'false');
     controls.querySelector('.hero-carousel-dots').appendChild(dot);
     return dot;
   });
@@ -75,9 +81,9 @@
   hero.appendChild(announcement);
 
   imageStage.dataset.heroCarousel = 'true';
-  caption.textContent = slides[0].caption;
+  caption.textContent = slides[initialIndex].caption;
 
-  let activeIndex = 0;
+  let activeIndex = initialIndex;
   let timer = 0;
   let interactionPaused = false;
 
@@ -86,7 +92,9 @@
     image.decoding = 'async';
     image.src = slide.src;
   };
-  slides.slice(1).forEach(preload);
+  slides.forEach((slide, index) => {
+    if (index !== initialIndex) preload(slide);
+  });
 
   const stop = () => {
     if (timer) window.clearInterval(timer);
