@@ -76,8 +76,10 @@
   transform: translateY(18px) scale(.96);
 }
 
-.scene.is-guiding .character {
-  animation: mau-idle 5.8s ease-in-out infinite;
+.scene.is-frame-playing .character {
+  animation-play-state: paused !important;
+  opacity: 1 !important;
+  transform: translate(0, 0) rotate(0) scale(1) !important;
 }
 
 .scene.is-guiding::before {
@@ -164,14 +166,6 @@
   background: radial-gradient(circle, rgb(245 240 231 / 22%) 0 45%, transparent 48%);
   outline: 1px dashed rgb(245 240 231 / 78%);
   outline-offset: 3px;
-}
-
-.scene.is-reacting .character {
-  animation: mau-react 650ms cubic-bezier(.2, .8, .25, 1);
-}
-
-.scene.is-sleeping.is-reacting .character {
-  animation: mau-sleep-react 650ms cubic-bezier(.2, .8, .25, 1);
 }
 
 .bubble {
@@ -281,24 +275,6 @@
   100% { opacity: .68; transform: scaleX(1); }
 }
 
-@keyframes mau-idle {
-  0%, 16%, 100% {
-    transform: translateY(0) rotate(0) scale(1);
-  }
-  36% {
-    transform: translateY(-3px) rotate(.25deg) scale(1.004);
-  }
-  54% {
-    transform: translateY(0) rotate(0) scale(1);
-  }
-  72% {
-    transform: translateY(-2px) rotate(-.65deg) scale(1.002);
-  }
-  80% {
-    transform: translateY(-1px) rotate(.25deg) scale(1.001);
-  }
-}
-
 @keyframes mau-depart {
   0% { opacity: 1; transform: translate(0, 0) rotate(0); }
   18% { transform: translate(-8px, -4px) rotate(-1.2deg); }
@@ -327,19 +303,6 @@
 @keyframes mau-sleep-fade {
   from { opacity: 1; transform: translateY(0); }
   to { opacity: 0; transform: translateY(18px); }
-}
-
-@keyframes mau-react {
-  0%, 100% { transform: translateY(0) rotate(0); }
-  24% { transform: translateY(-10px) rotate(-1.8deg) scale(1.015); }
-  48% { transform: translateY(-3px) rotate(1.1deg) scale(.998); }
-  70% { transform: translateY(-6px) rotate(-.45deg) scale(1.006); }
-}
-
-@keyframes mau-sleep-react {
-  0%, 100% { transform: translateY(0) rotate(0) scale(1); }
-  28% { transform: translateY(-4px) rotate(-1deg) scale(1.006); }
-  52% { transform: translateY(-1px) rotate(.7deg) scale(1.002); }
 }
 
 @keyframes mau-bubble-reply {
@@ -420,21 +383,11 @@
     bottom: 94px;
   }
 
-  .scene.is-guiding .character {
-    animation-name: mau-idle-mobile;
-  }
-
   .scene.is-sleeping .interact {
     right: 108px;
     bottom: 86px;
   }
 
-}
-
-@keyframes mau-idle-mobile {
-  0%, 18%, 100% { transform: translateY(0) rotate(0) scale(1); }
-  42% { transform: translateY(-2px) rotate(.18deg) scale(1.002); }
-  76% { transform: translateY(-1px) rotate(-.35deg) scale(1.001); }
 }
 
 @media (max-height: 520px) and (orientation: landscape) {

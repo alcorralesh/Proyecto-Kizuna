@@ -1,10 +1,27 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau14';
+import { MAU_CONFIG } from './mau-config.js?v=20260727-mau17';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
   guide: new URL('./assets/sprites/mau-guide.webp', import.meta.url).href,
   leave: new URL('./assets/sprites/mau-leave.webp', import.meta.url).href,
   sleep: new URL('./assets/sprites/mau-sleep.webp', import.meta.url).href
+});
+
+const sequenceUrls = (name, count) => Object.freeze(
+  Array.from(
+    { length: count },
+    (_unused, index) => new URL(
+      `./assets/sprites/animations/mau-${name}-${String(index + 1).padStart(2, '0')}.webp`,
+      import.meta.url
+    ).href
+  )
+);
+
+const FRAME_SEQUENCES = Object.freeze({
+  blink: sequenceUrls('blink', 3),
+  reaction: sequenceUrls('reaction', 4),
+  wave: sequenceUrls('wave', 3),
+  wake: sequenceUrls('wake', 2)
 });
 
 const wait = duration => new Promise(resolve => window.setTimeout(resolve, duration));
@@ -47,6 +64,9 @@ class KizunaMau extends HTMLElement {
   #lastAutomaticMessage = '';
   #currentSection = null;
   #messageStartedAt = 0;
+  #ambientTimer = 0;
+  #frameSequenceToken = 0;
+  #awakeGesture = 0;
   #reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   #abortController = new AbortController();
   #layoutObserver;
@@ -56,7 +76,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau14', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260727-mau17', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
@@ -88,7 +108,11 @@ class KizunaMau extends HTMLElement {
     }, {
       signal: this.#abortController.signal
     });
-    for (const source of Object.values(ASSETS)) {
+    const sources = [
+      ...Object.values(ASSETS),
+      ...Object.values(FRAME_SEQUENCES).flat()
+    ];
+    for (const source of sources) {
       const image = new Image();
       image.src = source;
     }
@@ -137,6 +161,7 @@ class KizunaMau extends HTMLElement {
 
     this.#setPose('guide', 'is-guiding');
     this.#showBubble();
+    this.#scheduleAmbientBlink();
     this.#messageDeadline = performance.now() + MAU_CONFIG.timings.message;
     await this.#waitForSceneDeadline('message');
     if (!this.#closing) await this.close();
@@ -181,6 +206,7 @@ class KizunaMau extends HTMLElement {
   }
 
   #finishScene(sceneName) {
+    this.#cancelFrameAnimation();
     this.hidden = true;
     this.#activeScene = null;
     this.#closing = false;
@@ -195,6 +221,7 @@ class KizunaMau extends HTMLElement {
   }
 
   #setPose(name, stateClass) {
+    this.#cancelFrameAnimation();
     this.#scene.className = `scene ${stateClass}`;
     this.#character.src = ASSETS[name];
     this.#interactionButton.setAttribute(
@@ -261,12 +288,31 @@ class KizunaMau extends HTMLElement {
     window.setTimeout(() => this.#scene.classList.remove('is-reacting'), 650);
 
     if (this.#activeScene === 'sleep') {
+      if (!this.#reducedMotion) {
+        void this.#playFrameSequence(
+          'wake',
+          'sleep',
+          MAU_CONFIG.timings.wakeFrame,
+          MAU_CONFIG.timings.wakeHold
+        );
+      }
       this.#setMessage(this.#pickRandom(MAU_CONFIG.interaction.sleeping));
       this.#sleepDeadline = Math.max(
         this.#sleepDeadline,
         performance.now() + MAU_CONFIG.timings.interactionHold
       );
     } else {
+      if (!this.#reducedMotion) {
+        const gesture = this.#awakeGesture % 2 === 0 ? 'reaction' : 'wave';
+        this.#awakeGesture += 1;
+        void this.#playFrameSequence(
+          gesture,
+          'guide',
+          gesture === 'wave'
+            ? MAU_CONFIG.timings.waveFrame
+            : MAU_CONFIG.timings.reactionFrame
+        );
+      }
       const responses = MAU_CONFIG.interaction.awake;
       let responseIndex = Math.floor(Math.random() * responses.length);
       if (responses.length > 1 && responseIndex === this.#lastResponse) {
@@ -280,6 +326,56 @@ class KizunaMau extends HTMLElement {
       );
     }
     this.#showBubble();
+  }
+
+  #cancelFrameAnimation() {
+    window.clearTimeout(this.#ambientTimer);
+    this.#ambientTimer = 0;
+    this.#frameSequenceToken += 1;
+    this.#scene.classList.remove('is-frame-playing');
+  }
+
+  async #playFrameSequence(name, returnPose, frameDuration, finalHold = 0) {
+    const frames = FRAME_SEQUENCES[name];
+    if (!frames?.length || this.#reducedMotion || this.hidden || this.#closing) return;
+
+    window.clearTimeout(this.#ambientTimer);
+    this.#ambientTimer = 0;
+    const token = ++this.#frameSequenceToken;
+    this.#scene.classList.add('is-frame-playing');
+
+    for (const source of frames) {
+      if (token !== this.#frameSequenceToken || this.hidden || this.#closing) return;
+      this.#character.src = source;
+      await wait(frameDuration);
+    }
+
+    if (finalHold) await wait(finalHold);
+    if (token !== this.#frameSequenceToken || this.hidden || this.#closing) return;
+
+    this.#character.src = ASSETS[returnPose];
+    this.#scene.classList.remove('is-frame-playing');
+    if (returnPose === 'guide') this.#scheduleAmbientBlink();
+  }
+
+  #scheduleAmbientBlink() {
+    if (
+      this.#reducedMotion ||
+      this.#activeScene !== 'message' ||
+      this.hidden ||
+      this.#closing
+    ) return;
+
+    window.clearTimeout(this.#ambientTimer);
+    const range = MAU_CONFIG.timings.blinkMax - MAU_CONFIG.timings.blinkMin;
+    const delay = MAU_CONFIG.timings.blinkMin + Math.random() * range;
+    this.#ambientTimer = window.setTimeout(async () => {
+      await this.#playFrameSequence(
+        'blink',
+        'guide',
+        MAU_CONFIG.timings.blinkFrame
+      );
+    }, delay);
   }
 
   async #waitForSceneDeadline(sceneName) {

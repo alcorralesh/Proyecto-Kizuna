@@ -14,7 +14,14 @@ export const MAU_CONFIG = Object.freeze({
     footerPause: 900,
     sleep: 8200,
     sleepFade: 900,
-    interactionHold: 4400
+    interactionHold: 4400,
+    blinkMin: 3200,
+    blinkMax: 6200,
+    blinkFrame: 135,
+    reactionFrame: 165,
+    waveFrame: 180,
+    wakeFrame: 320,
+    wakeHold: 620
   }),
   dialogue: Object.freeze({
     albertoChance: 0.1,

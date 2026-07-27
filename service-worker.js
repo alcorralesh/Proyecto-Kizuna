@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260727-mau-mascot14';
+const VERSION='20260727-mau-mascot17';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -18,13 +18,25 @@ const CORE_ASSETS=[
   './recipient-messages.js',
   './script.js',
   './hero-carousel.js',
-  './mascot/mau.js?v=20260727-mau14',
-  './mascot/mau-config.js?v=20260727-mau14',
-  './mascot/mau.css?v=20260727-mau14',
+  './mascot/mau.js?v=20260727-mau17',
+  './mascot/mau-config.js?v=20260727-mau17',
+  './mascot/mau.css?v=20260727-mau17',
   './mascot/assets/sprites/mau-peek.webp',
   './mascot/assets/sprites/mau-guide.webp',
   './mascot/assets/sprites/mau-leave.webp',
   './mascot/assets/sprites/mau-sleep.webp',
+  './mascot/assets/sprites/animations/mau-blink-01.webp',
+  './mascot/assets/sprites/animations/mau-blink-02.webp',
+  './mascot/assets/sprites/animations/mau-blink-03.webp',
+  './mascot/assets/sprites/animations/mau-reaction-01.webp',
+  './mascot/assets/sprites/animations/mau-reaction-02.webp',
+  './mascot/assets/sprites/animations/mau-reaction-03.webp',
+  './mascot/assets/sprites/animations/mau-reaction-04.webp',
+  './mascot/assets/sprites/animations/mau-wave-01.webp',
+  './mascot/assets/sprites/animations/mau-wave-02.webp',
+  './mascot/assets/sprites/animations/mau-wave-03.webp',
+  './mascot/assets/sprites/animations/mau-wake-01.webp',
+  './mascot/assets/sprites/animations/mau-wake-02.webp',
   './assets/kizuna-logo-official.png',
   './assets/kyoto-hero.png',
   './assets/hero/tokyo-blue-hour.webp',
