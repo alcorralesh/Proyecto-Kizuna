@@ -194,7 +194,10 @@
   opacity: 0;
   transform: translateY(14px) scale(.98);
   transform-origin: 100% 100%;
-  transition: opacity 360ms ease, transform 420ms ease, top 320ms ease;
+  transition:
+    opacity 280ms ease-out,
+    transform 460ms cubic-bezier(.18, .86, .28, 1.08),
+    top 320ms ease;
 }
 
 .bubble::after {
@@ -213,7 +216,6 @@
 .bubble.is-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
-  animation: mau-bubble-in 480ms cubic-bezier(.18, .86, .28, 1.08) both;
 }
 
 .scene.is-reacting .bubble.is-visible {
@@ -338,12 +340,6 @@
   0%, 100% { transform: translateY(0) rotate(0) scale(1); }
   28% { transform: translateY(-4px) rotate(-1deg) scale(1.006); }
   52% { transform: translateY(-1px) rotate(.7deg) scale(1.002); }
-}
-
-@keyframes mau-bubble-in {
-  0% { opacity: 0; transform: translate(13px, 16px) scale(.9); }
-  68% { opacity: 1; transform: translate(-3px, -2px) scale(1.018); }
-  100% { opacity: 1; transform: translate(0, 0) scale(1); }
 }
 
 @keyframes mau-bubble-reply {

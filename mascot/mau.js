@@ -1,4 +1,4 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau13';
+import { MAU_CONFIG } from './mau-config.js?v=20260727-mau14';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
@@ -56,7 +56,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau13', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260727-mau14', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
