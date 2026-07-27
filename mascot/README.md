@@ -31,5 +31,10 @@ La mascota se monta como el componente independiente `<kizuna-mau>`:
 - `mau.css`: estilos encapsulados dentro del Shadow DOM.
 - `mau-config.js`: texto, tiempos y porcentaje de activación.
 
-La aparición normal se activa al recorrer el 35 % de la portada. Para probarla
-inmediatamente se puede abrir `index.html?mau=1`.
+La aparición normal se activa al recorrer el 35 % de la portada. Cuando termina
+y el usuario alcanza el pie de página, Mau vuelve a aparecer dormido.
+
+Para probar las escenas inmediatamente:
+
+- Mensaje: `index.html?mau=1`.
+- Mau dormido: `index.html?mau=sleep`.

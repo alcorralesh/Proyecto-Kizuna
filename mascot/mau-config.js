@@ -7,7 +7,10 @@ export const MAU_CONFIG = Object.freeze({
     peek: 1700,
     transition: 260,
     message: 7600,
-    leave: 1100
+    leave: 1100,
+    footerPause: 900,
+    sleep: 8200,
+    sleepFade: 900
   }),
   message: Object.freeze({
     text: 'Solo estaba comprobando que esta línea temporal siguiera en su sitio.'
