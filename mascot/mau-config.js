@@ -10,7 +10,6 @@ export const MAU_CONFIG = Object.freeze({
     leave: 1100
   }),
   message: Object.freeze({
-    eyebrow: 'ARCHIVO CENTRAL · MENSAJE NO SOLICITADO',
     text: 'Solo estaba comprobando que esta línea temporal siguiera en su sitio.'
   })
 });

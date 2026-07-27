@@ -1,4 +1,4 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau04';
+import { MAU_CONFIG } from './mau-config.js?v=20260727-mau05';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
@@ -24,7 +24,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau04', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260727-mau05', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
@@ -33,7 +33,6 @@ class KizunaMau extends HTMLElement {
       <img class="character" alt="" aria-hidden="true" draggable="false">
       <aside class="bubble" role="status" aria-live="polite" hidden>
         <button class="close" type="button" aria-label="Cerrar mensaje de Mau">×</button>
-        <small class="eyebrow"></small>
         <span class="message"></span>
       </aside>`;
 
@@ -41,7 +40,6 @@ class KizunaMau extends HTMLElement {
     this.#character = this.#scene.querySelector('.character');
     this.#bubble = this.#scene.querySelector('.bubble');
     this.#closeButton = this.#scene.querySelector('.close');
-    this.#bubble.querySelector('.eyebrow').textContent = MAU_CONFIG.message.eyebrow;
     this.#bubble.querySelector('.message').textContent = MAU_CONFIG.message.text;
   }
 

@@ -69,13 +69,14 @@
 }
 
 .bubble {
+  box-sizing: border-box;
   position: absolute;
   left: 0;
   top: 44px;
   z-index: 3;
   width: min(310px, calc(100% - 210px));
   min-width: 250px;
-  padding: 20px 46px 20px 22px;
+  padding: 22px 46px 22px 22px;
   color: var(--mau-ink);
   background:
     linear-gradient(rgb(245 240 231 / 96%), rgb(245 240 231 / 96%)),
@@ -106,14 +107,6 @@
 .bubble.is-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
-}
-
-.eyebrow {
-  display: block;
-  margin: 0 0 11px;
-  color: var(--mau-red);
-  font: 500 8px/1.4 'DM Mono', ui-monospace, monospace;
-  letter-spacing: .13em;
 }
 
 .message {
@@ -191,7 +184,7 @@
 
   .bubble {
     top: 28px;
-    width: calc(100% - min(142px, 37vw));
+    width: calc(100% - min(190px, 46vw));
     min-width: 0;
     padding: 17px 39px 17px 17px;
   }
@@ -200,9 +193,6 @@
     font-size: 18px;
   }
 
-  .eyebrow {
-    font-size: 7px;
-  }
 }
 
 @media (max-height: 520px) and (orientation: landscape) {
