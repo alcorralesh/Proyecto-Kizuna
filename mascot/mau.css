@@ -30,6 +30,22 @@
   overflow: visible;
 }
 
+.scene::before {
+  content: '';
+  position: absolute;
+  right: clamp(30px, 5vw, 64px);
+  bottom: 0;
+  z-index: 1;
+  width: clamp(170px, 23vw, 270px);
+  height: 22px;
+  border-radius: 50%;
+  background: rgb(13 27 24 / 24%);
+  filter: blur(8px);
+  opacity: 0;
+  transform: scaleX(.72);
+  transform-origin: 50% 50%;
+}
+
 .character {
   position: absolute;
   right: 0;
@@ -48,10 +64,11 @@
 
 .scene.is-peeking .character {
   width: clamp(210px, 23vw, 285px);
-  transform: translateY(105%);
-  animation:
-    mau-rise 900ms cubic-bezier(.17, .86, .28, 1.08) forwards,
-    mau-curious 2.6s ease-in-out 900ms infinite;
+  animation: mau-peek-arrival 1.65s cubic-bezier(.17, .86, .28, 1.08) both;
+}
+
+.scene.is-peeking::before {
+  animation: mau-shadow-arrive 1.5s ease-out both;
 }
 
 .scene.is-changing .character {
@@ -60,7 +77,12 @@
 }
 
 .scene.is-guiding .character {
-  animation: mau-breathe 3.4s ease-in-out infinite;
+  animation: mau-idle 5.8s ease-in-out infinite;
+}
+
+.scene.is-guiding::before {
+  opacity: .7;
+  animation: mau-shadow-breathe 5.8s ease-in-out infinite;
 }
 
 .scene.is-leaving .character {
@@ -68,11 +90,24 @@
   animation: mau-depart 1.05s cubic-bezier(.65, 0, .85, .3) forwards;
 }
 
+.scene.is-leaving::before {
+  animation: mau-shadow-leave 900ms ease-in forwards;
+}
+
 .scene.is-sleeping .character {
   width: clamp(220px, 27vw, 310px);
   animation:
     mau-sleep-arrive 700ms cubic-bezier(.17, .86, .28, 1.08) both,
     mau-sleep-breathe 4.2s ease-in-out 700ms infinite;
+}
+
+.scene.is-sleeping::before {
+  opacity: .58;
+  animation: mau-shadow-sleep 4.2s ease-in-out 700ms infinite;
+}
+
+.scene.is-sleeping.has-reply:not(.is-reacting) .character {
+  animation: mau-sleep-breathe 4.2s ease-in-out infinite;
 }
 
 .scene.is-sleeping::after {
@@ -91,6 +126,10 @@
 .scene.is-sleep-fading .character {
   width: clamp(220px, 27vw, 310px);
   animation: mau-sleep-fade 850ms ease forwards;
+}
+
+.scene.is-sleep-fading::before {
+  animation: mau-shadow-leave 800ms ease-in forwards;
 }
 
 .interact {
@@ -128,7 +167,11 @@
 }
 
 .scene.is-reacting .character {
-  animation: mau-react 620ms cubic-bezier(.2, .8, .25, 1);
+  animation: mau-react 650ms cubic-bezier(.2, .8, .25, 1);
+}
+
+.scene.is-sleeping.is-reacting .character {
+  animation: mau-sleep-react 650ms cubic-bezier(.2, .8, .25, 1);
 }
 
 .bubble {
@@ -170,6 +213,11 @@
 .bubble.is-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
+  animation: mau-bubble-in 480ms cubic-bezier(.18, .86, .28, 1.08) both;
+}
+
+.scene.is-reacting .bubble.is-visible {
+  animation: mau-bubble-reply 420ms cubic-bezier(.18, .86, .28, 1.12) both;
 }
 
 .message {
@@ -204,26 +252,56 @@
   outline: none;
 }
 
-@keyframes mau-rise {
-  0% { transform: translateY(105%); }
-  72% { transform: translateY(-3%); }
-  100% { transform: translateY(0); }
+@keyframes mau-peek-arrival {
+  0% {
+    opacity: 0;
+    transform: translate(35%, 108%) rotate(4deg) scale(.94);
+  }
+  48% {
+    opacity: 1;
+    transform: translate(10%, 22%) rotate(2.2deg) scale(.97);
+  }
+  68% {
+    transform: translate(-1%, -3%) rotate(-1.4deg) scale(1.012);
+  }
+  82% {
+    transform: translate(0, 1%) rotate(.7deg) scale(.997);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0) scale(1);
+  }
 }
 
-@keyframes mau-curious {
-  0%, 100% { transform: rotate(0deg) translateY(0); }
-  50% { transform: rotate(-1.4deg) translateY(-4px); }
+@keyframes mau-shadow-arrive {
+  0% { opacity: 0; transform: scaleX(.3); }
+  58% { opacity: .45; transform: scaleX(.82); }
+  100% { opacity: .68; transform: scaleX(1); }
 }
 
-@keyframes mau-breathe {
-  0%, 100% { transform: translateY(0) rotate(0); }
-  50% { transform: translateY(-4px) rotate(.35deg); }
+@keyframes mau-idle {
+  0%, 16%, 100% {
+    transform: translateY(0) rotate(0) scale(1);
+  }
+  36% {
+    transform: translateY(-3px) rotate(.25deg) scale(1.004);
+  }
+  54% {
+    transform: translateY(0) rotate(0) scale(1);
+  }
+  72% {
+    transform: translateY(-2px) rotate(-.65deg) scale(1.002);
+  }
+  80% {
+    transform: translateY(-1px) rotate(.25deg) scale(1.001);
+  }
 }
 
 @keyframes mau-depart {
   0% { opacity: 1; transform: translate(0, 0) rotate(0); }
-  25% { transform: translate(-8px, -3px) rotate(-1deg); }
-  100% { opacity: 0; transform: translate(120%, 8px) rotate(2deg); }
+  18% { transform: translate(-8px, -4px) rotate(-1.2deg); }
+  36% { transform: translate(2px, 1px) rotate(1deg); }
+  100% { opacity: 0; transform: translate(120%, 10px) rotate(3deg); }
 }
 
 @keyframes mau-sleep-arrive {
@@ -233,12 +311,15 @@
 
 @keyframes mau-sleep-breathe {
   0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-2px) scale(1.008); }
+  45% { transform: translateY(-2px) rotate(-.15deg) scale(1.008); }
+  58% { transform: translateY(-2px) rotate(.08deg) scale(1.006); }
 }
 
 @keyframes mau-dream {
-  0%, 100% { opacity: .35; transform: translate(0, 5px); }
-  50% { opacity: .9; transform: translate(-5px, -5px); }
+  0% { opacity: 0; letter-spacing: .04em; transform: translate(4px, 8px) scale(.82); }
+  28% { opacity: .9; }
+  72% { opacity: .55; }
+  100% { opacity: 0; letter-spacing: .22em; transform: translate(-9px, -13px) scale(1.08); }
 }
 
 @keyframes mau-sleep-fade {
@@ -248,8 +329,43 @@
 
 @keyframes mau-react {
   0%, 100% { transform: translateY(0) rotate(0); }
-  35% { transform: translateY(-8px) rotate(-1.2deg); }
-  68% { transform: translateY(-2px) rotate(.8deg); }
+  24% { transform: translateY(-10px) rotate(-1.8deg) scale(1.015); }
+  48% { transform: translateY(-3px) rotate(1.1deg) scale(.998); }
+  70% { transform: translateY(-6px) rotate(-.45deg) scale(1.006); }
+}
+
+@keyframes mau-sleep-react {
+  0%, 100% { transform: translateY(0) rotate(0) scale(1); }
+  28% { transform: translateY(-4px) rotate(-1deg) scale(1.006); }
+  52% { transform: translateY(-1px) rotate(.7deg) scale(1.002); }
+}
+
+@keyframes mau-bubble-in {
+  0% { opacity: 0; transform: translate(13px, 16px) scale(.9); }
+  68% { opacity: 1; transform: translate(-3px, -2px) scale(1.018); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
+@keyframes mau-bubble-reply {
+  0% { opacity: .72; transform: translate(5px, 4px) scale(.96); }
+  65% { opacity: 1; transform: translate(-2px, -1px) scale(1.012); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
+@keyframes mau-shadow-breathe {
+  0%, 100% { opacity: .62; transform: scaleX(.96); }
+  36% { opacity: .48; transform: scaleX(.9); }
+  72% { opacity: .57; transform: scaleX(.94); }
+}
+
+@keyframes mau-shadow-sleep {
+  0%, 100% { opacity: .56; transform: scaleX(.98); }
+  50% { opacity: .46; transform: scaleX(.93); }
+}
+
+@keyframes mau-shadow-leave {
+  from { opacity: .62; transform: scaleX(1); }
+  to { opacity: 0; transform: translateX(70%) scaleX(.35); }
 }
 
 @media (max-width: 600px) {
@@ -308,11 +424,21 @@
     bottom: 94px;
   }
 
+  .scene.is-guiding .character {
+    animation-name: mau-idle-mobile;
+  }
+
   .scene.is-sleeping .interact {
     right: 108px;
     bottom: 86px;
   }
 
+}
+
+@keyframes mau-idle-mobile {
+  0%, 18%, 100% { transform: translateY(0) rotate(0) scale(1); }
+  42% { transform: translateY(-2px) rotate(.18deg) scale(1.002); }
+  76% { transform: translateY(-1px) rotate(-.35deg) scale(1.001); }
 }
 
 @media (max-height: 520px) and (orientation: landscape) {
@@ -327,6 +453,8 @@
   }
 
   .character,
+  .scene::before,
+  .scene::after,
   .scene.is-peeking .character,
   .scene.is-leaving .character,
   .scene.is-sleeping .character,
@@ -369,6 +497,7 @@
   }
 
   .bubble {
+    animation: none !important;
     transition: opacity 1ms linear;
     transform: none;
   }

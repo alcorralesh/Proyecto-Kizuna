@@ -47,3 +47,7 @@ Para probar las escenas inmediatamente:
 
 La pata/medalla de Mau funciona como un pequeño easter egg accesible mediante
 toque, ratón o teclado. Las respuestas se configuran en `mau-config.js`.
+
+La entrada, respiración, reacción, bocadillo, salida y sueño se animan únicamente
+con CSS. Si el dispositivo solicita movimiento reducido, las transiciones se
+desactivan automáticamente.
