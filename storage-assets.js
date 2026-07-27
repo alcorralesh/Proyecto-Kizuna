@@ -85,7 +85,7 @@
     })).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['src','data-asset-src']});
 
     const hero=document.querySelector('.hero-image');
-    if(hero&&entryFor('kyoto-hero.png')){
+    if(hero&&!hero.dataset.heroCarousel&&entryFor('kyoto-hero.png')){
       const preview=new Image();
       preview.onload=()=>hero.style.backgroundImage=`linear-gradient(90deg,rgba(14,28,30,.68) 0%,rgba(14,28,30,.32) 42%,rgba(14,28,30,.05)),url('${assetUrl('kyoto-hero.png','reader')}')`;
       preview.src=assetUrl('kyoto-hero.png','reader');

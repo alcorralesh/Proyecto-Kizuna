@@ -272,3 +272,122 @@ body.quiz-open{overflow:hidden}
     font-size: 8px !important;
   }
 }
+
+/* Carrusel editorial de la portada. Las imágenes son originales de KIZUNA y
+   conservan una zona oscura a la izquierda para proteger la legibilidad. */
+.hero-image{
+  background:#10201c!important;
+  isolation:isolate;
+}
+.hero-carousel-slide{
+  position:absolute;
+  inset:-2%;
+  z-index:0;
+  background-repeat:no-repeat;
+  background-size:cover;
+  opacity:0;
+  transform:scale(1.025);
+  transition:opacity 1.35s ease,transform 9s linear;
+  will-change:opacity,transform;
+}
+.hero-carousel-slide::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:
+    linear-gradient(90deg,rgba(10,24,22,.84) 0%,rgba(10,24,22,.59) 31%,rgba(10,24,22,.18) 58%,rgba(10,24,22,.04) 100%),
+    linear-gradient(0deg,rgba(7,17,15,.25),transparent 38%);
+}
+.hero-carousel-slide.is-active{
+  z-index:1;
+  opacity:1;
+  transform:scale(1.075);
+}
+.hero-copy,.hero-caption,.hero-carousel-controls{z-index:3}
+.hero-caption{
+  min-width:235px;
+  text-align:right;
+}
+.hero-caption.is-changing{animation:hero-caption-arrive .65s ease both}
+.hero-carousel-controls{
+  position:absolute;
+  right:5vw;
+  bottom:49px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.hero-carousel-arrow{
+  display:grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  padding:0;
+  border:1px solid rgba(245,240,231,.54);
+  border-radius:50%;
+  background:rgba(12,27,23,.18);
+  color:var(--cream);
+  font:18px/1 var(--serif);
+  cursor:pointer;
+  backdrop-filter:blur(4px);
+  transition:background .2s,border-color .2s,transform .2s;
+}
+.hero-carousel-arrow:hover,.hero-carousel-arrow:focus-visible{
+  border-color:var(--cream);
+  background:rgba(134,24,22,.78);
+  transform:translateY(-1px);
+}
+.hero-carousel-dots{display:flex;align-items:center;gap:7px}
+.hero-carousel-dot{
+  width:18px;
+  height:2px;
+  padding:8px 0;
+  border:0;
+  background:linear-gradient(transparent 7px,rgba(245,240,231,.42) 7px,rgba(245,240,231,.42) 9px,transparent 9px);
+  cursor:pointer;
+}
+.hero-carousel-dot[aria-current="true"]{
+  width:34px;
+  background:linear-gradient(transparent 7px,var(--cream) 7px,var(--cream) 9px,transparent 9px);
+}
+.hero-carousel-announcement{
+  position:absolute;
+  width:1px;
+  height:1px;
+  overflow:hidden;
+  clip-path:inset(50%);
+  white-space:nowrap;
+}
+@keyframes hero-caption-arrive{
+  from{opacity:0;transform:translateY(5px)}
+  to{opacity:1;transform:none}
+}
+@media(max-width:850px){
+  .hero-carousel-slide{inset:0;background-size:cover}
+  .hero-carousel-slide::after{
+    background:
+      linear-gradient(90deg,rgba(10,24,22,.83) 0%,rgba(10,24,22,.53) 52%,rgba(10,24,22,.12) 100%),
+      linear-gradient(0deg,rgba(7,17,15,.38),transparent 44%);
+  }
+  .hero-carousel-controls{right:7vw;bottom:42px;gap:7px}
+  .hero-carousel-arrow{width:34px;height:34px}
+  .hero-carousel-dot{width:14px}
+  .hero-carousel-dot[aria-current="true"]{width:27px}
+  .hero-caption{right:7vw;min-width:0}
+}
+@media(max-width:600px){
+  .hero-carousel-controls{
+    left:7vw;
+    right:auto;
+    bottom:19px;
+  }
+  .hero-caption{bottom:24px;font-size:7px}
+  .hero-carousel-arrow{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .hero-carousel-slide,.hero-caption{
+    animation:none!important;
+    transition:none!important;
+  }
+  .hero-carousel-slide.is-active{transform:scale(1.025)}
+}

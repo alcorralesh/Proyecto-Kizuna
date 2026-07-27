@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260726-document-share02';
+const VERSION='20260727-public-hero-carousel01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -17,7 +17,13 @@ const CORE_ASSETS=[
   './recipient-messages.css',
   './recipient-messages.js',
   './script.js',
+  './hero-carousel.js',
   './assets/kizuna-logo-official.png',
+  './assets/hero/tokyo-blue-hour.webp',
+  './assets/hero/hakone-fuji-dawn.webp',
+  './assets/hero/miyajima-sunset.webp',
+  './assets/hero/nara-lanterns-dawn.webp',
+  './assets/hero/kanazawa-rain.webp',
   './assets/kizuna-app-icon-192.png',
   './assets/kizuna-app-icon-512.png',
   './assets/kizuna-app-icon-maskable-512.png'
