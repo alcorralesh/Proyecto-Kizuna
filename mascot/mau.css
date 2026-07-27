@@ -19,6 +19,10 @@
   bottom: max(68px, calc(env(safe-area-inset-bottom) + 58px));
 }
 
+:host([hidden]) {
+  display: none !important;
+}
+
 [hidden] {
   display: none !important;
 }
@@ -55,6 +59,9 @@
   height: auto;
   user-select: none;
   -webkit-user-drag: none;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   filter: drop-shadow(0 16px 18px rgb(13 27 24 / 24%));
   transform-origin: 70% 100%;
   transition:
@@ -146,6 +153,7 @@
   color: transparent;
   background: transparent;
   pointer-events: auto;
+  touch-action: manipulation;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }

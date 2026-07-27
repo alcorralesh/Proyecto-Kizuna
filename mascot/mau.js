@@ -1,4 +1,4 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau19';
+import { MAU_CONFIG } from './mau-config.js?v=20260727-mau20';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
@@ -79,7 +79,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau19', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260727-mau20', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
@@ -106,11 +106,28 @@ class KizunaMau extends HTMLElement {
       signal: this.#abortController.signal
     });
     this.#interactionButton.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
       this.#react();
       if (event.detail > 0) this.#interactionButton.blur();
     }, {
       signal: this.#abortController.signal
     });
+    this.#character.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.#react();
+    }, {
+      signal: this.#abortController.signal
+    });
+    for (const target of [this.#interactionButton, this.#character]) {
+      target.addEventListener('pointerdown', event => event.stopPropagation(), {
+        signal: this.#abortController.signal
+      });
+      target.addEventListener('pointerup', event => event.stopPropagation(), {
+        signal: this.#abortController.signal
+      });
+    }
     const sources = [
       ...Object.values(ASSETS),
       ...Object.values(FRAME_SEQUENCES).flat()
@@ -151,6 +168,9 @@ class KizunaMau extends HTMLElement {
     if (this.#reducedMotion) {
       this.#setPose('guide', 'is-guiding');
       this.#showBubble();
+      this.#messageDeadline = performance.now() + MAU_CONFIG.timings.message;
+      await this.#waitForSceneDeadline('message');
+      if (!this.#closing) await this.close();
       return;
     }
 
