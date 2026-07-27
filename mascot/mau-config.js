@@ -23,12 +23,10 @@ export const MAU_CONFIG = Object.freeze({
     waveFrame: 180,
     wakeFrame: 320,
     wakeHold: 620,
-    rareGestureDelayMin: 1600,
-    rareGestureDelayMax: 2800,
+    albertoDelayMin: 1600,
+    albertoDelayMax: 2800,
     albertoFrame: 420,
-    albertoHold: 700,
-    bicycleFrame: 260,
-    bicycleHold: 300
+    albertoHold: 700
   }),
   dialogue: Object.freeze({
     albertoChance: 0.2,

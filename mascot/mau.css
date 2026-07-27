@@ -83,24 +83,10 @@
   transform: translateY(18px) scale(.96);
 }
 
-.scene.is-frame-playing:not(.is-cycling) .character {
+.scene.is-frame-playing .character {
   animation-play-state: paused !important;
   opacity: 1 !important;
   transform: translate(0, 0) rotate(0) scale(1) !important;
-}
-
-.scene.is-cycling .character {
-  right: auto;
-  left: 0;
-  bottom: -5px;
-  width: clamp(360px, 46vw, 500px);
-  animation: mau-bicycle-pass 2.38s linear both !important;
-  transform-origin: 50% 100%;
-}
-
-.scene.is-cycling .interact,
-.scene.is-cycling::before {
-  display: none;
 }
 
 .scene.is-guiding::before {
@@ -349,23 +335,6 @@
   to { opacity: 0; transform: translateX(70%) scaleX(.35); }
 }
 
-@keyframes mau-bicycle-pass {
-  0% {
-    opacity: 0;
-    transform: translateX(72%) scale(.96);
-  }
-  10% {
-    opacity: 1;
-  }
-  88% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(-92%) scale(1);
-  }
-}
-
 @media (max-width: 600px) {
   :host {
     left: 8px;
@@ -385,12 +354,6 @@
   .scene.is-sleep-fading .character {
     right: -8px;
     width: min(205px, 53vw);
-  }
-
-  .scene.is-cycling .character {
-    right: auto;
-    left: 0;
-    width: min(390px, 92vw);
   }
 
   .bubble {
@@ -454,12 +417,6 @@
   .scene.is-sleeping .character,
   .scene.is-sleep-fading .character {
     width: min(205px, 25vw);
-  }
-
-  .scene.is-cycling .character {
-    right: auto;
-    left: 0;
-    width: min(430px, 58vw);
   }
 
   .scene.is-guiding .interact {

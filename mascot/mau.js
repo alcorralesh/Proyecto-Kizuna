@@ -1,4 +1,4 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau23';
+import { MAU_CONFIG } from './mau-config.js?v=20260727-mau24';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
@@ -19,7 +19,6 @@ const sequenceUrls = (name, count) => Object.freeze(
 
 const FRAME_SEQUENCES = Object.freeze({
   alberto: sequenceUrls('alberto', 6),
-  bicycle: sequenceUrls('bicycle', 8),
   blink: sequenceUrls('blink', 3),
   reaction: sequenceUrls('reaction', 4),
   wave: sequenceUrls('wave', 3),
@@ -80,7 +79,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau23', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260727-mau24', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
@@ -186,7 +185,7 @@ class KizunaMau extends HTMLElement {
     this.#setPose('guide', 'is-guiding');
     this.#showBubble();
     this.#scheduleAmbientBlink();
-    this.#scheduleRareGesture();
+    this.#scheduleAlbertoGesture();
     this.#messageDeadline = performance.now() + MAU_CONFIG.timings.message;
     await this.#waitForSceneDeadline('message');
     if (!this.#closing) await this.close();
@@ -359,7 +358,7 @@ class KizunaMau extends HTMLElement {
     window.clearTimeout(this.#specialGestureTimer);
     this.#specialGestureTimer = 0;
     this.#frameSequenceToken += 1;
-    this.#scene.classList.remove('is-frame-playing', 'is-cycling');
+    this.#scene.classList.remove('is-frame-playing');
   }
 
   async #playFrameSequence(name, returnPose, frameDuration, finalHold = 0, onFrame = null) {
@@ -382,59 +381,33 @@ class KizunaMau extends HTMLElement {
     if (token !== this.#frameSequenceToken || this.hidden || this.#closing) return;
 
     this.#character.src = ASSETS[returnPose];
-    this.#scene.classList.remove('is-frame-playing', 'is-cycling');
+    this.#scene.classList.remove('is-frame-playing');
     if (returnPose === 'guide') this.#scheduleAmbientBlink();
   }
 
-  #scheduleRareGesture() {
-    const forcedGesture = this.getAttribute('data-force-gesture');
-    let gesture = forcedGesture;
+  #scheduleAlbertoGesture() {
+    const forced = this.hasAttribute('data-force-alberto');
     if (
       this.#reducedMotion ||
-      (!forcedGesture && this.#awakeAppearances < 2) ||
-      this.#activeScene !== 'message'
+      (!forced && this.#awakeAppearances < 2) ||
+      this.#activeScene !== 'message' ||
+      (!forced && Math.random() >= MAU_CONFIG.specialGestureChance)
     ) return;
 
-    if (!forcedGesture) {
-      const roll = Math.random();
-      if (roll < MAU_CONFIG.specialGestureChance) {
-        gesture = 'alberto';
-      } else if (roll < MAU_CONFIG.specialGestureChance * 2) {
-        gesture = 'bicycle';
-      } else {
-        return;
-      }
-    }
-    if (!['alberto', 'bicycle'].includes(gesture)) return;
-
-    const range = MAU_CONFIG.timings.rareGestureDelayMax
-      - MAU_CONFIG.timings.rareGestureDelayMin;
-    const delay = forcedGesture
+    const range = MAU_CONFIG.timings.albertoDelayMax - MAU_CONFIG.timings.albertoDelayMin;
+    const delay = forced
       ? 700
-      : MAU_CONFIG.timings.rareGestureDelayMin + Math.random() * range;
+      : MAU_CONFIG.timings.albertoDelayMin + Math.random() * range;
     this.#specialGestureTimer = window.setTimeout(() => {
       this.#specialGestureTimer = 0;
-      if (gesture === 'bicycle') {
-        this.#hideBubble();
-        this.#scene.classList.add('is-cycling');
-      }
       void this.#playFrameSequence(
-        gesture,
+        'alberto',
         'guide',
-        gesture === 'alberto'
-          ? MAU_CONFIG.timings.albertoFrame
-          : MAU_CONFIG.timings.bicycleFrame,
-        gesture === 'alberto'
-          ? MAU_CONFIG.timings.albertoHold
-          : MAU_CONFIG.timings.bicycleHold,
+        MAU_CONFIG.timings.albertoFrame,
+        MAU_CONFIG.timings.albertoHold,
         index => {
-          const messageFrame = gesture === 'alberto' ? 3 : 7;
-          if (index !== messageFrame) return;
-          this.#setMessage(
-            gesture === 'alberto'
-              ? 'Alberto pidió que vigilara especialmente esta visita.'
-              : 'Kioto se disfruta mejor sin prisa… y en bicicleta.'
-          );
+          if (index !== 3) return;
+          this.#setMessage('Alberto pidió que vigilara especialmente esta visita.');
           this.#showBubble();
           this.#messageDeadline = Math.max(
             this.#messageDeadline,
@@ -591,8 +564,8 @@ const coordinateScenes = element => {
 };
 
 const startTestScene = (element, testMode) => {
-  if (testMode === 'alberto' || testMode === 'bicycle') {
-    element.setAttribute('data-force-gesture', testMode);
+  if (testMode === 'alberto') {
+    element.setAttribute('data-force-alberto', '');
     window.setTimeout(() => startWhenAvailable(element), 500);
     return true;
   }
