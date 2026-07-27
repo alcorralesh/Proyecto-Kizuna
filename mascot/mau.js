@@ -1,4 +1,4 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau18';
+import { MAU_CONFIG } from './mau-config.js?v=20260727-mau19';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
@@ -27,6 +27,7 @@ const FRAME_SEQUENCES = Object.freeze({
 
 const wait = duration => new Promise(resolve => window.setTimeout(resolve, duration));
 const SECTION_IDS = Object.freeze(Object.keys(MAU_CONFIG.dialogue.contextual));
+const LOCAL_TEST_HOSTS = Object.freeze(['localhost', '127.0.0.1', '::1']);
 
 const visibleSectionId = () => {
   const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
@@ -78,7 +79,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau18', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260727-mau19', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
@@ -599,7 +600,9 @@ const mountMau = () => {
   document.body.appendChild(mascot);
   coordinateScenes(mascot);
 
-  const testMode = new URLSearchParams(location.search).get(MAU_CONFIG.testParameter);
+  const testMode = LOCAL_TEST_HOSTS.includes(location.hostname)
+    ? new URLSearchParams(location.search).get(MAU_CONFIG.testParameter)
+    : null;
   if (startTestScene(mascot, testMode)) return;
   startMessageAtScrollPoint(mascot);
 };
