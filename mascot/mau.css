@@ -93,6 +93,45 @@
   animation: mau-sleep-fade 850ms ease forwards;
 }
 
+.interact {
+  position: absolute;
+  z-index: 4;
+  display: none;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: transparent;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scene.is-guiding .interact {
+  right: clamp(86px, 12vw, 142px);
+  bottom: clamp(95px, 13vw, 155px);
+  display: block;
+}
+
+.scene.is-sleeping .interact {
+  right: clamp(108px, 15vw, 178px);
+  bottom: clamp(88px, 12vw, 142px);
+  display: block;
+}
+
+.interact:hover,
+.interact:focus-visible {
+  background: radial-gradient(circle, rgb(245 240 231 / 22%) 0 45%, transparent 48%);
+  outline: 1px dashed rgb(245 240 231 / 78%);
+  outline-offset: 3px;
+}
+
+.scene.is-reacting .character {
+  animation: mau-react 620ms cubic-bezier(.2, .8, .25, 1);
+}
+
 .bubble {
   box-sizing: border-box;
   position: absolute;
@@ -208,6 +247,12 @@
   to { opacity: 0; transform: translateY(18px); }
 }
 
+@keyframes mau-react {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  35% { transform: translateY(-8px) rotate(-1.2deg); }
+  68% { transform: translateY(-2px) rotate(.8deg); }
+}
+
 @media (max-width: 600px) {
   :host {
     left: 8px;
@@ -246,6 +291,21 @@
     font-size: 15px;
   }
 
+  .interact {
+    width: 48px;
+    height: 48px;
+  }
+
+  .scene.is-guiding .interact {
+    right: 82px;
+    bottom: 94px;
+  }
+
+  .scene.is-sleeping .interact {
+    right: 108px;
+    bottom: 86px;
+  }
+
 }
 
 @media (max-height: 520px) and (orientation: landscape) {
@@ -267,6 +327,16 @@
     width: min(205px, 25vw);
   }
 
+  .scene.is-guiding .interact {
+    right: 80px;
+    bottom: 88px;
+  }
+
+  .scene.is-sleeping .interact {
+    right: 106px;
+    bottom: 78px;
+  }
+
   .bubble {
     top: auto;
     bottom: 74px;
@@ -280,7 +350,8 @@
   .scene.is-guiding .character,
   .scene.is-leaving .character,
   .scene.is-sleeping .character,
-  .scene.is-sleep-fading .character {
+  .scene.is-sleep-fading .character,
+  .scene.is-reacting .character {
     animation: none;
     transition: opacity 1ms linear;
     transform: none;

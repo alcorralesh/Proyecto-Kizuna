@@ -38,3 +38,6 @@ Para probar las escenas inmediatamente:
 
 - Mensaje: `index.html?mau=1`.
 - Mau dormido: `index.html?mau=sleep`.
+
+La pata/medalla de Mau funciona como un pequeño easter egg accesible mediante
+toque, ratón o teclado. Las respuestas se configuran en `mau-config.js`.

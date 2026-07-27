@@ -1,4 +1,4 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau06';
+import { MAU_CONFIG } from './mau-config.js?v=20260727-mau07';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
@@ -14,10 +14,14 @@ class KizunaMau extends HTMLElement {
   #character;
   #bubble;
   #closeButton;
+  #interactionButton;
   #started = false;
   #sleepStarted = false;
   #closing = false;
   #activeScene = null;
+  #messageDeadline = 0;
+  #sleepDeadline = 0;
+  #lastResponse = -1;
   #reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   #abortController = new AbortController();
   #layoutObserver;
@@ -27,13 +31,14 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau06', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260727-mau07', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
     this.#scene.setAttribute('aria-label', 'Mau, mascota de KIZUNA');
     this.#scene.innerHTML = `
       <img class="character" alt="" aria-hidden="true" draggable="false">
+      <button class="interact" type="button" aria-label="Saludar a Mau"></button>
       <aside class="bubble" role="status" aria-live="polite" hidden>
         <button class="close" type="button" aria-label="Cerrar mensaje de Mau">×</button>
         <span class="message"></span>
@@ -43,12 +48,16 @@ class KizunaMau extends HTMLElement {
     this.#character = this.#scene.querySelector('.character');
     this.#bubble = this.#scene.querySelector('.bubble');
     this.#closeButton = this.#scene.querySelector('.close');
+    this.#interactionButton = this.#scene.querySelector('.interact');
     this.#bubble.querySelector('.message').textContent = MAU_CONFIG.message.text;
   }
 
   connectedCallback() {
     this.hidden = true;
     this.#closeButton.addEventListener('click', () => this.close(), {
+      signal: this.#abortController.signal
+    });
+    this.#interactionButton.addEventListener('click', () => this.#react(), {
       signal: this.#abortController.signal
     });
     for (const source of Object.values(ASSETS)) {
@@ -75,6 +84,7 @@ class KizunaMau extends HTMLElement {
     this.#started = true;
     this.#activeScene = 'message';
     this.#closing = false;
+    this.#setMessage(MAU_CONFIG.message.text);
     this.hidden = false;
 
     if (this.#reducedMotion) {
@@ -93,7 +103,8 @@ class KizunaMau extends HTMLElement {
 
     this.#setPose('guide', 'is-guiding');
     this.#showBubble();
-    await wait(MAU_CONFIG.timings.message);
+    this.#messageDeadline = performance.now() + MAU_CONFIG.timings.message;
+    await this.#waitForSceneDeadline('message');
     if (!this.#closing) await this.close();
   }
 
@@ -107,9 +118,11 @@ class KizunaMau extends HTMLElement {
     this.#setPose('sleep', 'is-sleeping');
     this.hidden = false;
 
-    await wait(MAU_CONFIG.timings.sleep);
+    this.#sleepDeadline = performance.now() + MAU_CONFIG.timings.sleep;
+    await this.#waitForSceneDeadline('sleep');
     if (this.#activeScene !== 'sleep' || this.#closing) return;
 
+    this.#hideBubble();
     if (!this.#reducedMotion) {
       this.#scene.className = 'scene is-sleep-fading';
       await wait(MAU_CONFIG.timings.sleepFade);
@@ -121,8 +134,7 @@ class KizunaMau extends HTMLElement {
     if (this.#closing || this.hidden) return;
     const completedScene = this.#activeScene || 'message';
     this.#closing = true;
-    this.#bubble.classList.remove('is-visible');
-    this.#bubble.setAttribute('aria-hidden', 'true');
+    this.#hideBubble();
 
     if (this.#reducedMotion) {
       this.#finishScene(completedScene);
@@ -146,12 +158,62 @@ class KizunaMau extends HTMLElement {
   #setPose(name, stateClass) {
     this.#scene.className = `scene ${stateClass}`;
     this.#character.src = ASSETS[name];
+    this.#interactionButton.setAttribute(
+      'aria-label',
+      name === 'sleep' ? 'Despertar suavemente a Mau' : 'Saludar a Mau'
+    );
+  }
+
+  #setMessage(text) {
+    this.#bubble.querySelector('.message').textContent = text;
   }
 
   #showBubble() {
     this.#bubble.hidden = false;
     this.#bubble.removeAttribute('aria-hidden');
     requestAnimationFrame(() => this.#bubble.classList.add('is-visible'));
+  }
+
+  #hideBubble() {
+    this.#bubble.classList.remove('is-visible');
+    this.#bubble.setAttribute('aria-hidden', 'true');
+  }
+
+  #react() {
+    if (this.hidden || this.#closing || !this.#activeScene) return;
+    this.#scene.classList.remove('is-reacting');
+    requestAnimationFrame(() => this.#scene.classList.add('is-reacting'));
+    window.setTimeout(() => this.#scene.classList.remove('is-reacting'), 650);
+
+    if (this.#activeScene === 'sleep') {
+      this.#setMessage(MAU_CONFIG.interaction.sleeping);
+      this.#sleepDeadline = Math.max(
+        this.#sleepDeadline,
+        performance.now() + MAU_CONFIG.timings.interactionHold
+      );
+    } else {
+      const responses = MAU_CONFIG.interaction.awake;
+      let responseIndex = Math.floor(Math.random() * responses.length);
+      if (responses.length > 1 && responseIndex === this.#lastResponse) {
+        responseIndex = (responseIndex + 1) % responses.length;
+      }
+      this.#lastResponse = responseIndex;
+      this.#setMessage(responses[responseIndex]);
+      this.#messageDeadline = Math.max(
+        this.#messageDeadline,
+        performance.now() + MAU_CONFIG.timings.interactionHold
+      );
+    }
+    this.#showBubble();
+  }
+
+  async #waitForSceneDeadline(sceneName) {
+    while (this.#activeScene === sceneName && !this.#closing) {
+      const deadline = sceneName === 'sleep' ? this.#sleepDeadline : this.#messageDeadline;
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) return;
+      await wait(Math.min(remaining, 400));
+    }
   }
 
   #syncExternalLayout() {

@@ -10,9 +10,18 @@ export const MAU_CONFIG = Object.freeze({
     leave: 1100,
     footerPause: 900,
     sleep: 8200,
-    sleepFade: 900
+    sleepFade: 900,
+    interactionHold: 4400
   }),
   message: Object.freeze({
     text: 'Solo estaba comprobando que esta línea temporal siguiera en su sitio.'
+  }),
+  interaction: Object.freeze({
+    awake: Object.freeze([
+      '¿Sí? Estoy trabajando.',
+      'No deberías haberme visto.',
+      'Todo parece estable… de momento.'
+    ]),
+    sleeping: '…cinco minutos más.'
   })
 });
