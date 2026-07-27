@@ -151,7 +151,7 @@
   opacity: 0;
   transform: translateY(14px) scale(.98);
   transform-origin: 100% 100%;
-  transition: opacity 360ms ease, transform 420ms ease;
+  transition: opacity 360ms ease, transform 420ms ease, top 320ms ease;
 }
 
 .bubble::after {
@@ -274,10 +274,18 @@
   }
 
   .bubble {
-    top: 28px;
+    top: 96px;
     width: calc(100% - min(190px, 46vw));
     min-width: 0;
     padding: 17px 39px 17px 17px;
+  }
+
+  .bubble::after {
+    bottom: 10px;
+  }
+
+  .scene.has-reply .bubble {
+    top: 142px;
   }
 
   .message {
@@ -340,6 +348,10 @@
     top: auto;
     bottom: 74px;
     width: min(290px, calc(100% - 180px));
+  }
+
+  .scene.has-reply .bubble {
+    top: auto;
   }
 }
 

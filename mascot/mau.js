@@ -1,4 +1,4 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau09';
+import { MAU_CONFIG } from './mau-config.js?v=20260727-mau10';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
@@ -31,7 +31,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau09', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260727-mau10', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
@@ -180,11 +180,13 @@ class KizunaMau extends HTMLElement {
   #hideBubble() {
     this.#bubble.classList.remove('is-visible');
     this.#bubble.setAttribute('aria-hidden', 'true');
+    this.#scene.classList.remove('has-reply');
   }
 
   #react() {
     if (this.hidden || this.#closing || !this.#activeScene) return;
     this.#scene.classList.remove('is-reacting');
+    this.#scene.classList.add('has-reply');
     requestAnimationFrame(() => this.#scene.classList.add('is-reacting'));
     window.setTimeout(() => this.#scene.classList.remove('is-reacting'), 650);
 
