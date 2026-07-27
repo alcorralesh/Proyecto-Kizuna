@@ -1,7 +1,10 @@
 export const MAU_CONFIG = Object.freeze({
   enabled: true,
-  triggerProgress: 0.35,
+  triggerProgress: 0.3,
   minimumPageAge: 8000,
+  maxAwakeAppearances: 2,
+  repeatCooldown: 40000,
+  scrollSettle: 1400,
   testParameter: 'mau',
   timings: Object.freeze({
     peek: 1700,
