@@ -23,5 +23,13 @@ las versiones optimizadas que cargará la web.
 - `mau-leave`: salida de la escena.
 - `mau-sleep`: apariciones nocturnas.
 
-Estos archivos todavía no están conectados a la página pública. La futura
-integración se realizará mediante un componente independiente con Shadow DOM.
+## Integración
+
+La mascota se monta como el componente independiente `<kizuna-mau>`:
+
+- `mau.js`: componente, secuencia y activación.
+- `mau.css`: estilos encapsulados dentro del Shadow DOM.
+- `mau-config.js`: texto, tiempos y porcentaje de activación.
+
+La aparición normal se activa al recorrer el 35 % de la portada. Para probarla
+inmediatamente se puede abrir `index.html?mau=1`.
