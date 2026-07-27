@@ -3,6 +3,7 @@ export const MAU_CONFIG = Object.freeze({
   triggerProgress: 0.3,
   minimumPageAge: 8000,
   maxAwakeAppearances: 2,
+  specialGestureChance: 0.14,
   repeatCooldown: 40000,
   scrollSettle: 1400,
   testParameter: 'mau',
@@ -21,7 +22,11 @@ export const MAU_CONFIG = Object.freeze({
     reactionFrame: 165,
     waveFrame: 180,
     wakeFrame: 320,
-    wakeHold: 620
+    wakeHold: 620,
+    albertoDelayMin: 1600,
+    albertoDelayMax: 2800,
+    albertoFrame: 420,
+    albertoHold: 700
   }),
   dialogue: Object.freeze({
     albertoChance: 0.1,

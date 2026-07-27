@@ -1,4 +1,4 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau17';
+import { MAU_CONFIG } from './mau-config.js?v=20260727-mau18';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
@@ -18,6 +18,7 @@ const sequenceUrls = (name, count) => Object.freeze(
 );
 
 const FRAME_SEQUENCES = Object.freeze({
+  alberto: sequenceUrls('alberto', 6),
   blink: sequenceUrls('blink', 3),
   reaction: sequenceUrls('reaction', 4),
   wave: sequenceUrls('wave', 3),
@@ -65,6 +66,7 @@ class KizunaMau extends HTMLElement {
   #currentSection = null;
   #messageStartedAt = 0;
   #ambientTimer = 0;
+  #specialGestureTimer = 0;
   #frameSequenceToken = 0;
   #awakeGesture = 0;
   #reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -76,7 +78,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau17', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260727-mau18', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
@@ -162,6 +164,7 @@ class KizunaMau extends HTMLElement {
     this.#setPose('guide', 'is-guiding');
     this.#showBubble();
     this.#scheduleAmbientBlink();
+    this.#scheduleAlbertoGesture();
     this.#messageDeadline = performance.now() + MAU_CONFIG.timings.message;
     await this.#waitForSceneDeadline('message');
     if (!this.#closing) await this.close();
@@ -331,11 +334,13 @@ class KizunaMau extends HTMLElement {
   #cancelFrameAnimation() {
     window.clearTimeout(this.#ambientTimer);
     this.#ambientTimer = 0;
+    window.clearTimeout(this.#specialGestureTimer);
+    this.#specialGestureTimer = 0;
     this.#frameSequenceToken += 1;
     this.#scene.classList.remove('is-frame-playing');
   }
 
-  async #playFrameSequence(name, returnPose, frameDuration, finalHold = 0) {
+  async #playFrameSequence(name, returnPose, frameDuration, finalHold = 0, onFrame = null) {
     const frames = FRAME_SEQUENCES[name];
     if (!frames?.length || this.#reducedMotion || this.hidden || this.#closing) return;
 
@@ -344,9 +349,10 @@ class KizunaMau extends HTMLElement {
     const token = ++this.#frameSequenceToken;
     this.#scene.classList.add('is-frame-playing');
 
-    for (const source of frames) {
+    for (const [index, source] of frames.entries()) {
       if (token !== this.#frameSequenceToken || this.hidden || this.#closing) return;
       this.#character.src = source;
+      onFrame?.(index);
       await wait(frameDuration);
     }
 
@@ -356,6 +362,39 @@ class KizunaMau extends HTMLElement {
     this.#character.src = ASSETS[returnPose];
     this.#scene.classList.remove('is-frame-playing');
     if (returnPose === 'guide') this.#scheduleAmbientBlink();
+  }
+
+  #scheduleAlbertoGesture() {
+    const forced = this.hasAttribute('data-force-alberto');
+    if (
+      this.#reducedMotion ||
+      (!forced && this.#awakeAppearances < 2) ||
+      this.#activeScene !== 'message' ||
+      (!forced && Math.random() >= MAU_CONFIG.specialGestureChance)
+    ) return;
+
+    const range = MAU_CONFIG.timings.albertoDelayMax - MAU_CONFIG.timings.albertoDelayMin;
+    const delay = forced
+      ? 700
+      : MAU_CONFIG.timings.albertoDelayMin + Math.random() * range;
+    this.#specialGestureTimer = window.setTimeout(() => {
+      this.#specialGestureTimer = 0;
+      void this.#playFrameSequence(
+        'alberto',
+        'guide',
+        MAU_CONFIG.timings.albertoFrame,
+        MAU_CONFIG.timings.albertoHold,
+        index => {
+          if (index !== 3) return;
+          this.#setMessage('Alberto pidió que vigilara especialmente esta visita.');
+          this.#showBubble();
+          this.#messageDeadline = Math.max(
+            this.#messageDeadline,
+            performance.now() + MAU_CONFIG.timings.interactionHold
+          );
+        }
+      );
+    }, delay);
   }
 
   #scheduleAmbientBlink() {
@@ -504,6 +543,11 @@ const coordinateScenes = element => {
 };
 
 const startTestScene = (element, testMode) => {
+  if (testMode === 'alberto') {
+    element.setAttribute('data-force-alberto', '');
+    window.setTimeout(() => startWhenAvailable(element), 500);
+    return true;
+  }
   if (testMode === 'sleep') {
     window.setTimeout(() => startWhenAvailable(element, 'sleep'), 500);
     return true;
