@@ -121,7 +121,6 @@
   display: block;
 }
 
-.interact:hover,
 .interact:focus-visible {
   background: radial-gradient(circle, rgb(245 240 231 / 22%) 0 45%, transparent 48%);
   outline: 1px dashed rgb(245 240 231 / 78%);

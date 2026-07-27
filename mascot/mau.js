@@ -1,4 +1,4 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau07';
+import { MAU_CONFIG } from './mau-config.js?v=20260727-mau09';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
@@ -31,7 +31,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau07', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260727-mau09', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
@@ -57,7 +57,10 @@ class KizunaMau extends HTMLElement {
     this.#closeButton.addEventListener('click', () => this.close(), {
       signal: this.#abortController.signal
     });
-    this.#interactionButton.addEventListener('click', () => this.#react(), {
+    this.#interactionButton.addEventListener('click', event => {
+      this.#react();
+      if (event.detail > 0) this.#interactionButton.blur();
+    }, {
       signal: this.#abortController.signal
     });
     for (const source of Object.values(ASSETS)) {
