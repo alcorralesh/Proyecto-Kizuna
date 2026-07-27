@@ -1,4 +1,4 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau10';
+import { MAU_CONFIG } from './mau-config.js?v=20260727-mau11';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
@@ -31,7 +31,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau10', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260727-mau11', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
@@ -49,7 +49,7 @@ class KizunaMau extends HTMLElement {
     this.#bubble = this.#scene.querySelector('.bubble');
     this.#closeButton = this.#scene.querySelector('.close');
     this.#interactionButton = this.#scene.querySelector('.interact');
-    this.#bubble.querySelector('.message').textContent = MAU_CONFIG.message.text;
+    this.#bubble.querySelector('.message').textContent = MAU_CONFIG.dialogue.general[0];
   }
 
   connectedCallback() {
@@ -87,7 +87,7 @@ class KizunaMau extends HTMLElement {
     this.#started = true;
     this.#activeScene = 'message';
     this.#closing = false;
-    this.#setMessage(MAU_CONFIG.message.text);
+    this.#setMessage(this.#selectAutomaticMessage());
     this.hidden = false;
 
     if (this.#reducedMotion) {
@@ -171,6 +171,49 @@ class KizunaMau extends HTMLElement {
     this.#bubble.querySelector('.message').textContent = text;
   }
 
+  #selectAutomaticMessage() {
+    const roll = Math.random();
+    if (roll < MAU_CONFIG.dialogue.albertoChance) {
+      return this.#pickRandom(MAU_CONFIG.dialogue.alberto);
+    }
+    if (roll < MAU_CONFIG.dialogue.albertoChance + MAU_CONFIG.dialogue.residualChance) {
+      return this.#pickRandom(MAU_CONFIG.dialogue.residual);
+    }
+
+    const section = this.#visibleSection();
+    const contextual = MAU_CONFIG.dialogue.contextual[section] || [];
+    const pool = contextual.length && Math.random() < 0.7
+      ? contextual
+      : MAU_CONFIG.dialogue.general;
+    return this.#pickRandom(pool);
+  }
+
+  #visibleSection() {
+    const sections = Object.keys(MAU_CONFIG.dialogue.contextual)
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    let visibleId = 'inicio';
+    let greatestIntersection = -1;
+
+    for (const section of sections) {
+      const rect = section.getBoundingClientRect();
+      const intersection = Math.max(
+        0,
+        Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0)
+      );
+      if (intersection > greatestIntersection) {
+        greatestIntersection = intersection;
+        visibleId = section.id;
+      }
+    }
+    return visibleId;
+  }
+
+  #pickRandom(pool) {
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
   #showBubble() {
     this.#bubble.hidden = false;
     this.#bubble.removeAttribute('aria-hidden');
@@ -191,7 +234,7 @@ class KizunaMau extends HTMLElement {
     window.setTimeout(() => this.#scene.classList.remove('is-reacting'), 650);
 
     if (this.#activeScene === 'sleep') {
-      this.#setMessage(MAU_CONFIG.interaction.sleeping);
+      this.#setMessage(this.#pickRandom(MAU_CONFIG.interaction.sleeping));
       this.#sleepDeadline = Math.max(
         this.#sleepDeadline,
         performance.now() + MAU_CONFIG.timings.interactionHold
