@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260727-mau-mascot20';
+const VERSION='20260727-mau-mascot23';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -18,9 +18,9 @@ const CORE_ASSETS=[
   './recipient-messages.js',
   './script.js',
   './hero-carousel.js',
-  './mascot/mau.js?v=20260727-mau20',
-  './mascot/mau-config.js?v=20260727-mau20',
-  './mascot/mau.css?v=20260727-mau20',
+  './mascot/mau.js?v=20260727-mau23',
+  './mascot/mau-config.js?v=20260727-mau23',
+  './mascot/mau.css?v=20260727-mau23',
   './mascot/assets/sprites/mau-peek.webp',
   './mascot/assets/sprites/mau-guide.webp',
   './mascot/assets/sprites/mau-leave.webp',
@@ -31,6 +31,14 @@ const CORE_ASSETS=[
   './mascot/assets/sprites/animations/mau-alberto-04.webp',
   './mascot/assets/sprites/animations/mau-alberto-05.webp',
   './mascot/assets/sprites/animations/mau-alberto-06.webp',
+  './mascot/assets/sprites/animations/mau-bicycle-01.webp',
+  './mascot/assets/sprites/animations/mau-bicycle-02.webp',
+  './mascot/assets/sprites/animations/mau-bicycle-03.webp',
+  './mascot/assets/sprites/animations/mau-bicycle-04.webp',
+  './mascot/assets/sprites/animations/mau-bicycle-05.webp',
+  './mascot/assets/sprites/animations/mau-bicycle-06.webp',
+  './mascot/assets/sprites/animations/mau-bicycle-07.webp',
+  './mascot/assets/sprites/animations/mau-bicycle-08.webp',
   './mascot/assets/sprites/animations/mau-blink-01.webp',
   './mascot/assets/sprites/animations/mau-blink-02.webp',
   './mascot/assets/sprites/animations/mau-blink-03.webp',

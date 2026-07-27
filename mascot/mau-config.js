@@ -3,7 +3,7 @@ export const MAU_CONFIG = Object.freeze({
   triggerProgress: 0.3,
   minimumPageAge: 8000,
   maxAwakeAppearances: 2,
-  specialGestureChance: 0.14,
+  specialGestureChance: 0.3,
   repeatCooldown: 40000,
   scrollSettle: 1400,
   testParameter: 'mau',
@@ -23,14 +23,16 @@ export const MAU_CONFIG = Object.freeze({
     waveFrame: 180,
     wakeFrame: 320,
     wakeHold: 620,
-    albertoDelayMin: 1600,
-    albertoDelayMax: 2800,
+    rareGestureDelayMin: 1600,
+    rareGestureDelayMax: 2800,
     albertoFrame: 420,
-    albertoHold: 700
+    albertoHold: 700,
+    bicycleFrame: 260,
+    bicycleHold: 300
   }),
   dialogue: Object.freeze({
-    albertoChance: 0.1,
-    residualChance: 0.3,
+    albertoChance: 0.2,
+    residualChance: 0.45,
     general: Object.freeze([
       'Solo estaba comprobando que esta línea temporal siguiera en su sitio.',
       'Todo parece estar donde debería.',
