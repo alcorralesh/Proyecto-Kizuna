@@ -38,12 +38,13 @@ const routePoint=(path,vehicle,value)=>{
   const next=path.getPointAtLength(length*clamp(value+.004,0,1));
   const angle=Math.atan2(next.y-point.y,next.x-point.x)*180/Math.PI;
   vehicle.setAttribute('transform',`translate(${point.x} ${point.y}) rotate(${angle})`);
+  return point;
 };
 
 const localProgress=(value,start,end)=>clamp((value-start)/(end-start),0,1);
 const reveal=(selector,visible)=>$(selector)?.classList.toggle('is-revealed',visible);
 
-function frameScene(scene){
+function frameScene(scene,focusX=600){
   const rect=stage.getBoundingClientRect();
   const aspect=rect.width/Math.max(rect.height,1);
   if(scene==='japan'){
@@ -53,6 +54,15 @@ function frameScene(scene){
     camera={
       x:clamp(735-width/2,0,1200-width),
       y:clamp(440-height/2,0,720-height),
+      w:width,
+      h:height
+    };
+  }else if(aspect<1.1){
+    const height=720;
+    const width=height*aspect;
+    camera={
+      x:clamp(focusX-width/2,0,1200-width),
+      y:0,
       w:width,
       h:height
     };
@@ -89,7 +99,7 @@ function render(value){
 
   flightPath.style.strokeDashoffset=String(100-flightValue*100);
   trainPath.style.strokeDashoffset=String(100-trainValue*100);
-  routePoint(flightPath,plane,flightValue);
+  const flightPosition=routePoint(flightPath,plane,flightValue);
   routePoint(trainPath,train,trainValue);
 
   world.style.opacity=String(1-transitionValue);
@@ -101,7 +111,10 @@ function render(value){
 
   if(!cameraTouched){
     if(transitionValue>.52&&framedScene!=='japan')frameScene('japan');
-    if(transitionValue<.2&&framedScene!=='world')frameScene('world');
+    if(transitionValue<.2){
+      const portrait=stage.getBoundingClientRect().width/stage.getBoundingClientRect().height<1.1;
+      if(framedScene!=='world'||portrait)frameScene('world',flightPosition.x);
+    }
   }
 
   reveal('#madrid-art',experienceStarted);
