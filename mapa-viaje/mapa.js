@@ -7,10 +7,13 @@ const map=$('#route-map');
 const stage=$('#map-stage');
 const world=$('#world-scene');
 const japan=$('#japan-scene');
+const kansai=$('#kansai-scene');
 const flightPath=$('#flight-progress');
 const trainPath=$('#train-progress');
+const naraPath=$('#nara-progress');
 const plane=$('#plane');
 const train=$('#train');
+const regionalTrain=$('#regional-train');
 const progressBar=$('#journey-progress');
 const phaseLabel=$('#phase-label');
 const routeLabel=$('#route-label');
@@ -19,7 +22,8 @@ const speedButton=$('#speed-route');
 const mau=$('#mau-navigator');
 const mauMessage=$('#mau-message');
 const panel=$('#stop-panel');
-const kiotoNode=$('.city-node[data-stop="kioto"]');
+const kiotoNodes=$$('.city-node[data-stop="kioto"]');
+const naraNode=$('.city-node[data-stop="nara"]');
 
 let progress=0;
 let playing=false;
@@ -57,9 +61,14 @@ const reveal=(selector,visible)=>$(selector)?.classList.toggle('is-revealed',vis
 function frameScene(scene,focusX=680,focusY=465,overview=false){
   const rect=stage.getBoundingClientRect();
   const aspect=rect.width/Math.max(rect.height,1);
-  if(scene==='japan'){
-    const routeWidth=aspect<1.1?Math.min(330,720*aspect):(aspect>2.35?600:540);
-    let width=overview?Math.min(720,routeWidth*1.22):routeWidth;
+  if(scene==='japan'||scene==='kansai'){
+    const regional=scene==='kansai';
+    const routeWidth=regional
+      ?(aspect<1.1?Math.min(240,450*aspect):(aspect>2.35?520:360))
+      :(aspect<1.1?Math.min(330,720*aspect):(aspect>2.35?600:540));
+    let width=overview
+      ?Math.min(regional?(aspect>2.35?580:440):720,routeWidth*(regional?1.08:1.22))
+      :routeWidth;
     let height=width/aspect;
     if(height>720){height=720;width=height*aspect}
     camera={
@@ -96,42 +105,59 @@ function updateTimeline(value){
   const items=$$('.journey-timeline li');
   items.forEach((item,index)=>{
     const moment=Number(item.dataset.moment);
-    item.classList.toggle('is-active',value>=moment-(index===2?.025:0));
-    item.classList.toggle('is-current',index===0?value<.48:index===1?value>=.48&&value<.97:value>=.97);
+    const nextMoment=items[index+1]?Number(items[index+1].dataset.moment):1.01;
+    item.classList.toggle('is-active',value>=moment-(index>0?.018:0));
+    item.classList.toggle('is-current',value>=moment-(index>0?.018:0)&&value<nextMoment-.018);
   });
 }
 
 function render(value){
   progress=clamp(value,0,1);
-  const {flight,transition,train:trainPhase}=itinerary.phases;
+  const {flight,transition,tokaido,naraLine}=itinerary.phases;
   const flightValue=localProgress(progress,flight.start,flight.end);
   const transitionValue=localProgress(progress,transition.start,transition.end);
-  const trainValue=localProgress(progress,trainPhase.start,trainPhase.end);
+  const tokaidoValue=localProgress(progress,tokaido.start,tokaido.end);
+  const naraValue=localProgress(progress,naraLine.start,naraLine.end);
+  const localTransition=localProgress(progress,naraLine.start-.018,naraLine.start+.045);
 
   flightPath.style.strokeDashoffset=String(100-flightValue*100);
-  trainPath.style.strokeDashoffset=String(100-trainValue*100);
+  trainPath.style.strokeDashoffset=String(100-tokaidoValue*100);
+  naraPath.style.strokeDashoffset=String(100-naraValue*100);
   const flightPosition=routePoint(flightPath,plane,flightValue);
-  const trainPosition=routePoint(trainPath,train,trainValue,true);
-  const trainArrived=trainValue>.985;
-  train.classList.toggle('has-arrived',trainArrived);
-  kiotoNode?.classList.toggle('is-arrived',trainArrived);
+  const trainPosition=routePoint(trainPath,train,tokaidoValue,true);
+  const regionalTrainPosition=routePoint(naraPath,regionalTrain,naraValue,true);
+  const kiotoArrived=tokaidoValue>.985;
+  const trainArrived=naraValue>.985;
+  stage.classList.toggle('is-local-detail',progress>=naraLine.start);
+  train.classList.toggle('has-arrived',kiotoArrived);
+  regionalTrain.classList.toggle('has-arrived',trainArrived);
+  kiotoNodes.forEach(node=>node.classList.toggle('is-arrived',kiotoArrived&&naraValue<.06));
+  naraNode?.classList.toggle('is-arrived',trainArrived);
 
   world.style.opacity=String(1-transitionValue);
   world.style.transform=`scale(${1+transitionValue*.08})`;
-  japan.style.opacity=String(transitionValue);
+  japan.style.opacity=String(transitionValue*(1-localTransition));
   japan.style.transform=`scale(${1.08-transitionValue*.08})`;
+  kansai.style.opacity=String(localTransition);
+  kansai.style.transform=`scale(${1.025-localTransition*.025})`;
   world.style.pointerEvents=transitionValue>.5?'none':'auto';
-  japan.style.pointerEvents=transitionValue>.5?'auto':'none';
+  japan.style.pointerEvents=transitionValue>.5&&localTransition<.5?'auto':'none';
+  kansai.style.pointerEvents=localTransition>.5?'auto':'none';
 
   if(!cameraTouched){
     if(transitionValue>.52){
-      const routeComplete=trainValue>.97;
-      frameScene(
-        'japan',
-        routeComplete?675:(trainValue>0?trainPosition.x:780),
-        routeComplete?435:(trainValue>0?trainPosition.y:447),
-        routeComplete
-      );
+      if(progress>=naraLine.start){
+        const localComplete=naraValue>.97;
+        frameScene('kansai',localComplete?700:regionalTrainPosition.x,localComplete?392:regionalTrainPosition.y,localComplete);
+      }else{
+        const routeComplete=tokaidoValue>.97;
+        frameScene(
+          'japan',
+          routeComplete?675:(tokaidoValue>0?trainPosition.x:780),
+          routeComplete?435:(tokaidoValue>0?trainPosition.y:447),
+          routeComplete
+        );
+      }
     }
     if(transitionValue<.2){
       const portrait=stage.getBoundingClientRect().width/stage.getBoundingClientRect().height<1.1;
@@ -142,7 +168,9 @@ function render(value){
   reveal('#madrid-art',experienceStarted);
   reveal('#tokio-world-art',experienceStarted&&flightValue>.9);
   reveal('#tokio-japan-art',experienceStarted&&transitionValue>.34);
-  reveal('#kioto-art',experienceStarted&&trainValue>.88);
+  reveal('#kioto-art',experienceStarted&&tokaidoValue>.88);
+  reveal('#kioto-kansai-art',experienceStarted&&localTransition>.24);
+  reveal('#nara-art',experienceStarted&&naraValue>.72);
 
   if(progress<transition.start){
     phaseLabel.textContent=flight.label;
@@ -152,10 +180,14 @@ function render(value){
     phaseLabel.textContent=transition.label;
     routeLabel.textContent=transition.route;
     setMau('Señal japonesa localizada. Cambiando la escala del mapa.','arrival');
+  }else if(progress<naraLine.start){
+    phaseLabel.textContent=tokaido.label;
+    routeLabel.textContent=tokaido.route;
+    setMau(progress>.7?'Kioto localizada. Alberto insistió en que no llegáramos tarde.':'El Shinkansen no espera. Por suerte, este mapa sí.','tokaido-'+(progress>.7));
   }else{
-    phaseLabel.textContent=trainPhase.label;
-    routeLabel.textContent=trainPhase.route;
-    setMau(progress>.9?'Kioto localizada. Alberto insistió en que no llegáramos tarde.':'El Shinkansen no espera. Por suerte, este mapa sí.','train-'+(progress>.9));
+    phaseLabel.textContent=naraLine.label;
+    routeLabel.textContent=naraLine.route;
+    setMau(progress>.96?'Nara localizada. Los ciervos ya estaban esperando.':'Nara está cerca. En este mapa, unos pocos kilómetros merecen su propia escala.','nara-'+(progress>.96));
   }
 
   progressBar.style.width=`${progress*100}%`;
@@ -258,7 +290,8 @@ $('#zoom-in').addEventListener('click',()=>{cameraTouched=true;zoom(.78)});
 $('#zoom-out').addEventListener('click',()=>{cameraTouched=true;zoom(1.28)});
 $('#zoom-reset').addEventListener('click',()=>{
   cameraTouched=false;
-  if(progress>=itinerary.phases.transition.end)frameScene('japan',675,435,progress>=itinerary.phases.train.end);
+  if(progress>=itinerary.phases.naraLine.start)frameScene('kansai',700,392,progress>=itinerary.phases.naraLine.end);
+  else if(progress>=itinerary.phases.transition.end)frameScene('japan',675,435,progress>=itinerary.phases.tokaido.end);
   else frameScene('world');
 });
 stage.addEventListener('wheel',event=>{

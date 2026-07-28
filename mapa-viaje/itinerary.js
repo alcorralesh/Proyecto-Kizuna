@@ -1,5 +1,5 @@
 export const itinerary={
-  duration:22000,
+  duration:28000,
   stops:{
     madrid:{
       name:'Madrid',
@@ -26,11 +26,21 @@ export const itinerary={
       transport:'Shinkansen',
       copy:'El recorrido continúa hacia Kioto. Templos, callejones de madera y una forma de entender el tiempo que invita a caminar sin prisa.',
       guide:'../guides/kioto/index.html'
+    },
+    nara:{
+      name:'Nara',
+      japanese:'奈良 · NARA',
+      sequence:'DESTINO 03 · MEMORIA',
+      stage:'Tercera etapa',
+      transport:'Tren regional',
+      copy:'Desde Kioto, la ruta desciende hasta Nara: senderos tranquilos, ciervos, templos y una ciudad donde la historia parece caminar junto a ti.',
+      guide:'../guides/nara/index.html'
     }
   },
   phases:{
-    flight:{start:0,end:.43,label:'TRAYECTO INTERNACIONAL',route:'MADRID → TOKIO'},
-    transition:{start:.43,end:.55,label:'APROXIMACIÓN A JAPÓN',route:'ARCHIVO CARTOGRÁFICO · TOKIO'},
-    train:{start:.55,end:1,label:'CORREDOR TŌKAIDŌ',route:'TOKIO → KIOTO · SHINKANSEN'}
+    flight:{start:0,end:.35,label:'TRAYECTO INTERNACIONAL',route:'MADRID → TOKIO'},
+    transition:{start:.35,end:.45,label:'APROXIMACIÓN A JAPÓN',route:'ARCHIVO CARTOGRÁFICO · TOKIO'},
+    tokaido:{start:.45,end:.77,label:'CORREDOR TŌKAIDŌ',route:'TOKIO → KIOTO · SHINKANSEN'},
+    naraLine:{start:.77,end:1,label:'LÍNEA NARA',route:'KIOTO → NARA · TREN REGIONAL'}
   }
 };

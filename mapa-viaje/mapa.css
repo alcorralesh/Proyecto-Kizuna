@@ -95,6 +95,8 @@ button{color:inherit}
 .route-line--ghost{stroke:#594b326b;stroke-width:4;stroke-dasharray:3 12}
 .route-line--flight{stroke:var(--red);stroke-width:5;stroke-dasharray:100;stroke-dashoffset:100;filter:url(#route-glow)}
 .route-line--train{stroke:var(--gold);stroke-width:6;stroke-dasharray:100;stroke-dashoffset:100;filter:url(#route-glow)}
+.route-line--local.route-line--ghost{stroke-width:1.3;stroke-dasharray:1.5 5}
+.route-line--local.route-line--train{stroke-width:2.2}
 .city-node{cursor:pointer;outline:none}
 .city-node circle:first-child{fill:#173029;stroke:#f1dfb9;stroke-width:2;transition:fill .2s,transform .2s}
 .city-node circle:nth-child(2){fill:var(--red);stroke:none}
@@ -102,6 +104,23 @@ button{color:inherit}
 .city-node .city-code{fill:#6f6248;font:7px var(--mono);letter-spacing:.12em}
 .city-node:hover circle:first-child,.city-node:focus circle:first-child{fill:var(--red);transform:scale(1.18)}
 .city-node.is-arrived circle:first-child{animation:arrival-node-pulse 1.8s ease-in-out infinite}
+.city-node--nara text{text-anchor:end}
+.city-node--kioto-local text{text-anchor:end}
+.city-node--nara .city-code{font-size:5.5px}
+.map-stage.is-local-detail #train-base,
+.map-stage.is-local-detail #train-progress,
+.map-stage.is-local-detail #tokio-japan-art,
+.map-stage.is-local-detail .city-node[data-stop="tokio"]{opacity:.08}
+.map-stage.is-local-detail .city-node circle:first-child{r:5.5px;stroke-width:1.2px}
+.map-stage.is-local-detail .city-node circle:nth-child(2){r:2px}
+.map-stage.is-local-detail .city-node text{
+  font-size:6.5px;
+  paint-order:stroke;
+  stroke:#ead9b6;
+  stroke-width:.7px;
+  stroke-linejoin:round
+}
+.map-stage.is-local-detail .city-node .city-code{font-size:4.5px}
 @keyframes arrival-node-pulse{
   0%,100%{transform:scale(1)}
   50%{transform:scale(1.18);fill:var(--red)}
@@ -119,6 +138,14 @@ button{color:inherit}
 }
 .city-illustration.is-revealed{
   animation:city-illustration-reveal 1.8s cubic-bezier(.2,.72,.18,1) both
+}
+.city-illustration.is-deemphasized{
+  opacity:.2;
+  clip-path:inset(0);
+  filter:sepia(1) saturate(.12) contrast(1.2);
+  transform:scale(.94);
+  animation:none;
+  transition:opacity .8s ease,filter .8s ease,transform .8s ease
 }
 .city-illustration--madrid{opacity:0}
 @keyframes city-illustration-reveal{
@@ -140,6 +167,18 @@ button{color:inherit}
 .vehicle--shinkansen image{transform-box:fill-box;transform-origin:center}
 .vehicle--shinkansen.is-westbound image{transform:scaleX(-1)}
 .vehicle--shinkansen.has-arrived{opacity:0;filter:blur(2px)}
+.vehicle--regional{
+  pointer-events:none;
+  opacity:1;
+  transition:opacity .55s ease,filter .55s ease
+}
+.vehicle--regional image{
+  transform-box:fill-box;
+  transform-origin:center;
+  filter:sepia(.16) saturate(.84) drop-shadow(0 3px 3px #2d1c0f73)
+}
+.vehicle--regional.is-westbound image{transform:scaleX(-1)}
+.vehicle--regional.has-arrived{opacity:0;filter:blur(2px)}
 .map-vignette{
   position:absolute;
   inset:0;
@@ -331,7 +370,7 @@ button{color:inherit}
   border-top:1px solid #b8a78077;
   background:#0a1311
 }
-.journey-timeline{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:0;padding:0;list-style:none}
+.journey-timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:0;padding:0;list-style:none}
 .journey-timeline li{position:relative}
 .journey-timeline li:after{content:"";position:absolute;left:50%;right:-50%;top:17px;height:1px;background:#83775f}
 .journey-timeline li:last-child:after{display:none}
