@@ -60,15 +60,6 @@ const updateRecipientName=()=>{
   if(headFirst)headFirst.textContent=first;
   if(headLast){headLast.textContent=last;headLast.hidden=!last}
 };
-const originalUpdateCompletionHeader=updateCompletionHeader;
-updateCompletionHeader=done=>{
-  originalUpdateCompletionHeader(done);
-  const completion=document.querySelector('#completion-record');
-  if(!completion)return;
-  const recipient=[...completion.querySelectorAll('span')].find(item=>item.textContent.trim().startsWith('DESTINATARIO'));
-  const recipientValue=recipient?.querySelector('strong');
-  if(recipientValue)recipientValue.textContent=recipientName().toLocaleUpperCase('es-ES');
-};
 let transientProgressState=null;
 const transientState=()=>normalizeFinalState(transientProgressState||emptyProgressState());
 const emptyProgressState=()=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,comicReadPages:[],alt00Discovered:false,alt00DiscoveredAt:null,alt00Completed:false,alt00CompletedAt:null,alt00LastPage:1,earlyAccessVersion:EARLY_ACCESS_VERSION,earlyAccessShownAt:null,earlyAccessAcknowledgedAt:null,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,loadingSeen:false,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:ONBOARDING_VERSION,seenUnlocks:[]});
@@ -1734,7 +1725,7 @@ createFinalDiscoveryAlert=function(onOpen){
 };
 showFinalFileAlert=function(){if(!finalClosureAuthorized()||getFinalFlowStage()!=='interrupted'||finalFileRead()||viewer.open||document.querySelector('#final-file-alert'))return;createFinalDiscoveryAlert(openFinalLocatedFile)};
 function openDashboard(){access.hidden=true;loading.hidden=false;const log=document.querySelector('#auth-log');log.innerHTML='<p>Comprobando expediente…</p><div style="height:8px;background:#d3c8b4"><i id="auth-progress" style="display:block;width:0;height:100%;background:#7e1b19;transition:width 1.7s ease"></i></div><p>Sincronizando registros…</p><p>Integridad documental: <strong>100 %</strong></p>';setTimeout(()=>document.querySelector('#auth-progress').style.width='100%',80);setTimeout(()=>{loading.hidden=true;gate.hidden=false},2100)}
-function updateCompletionHeader(done){const head=document.querySelector('.case-head'),old=document.querySelector('#completion-record'),completed=finalFlowClosed();if(old)old.remove();head.style.position='';head.style.removeProperty('padding-bottom');head.style.removeProperty('min-height');head.classList.toggle('is-complete',completed);if(!completed)return;const record=document.createElement('section');record.id='completion-record';record.style.cssText='position:absolute;left:10vw;right:10vw;bottom:18px;border-top:1px solid #9b8870;padding-top:12px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 20px;color:#7e1b19;font:9px/1.65 "DM Mono",monospace;letter-spacing:.03em';record.innerHTML=`<span>PROJECT JAPAN<br><strong style="font-size:11px">✔ FINALIZADO · EXPEDIENTE ARCHIVADO</strong></span><span>DESTINATARIO<br><strong style="font-size:11px">JOSÉ CUADRADO</strong></span><span>FECHA DE ARCHIVO<br><strong style="font-size:11px">${new Date().toLocaleDateString('es-ES')}</strong></span><span>INTEGRIDAD<br><strong style="font-size:11px">100 %</strong></span>`;head.appendChild(record)}
+function updateCompletionHeader(){document.querySelector('.case-head')?.classList.toggle('is-complete',finalFlowClosed())}
 let pendingFinalAlertTimer=0;
 let acRevealTimers=[];
 const clearAcRevealTimers=()=>{acRevealTimers.forEach(clearTimeout);acRevealTimers=[]};
@@ -1794,6 +1785,19 @@ function render(options={}){
   document.querySelector('#integrity-fill').style.width=`${integrity}%`;
   document.querySelector('#authorization').textContent=`Nivel ${roman(level)}`;
   document.querySelector('#case-status').textContent=finalFlowClosed()?'Expediente completado':pending?'Cierre en curso':'En proceso';
+  const nextSequenceAccess=visible.find(id=>allowed(id)&&!done.includes(id)&&!folderCompleted(id,done));
+  document.querySelector('#case-phase-badge').textContent=finalFlowClosed()
+    ?'✓ ARCHIVADO · PROJECT JAPAN'
+    :pending
+      ?'CIERRE EN CURSO'
+      :'SECUENCIA ACTIVA';
+  document.querySelector('#case-next-access').textContent=finalFlowClosed()
+    ?'Secuencia completada · Todos los registros permanecen consultables'
+    :pending
+      ?'Protocolo de cierre obligatorio en curso'
+      :nextSequenceAccess
+        ?`Siguiente acceso · ${nextSequenceAccess}`
+        :'Comprobando siguiente autorización…';
   updateCompletionHeader(done);
   document.querySelector('#documents').innerHTML=newUnlockNotice+resumeBanner+visible.map(id=>{
     const ok=allowed(id),seen=done.includes(id)||folderCompleted(id,done),isClosing=id==='KTB-014'&&pending;
