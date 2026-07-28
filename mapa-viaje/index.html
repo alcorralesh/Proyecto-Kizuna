@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=EB+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mapa.css">
 </head>
-<body>
+<body class="route-intro-active">
   <main class="atlas">
     <header class="atlas-header">
       <a class="atlas-brand" href="../index.html" aria-label="Volver a KIZUNA">
@@ -53,6 +53,9 @@
             <text class="map-region-label" x="224" y="245">EUROPA</text>
             <text class="map-region-label" x="736" y="238">ASIA</text>
 
+            <image id="madrid-art" class="city-illustration city-illustration--madrid" href="assets/cities/madrid-vignette.webp" x="8" y="265" width="340" height="227" preserveAspectRatio="xMidYMid meet" aria-hidden="true"/>
+            <image id="tokio-world-art" class="city-illustration city-illustration--tokio-world" href="assets/cities/tokio-vignette.webp" x="854" y="258" width="338" height="225" preserveAspectRatio="xMidYMid meet" aria-hidden="true"/>
+
             <path id="flight-base" class="route-line route-line--ghost" pathLength="100" d="M165 371C401 64 844 73 1051 403"/>
             <path id="flight-progress" class="route-line route-line--flight" pathLength="100" d="M165 371C401 64 844 73 1051 403"/>
 
@@ -83,6 +86,9 @@
             <path class="japan-island japan-island--kyushu" d="M463 524l46 26 12 57-28 55-48-13-31-55 14-48z"/>
             <path class="japan-island japan-island--okinawa" d="M287 658l13-7 10 11-12 9z"/>
 
+            <image id="tokio-japan-art" class="city-illustration city-illustration--tokio-japan" href="assets/cities/tokio-vignette.webp" x="748" y="230" width="324" height="216" preserveAspectRatio="xMidYMid meet" aria-hidden="true"/>
+            <image id="kioto-art" class="city-illustration city-illustration--kioto" href="assets/cities/kioto-vignette.webp" x="408" y="350" width="340" height="227" preserveAspectRatio="xMidYMid meet" aria-hidden="true"/>
+
             <path id="train-base" class="route-line route-line--ghost" pathLength="100" d="M897 378C835 392 790 421 738 443S649 472 592 488"/>
             <path id="train-progress" class="route-line route-line--train" pathLength="100" d="M897 378C835 392 790 421 738 443S649 472 592 488"/>
 
@@ -107,6 +113,13 @@
         </svg>
 
         <div class="map-vignette" aria-hidden="true"></div>
+        <div class="map-ornaments" aria-hidden="true">
+          <div class="map-compass">
+            <i></i><i></i><b>N</b><span>K</span>
+          </div>
+          <p class="map-stamp">ARCHIVO CARTOGRÁFICO<br><strong>RECUPERADO</strong></p>
+          <p class="map-scale"><i></i><span>ESCALA VARIABLE · KIZUNA 2026</span></p>
+        </div>
 
         <nav class="map-zoom" aria-label="Controles del mapa">
           <button type="button" id="zoom-in" aria-label="Ampliar mapa">+</button>
@@ -120,6 +133,23 @@
             <p id="mau-message">Todo itinerario empieza con una línea. Vamos a dibujarla.</p>
           </div>
           <img src="../mascot/assets/sprites/mau-guide.webp" alt="Mau, guía cartográfico de KIZUNA">
+        </section>
+
+        <section class="route-intro" id="route-intro">
+          <div class="route-intro-card">
+            <p class="route-intro-kicker">ARCHIVO CENTRAL · CARTOGRAFÍA TEMPORAL</p>
+            <span class="route-intro-code">RUTA 001</span>
+            <div class="route-intro-mark" aria-hidden="true">
+              <i></i><b>K</b><i></i>
+            </div>
+            <h2>PROJECT JAPAN</h2>
+            <p class="route-intro-subtitle">Una expedición trazada<br><em>entre dos mundos.</em></p>
+            <div class="route-intro-route">
+              <span>MADRID</span><i></i><b>✈</b><i></i><span>TOKIO</span><i></i><b>◆</b><i></i><span>KIOTO</span>
+            </div>
+            <button type="button" id="start-route">INICIAR CARTOGRAFÍA <span>→</span></button>
+            <small>2 TRAYECTOS · 3 LOCALIZACIONES · ARCHIVO VERIFICADO</small>
+          </div>
         </section>
       </div>
 

@@ -21,13 +21,16 @@ const mauMessage=$('#mau-message');
 const panel=$('#stop-panel');
 
 let progress=0;
-let playing=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+let playing=false;
 let speed=1;
 let previousTime=performance.now();
 let frame=0;
 let mauMoment='';
 let camera={x:0,y:0,w:1200,h:720};
 let drag=null;
+let experienceStarted=false;
+let cameraTouched=false;
+let framedScene='world';
 
 const routePoint=(path,vehicle,value)=>{
   const length=path.getTotalLength();
@@ -38,6 +41,27 @@ const routePoint=(path,vehicle,value)=>{
 };
 
 const localProgress=(value,start,end)=>clamp((value-start)/(end-start),0,1);
+const reveal=(selector,visible)=>$(selector)?.classList.toggle('is-revealed',visible);
+
+function frameScene(scene){
+  const rect=stage.getBoundingClientRect();
+  const aspect=rect.width/Math.max(rect.height,1);
+  if(scene==='japan'){
+    let height=aspect<1?720:500;
+    let width=height*aspect;
+    if(width>1200){width=1200;height=width/aspect}
+    camera={
+      x:clamp(735-width/2,0,1200-width),
+      y:clamp(440-height/2,0,720-height),
+      w:width,
+      h:height
+    };
+  }else{
+    camera={x:0,y:0,w:1200,h:720};
+  }
+  framedScene=scene;
+  applyCamera();
+}
 
 function setMau(message,key){
   if(mauMoment===key)return;
@@ -74,6 +98,16 @@ function render(value){
   japan.style.transform=`scale(${1.08-transitionValue*.08})`;
   world.style.pointerEvents=transitionValue>.5?'none':'auto';
   japan.style.pointerEvents=transitionValue>.5?'auto':'none';
+
+  if(!cameraTouched){
+    if(transitionValue>.52&&framedScene!=='japan')frameScene('japan');
+    if(transitionValue<.2&&framedScene!=='world')frameScene('world');
+  }
+
+  reveal('#madrid-art',experienceStarted);
+  reveal('#tokio-world-art',experienceStarted&&flightValue>.9);
+  reveal('#tokio-japan-art',experienceStarted&&transitionValue>.34);
+  reveal('#kioto-art',experienceStarted&&trainValue>.88);
 
   if(progress<transition.start){
     phaseLabel.textContent=flight.label;
@@ -113,6 +147,16 @@ function setPlaying(value){
   toggleButton.innerHTML=playing?'Ⅱ <span>PAUSAR RUTA</span>':'▶ <span>CONTINUAR RUTA</span>';
 }
 
+function startExperience(){
+  experienceStarted=true;
+  document.body.classList.remove('route-intro-active');
+  $('#route-intro').classList.add('is-dismissed');
+  mau.classList.add('is-visible','is-speaking');
+  render(progress);
+  setPlaying(true);
+  setTimeout(()=>$('#route-intro').hidden=true,900);
+}
+
 function showStop(key){
   const stop=itinerary.stops[key];
   if(!stop)return;
@@ -148,7 +192,8 @@ toggleButton.addEventListener('click',()=>{
   if(progress>=1){progress=0;render(0)}
   setPlaying(!playing);
 });
-$('#replay-route').addEventListener('click',()=>{closeStop();render(0);setPlaying(true)});
+$('#replay-route').addEventListener('click',()=>{closeStop();cameraTouched=false;frameScene('world');render(0);setPlaying(true)});
+$('#start-route').addEventListener('click',startExperience);
 speedButton.addEventListener('click',()=>{
   speed=speed===1?1.5:speed===1.5?2:1;
   speedButton.firstChild.textContent=`${speed}× `;
@@ -174,16 +219,18 @@ function zoom(factor,originX=.5,originY=.5){
   applyCamera();
 }
 
-$('#zoom-in').addEventListener('click',()=>zoom(.78));
-$('#zoom-out').addEventListener('click',()=>zoom(1.28));
-$('#zoom-reset').addEventListener('click',()=>{camera={x:0,y:0,w:1200,h:720};applyCamera()});
+$('#zoom-in').addEventListener('click',()=>{cameraTouched=true;zoom(.78)});
+$('#zoom-out').addEventListener('click',()=>{cameraTouched=true;zoom(1.28)});
+$('#zoom-reset').addEventListener('click',()=>{cameraTouched=false;frameScene(progress>=itinerary.phases.transition.end?'japan':'world')});
 stage.addEventListener('wheel',event=>{
   event.preventDefault();
+  cameraTouched=true;
   const rect=stage.getBoundingClientRect();
   zoom(event.deltaY>0?1.12:.88,(event.clientX-rect.left)/rect.width,(event.clientY-rect.top)/rect.height);
 },{passive:false});
 stage.addEventListener('pointerdown',event=>{
   if(event.target.closest('button,.city-node,.mau-navigator'))return;
+  cameraTouched=true;
   drag={id:event.pointerId,x:event.clientX,y:event.clientY,cameraX:camera.x,cameraY:camera.y};
   stage.setPointerCapture(event.pointerId);
 });
@@ -199,6 +246,5 @@ stage.addEventListener('pointercancel',()=>drag=null);
 
 render(0);
 setPlaying(playing);
-setTimeout(()=>mau.classList.add('is-visible','is-speaking'),450);
 frame=requestAnimationFrame(animate);
 addEventListener('pagehide',()=>cancelAnimationFrame(frame),{once:true});
