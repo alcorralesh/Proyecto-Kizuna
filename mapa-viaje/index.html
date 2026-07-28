@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101c19">
+  <title>Cartografía de la expedición · KIZUNA</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="../assets/kizuna-app-icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=EB+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="mapa.css">
+</head>
+<body>
+  <main class="atlas">
+    <header class="atlas-header">
+      <a class="atlas-brand" href="../index.html" aria-label="Volver a KIZUNA">
+        <img src="../assets/kizuna-logo-official.png" alt="">
+        <span>KIZUNA<small>DIVISIÓN DE CARTOGRAFÍA TEMPORAL</small></span>
+      </a>
+      <div class="atlas-title">
+        <span>PROJECT JAPAN · RUTA 001</span>
+        <h1>Cartografía de la expedición</h1>
+      </div>
+      <p class="atlas-status"><i></i><span>ITINERARIO RECUPERADO</span></p>
+    </header>
+
+    <section class="map-shell" aria-label="Mapa interactivo de la expedición">
+      <div class="map-telemetry" aria-live="polite">
+        <span id="phase-label">TRAYECTO INTERNACIONAL</span>
+        <strong id="route-label">MADRID → TOKIO</strong>
+      </div>
+
+      <div class="map-stage" id="map-stage">
+        <svg id="route-map" viewBox="0 0 1200 720" role="img" aria-labelledby="map-title map-description">
+          <title id="map-title">Ruta de Madrid a Tokio y de Tokio a Kioto</title>
+          <desc id="map-description">Mapa animado e interactivo con un vuelo internacional y un trayecto en Shinkansen.</desc>
+          <defs>
+            <pattern id="paper-grid" width="52" height="52" patternUnits="userSpaceOnUse">
+              <path d="M52 0H0V52" fill="none" stroke="currentColor" stroke-width="1"/>
+            </pattern>
+            <filter id="route-glow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="4" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <rect class="map-grid" width="1200" height="720" fill="url(#paper-grid)"/>
+
+          <g id="world-scene" class="map-scene is-active">
+            <path class="world-land" d="M40 251L89 199l92-23 72 34 64-11 81 35 31 50 88 5 55-33 84-16 82 13 59-31 77 25 97-6 98 48 78 6 24 48-42 39-89 3-57 41-99 12-91 41-112-7-78 33-97-12-78-44-83 8-61-28-82 19-77-37-98-5-49-38-73-25z"/>
+            <path class="world-coast" d="M55 266C215 180 318 259 438 286s201-47 310-27 220-34 397 81"/>
+            <text class="map-region-label" x="224" y="245">EUROPA</text>
+            <text class="map-region-label" x="736" y="238">ASIA</text>
+
+            <path id="flight-base" class="route-line route-line--ghost" pathLength="100" d="M165 371C401 64 844 73 1051 403"/>
+            <path id="flight-progress" class="route-line route-line--flight" pathLength="100" d="M165 371C401 64 844 73 1051 403"/>
+
+            <g class="city-node is-origin" data-stop="madrid" tabindex="0" role="button" aria-label="Abrir información de Madrid" transform="translate(165 371)">
+              <circle r="19"/><circle r="7"/>
+              <text x="0" y="-34">MADRID</text>
+              <text class="city-code" x="0" y="38">MAD · ORIGEN</text>
+            </g>
+            <g class="city-node" data-stop="tokio" tabindex="0" role="button" aria-label="Abrir información de Tokio" transform="translate(1051 403)">
+              <circle r="19"/><circle r="7"/>
+              <text x="0" y="-34">TOKIO</text>
+              <text class="city-code" x="0" y="38">TYO · LLEGADA</text>
+            </g>
+
+            <g id="plane" class="vehicle vehicle--plane" aria-hidden="true">
+              <circle r="28"/>
+              <path d="M-30 3L-8-3 8-31l8 1-4 30 24 8v8l-25-2-9 14H-7l4-16-27-2z"/>
+            </g>
+          </g>
+
+          <g id="japan-scene" class="map-scene">
+            <text class="map-region-label map-region-label--large" x="79" y="105">JAPÓN</text>
+            <text class="map-coordinate" x="83" y="136">36.2048° N · 138.2529° E</text>
+
+            <path class="japan-island japan-island--hokkaido" d="M924 120l55-34 61 9 34 38-19 49-56 16-50-21-34-29z"/>
+            <path class="japan-island japan-island--honshu" d="M981 221l-29 29-8 48-34 37-16 47-61 28-50 14-52 44-72 24-68-5-39 34-76 17-45-20 19-27 69-22 50-38 55-24 34-45 63-31 50-46 49-18 40-43 47-23 42-1z"/>
+            <path class="japan-island japan-island--shikoku" d="M596 526l64-14 55 18-16 33-68 12-48-18z"/>
+            <path class="japan-island japan-island--kyushu" d="M463 524l46 26 12 57-28 55-48-13-31-55 14-48z"/>
+            <path class="japan-island japan-island--okinawa" d="M287 658l13-7 10 11-12 9z"/>
+
+            <path id="train-base" class="route-line route-line--ghost" pathLength="100" d="M897 378C835 392 790 421 738 443S649 472 592 488"/>
+            <path id="train-progress" class="route-line route-line--train" pathLength="100" d="M897 378C835 392 790 421 738 443S649 472 592 488"/>
+
+            <g class="city-node" data-stop="tokio" tabindex="0" role="button" aria-label="Abrir información de Tokio" transform="translate(897 378)">
+              <circle r="19"/><circle r="7"/>
+              <text x="0" y="-34">TOKIO</text>
+              <text class="city-code" x="0" y="38">01 · PRIMERA ESCALA</text>
+            </g>
+            <g class="city-node" data-stop="kioto" tabindex="0" role="button" aria-label="Abrir información de Kioto" transform="translate(592 488)">
+              <circle r="19"/><circle r="7"/>
+              <text x="0" y="-34">KIOTO</text>
+              <text class="city-code" x="0" y="38">02 · TRADICIÓN</text>
+            </g>
+
+            <g id="train" class="vehicle vehicle--train" aria-hidden="true">
+              <circle r="30"/>
+              <path d="M-29-12C-17-25 18-25 31-9L27 17 17 25h-34l-11-9z"/>
+              <path d="M-19-10h37M-17 4h34M-14 19l-7 11M14 19l7 11"/>
+              <circle cx="-16" cy="13" r="3"/><circle cx="16" cy="13" r="3"/>
+            </g>
+          </g>
+        </svg>
+
+        <div class="map-vignette" aria-hidden="true"></div>
+
+        <nav class="map-zoom" aria-label="Controles del mapa">
+          <button type="button" id="zoom-in" aria-label="Ampliar mapa">+</button>
+          <button type="button" id="zoom-out" aria-label="Reducir mapa">−</button>
+          <button type="button" id="zoom-reset" aria-label="Restablecer mapa">⌖</button>
+        </nav>
+
+        <section class="mau-navigator" id="mau-navigator" aria-live="polite">
+          <div class="mau-message">
+            <small>MAU · UNIDAD DE RUTA</small>
+            <p id="mau-message">Todo itinerario empieza con una línea. Vamos a dibujarla.</p>
+          </div>
+          <img src="../mascot/assets/sprites/mau-guide.webp" alt="Mau, guía cartográfico de KIZUNA">
+        </section>
+      </div>
+
+      <aside class="stop-panel" id="stop-panel" aria-live="polite" aria-hidden="true">
+        <button type="button" class="stop-panel-close" aria-label="Cerrar información">×</button>
+        <p class="stop-sequence" id="stop-sequence">ORIGEN DE LA EXPEDICIÓN</p>
+        <h2 id="stop-name">Madrid</h2>
+        <p class="stop-japanese" id="stop-japanese">MAD · ESPAÑA</p>
+        <dl>
+          <div><dt>ETAPA</dt><dd id="stop-stage">Salida internacional</dd></div>
+          <div><dt>TRANSPORTE</dt><dd id="stop-transport">Avión</dd></div>
+        </dl>
+        <p class="stop-copy" id="stop-copy"></p>
+        <a id="stop-guide" href="#" hidden>Consultar guía de destino →</a>
+      </aside>
+    </section>
+
+    <footer class="journey-console">
+      <ol class="journey-timeline" aria-label="Etapas de la expedición">
+        <li class="is-active" data-moment="0"><button type="button"><span>00</span><b>Madrid</b><small>Origen</small></button></li>
+        <li data-moment=".48"><button type="button"><span>01</span><b>Tokio</b><small>Llegada</small></button></li>
+        <li data-moment="1"><button type="button"><span>02</span><b>Kioto</b><small>Shinkansen</small></button></li>
+      </ol>
+      <div class="journey-progress" aria-hidden="true"><i id="journey-progress"></i></div>
+      <div class="journey-controls">
+        <button type="button" id="replay-route">↺ <span>REINICIAR</span></button>
+        <button type="button" id="toggle-route" class="is-primary">Ⅱ <span>PAUSAR RUTA</span></button>
+        <button type="button" id="speed-route">1× <span>VELOCIDAD</span></button>
+      </div>
+    </footer>
+  </main>
+  <script type="module" src="mapa.js"></script>
+</body>
+</html>
