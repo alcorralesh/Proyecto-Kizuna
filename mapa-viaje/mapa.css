@@ -98,9 +98,14 @@ button{color:inherit}
 .city-node{cursor:pointer;outline:none}
 .city-node circle:first-child{fill:#173029;stroke:#f1dfb9;stroke-width:2;transition:fill .2s,transform .2s}
 .city-node circle:nth-child(2){fill:var(--red);stroke:none}
-.city-node text{fill:#2b312b;font:600 17px var(--serif);letter-spacing:.09em;text-anchor:middle}
+.city-node text{fill:#2b312b;font:600 12px var(--serif);letter-spacing:.09em;text-anchor:middle}
 .city-node .city-code{fill:#6f6248;font:7px var(--mono);letter-spacing:.12em}
 .city-node:hover circle:first-child,.city-node:focus circle:first-child{fill:var(--red);transform:scale(1.18)}
+.city-node.is-arrived circle:first-child{animation:arrival-node-pulse 1.8s ease-in-out infinite}
+@keyframes arrival-node-pulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.18);fill:var(--red)}
+}
 .city-illustration{
   opacity:0;
   pointer-events:none;
@@ -126,6 +131,15 @@ button{color:inherit}
 .vehicle path{fill:#f5e7c7;stroke:#f5e7c7;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 .vehicle--train path{fill:none;stroke:var(--gold)}
 .vehicle--train circle:not(:first-child){fill:var(--gold)}
+.vehicle--shinkansen{
+  pointer-events:none;
+  opacity:1;
+  transition:opacity .65s ease,filter .65s ease
+}
+.vehicle--shinkansen image{filter:drop-shadow(0 4px 4px #2d1c0f73)}
+.vehicle--shinkansen image{transform-box:fill-box;transform-origin:center}
+.vehicle--shinkansen.is-westbound image{transform:scaleX(-1)}
+.vehicle--shinkansen.has-arrived{opacity:0;filter:blur(2px)}
 .map-vignette{
   position:absolute;
   inset:0;

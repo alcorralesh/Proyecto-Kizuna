@@ -19,6 +19,7 @@ const speedButton=$('#speed-route');
 const mau=$('#mau-navigator');
 const mauMessage=$('#mau-message');
 const panel=$('#stop-panel');
+const kiotoNode=$('.city-node[data-stop="kioto"]');
 
 let progress=0;
 let playing=false;
@@ -32,11 +33,20 @@ let experienceStarted=false;
 let cameraTouched=false;
 let framedScene='world';
 
-const routePoint=(path,vehicle,value)=>{
+const routePoint=(path,vehicle,value,keepUpright=false)=>{
   const length=path.getTotalLength();
-  const point=path.getPointAtLength(length*clamp(value,0,1));
-  const next=path.getPointAtLength(length*clamp(value+.004,0,1));
-  const angle=Math.atan2(next.y-point.y,next.x-point.x)*180/Math.PI;
+  const normalized=clamp(value,0,1);
+  const point=path.getPointAtLength(length*normalized);
+  const sampleBehind=normalized>.996;
+  const sample=path.getPointAtLength(length*clamp(normalized+(sampleBehind?-.004:.004),0,1));
+  const routeAngle=sampleBehind
+    ?Math.atan2(point.y-sample.y,point.x-sample.x)*180/Math.PI
+    :Math.atan2(sample.y-point.y,sample.x-point.x)*180/Math.PI;
+  const westbound=keepUpright&&Math.abs(routeAngle)>90;
+  const angle=westbound
+    ?routeAngle+(routeAngle>0?-180:180)
+    :routeAngle;
+  vehicle.classList.toggle('is-westbound',westbound);
   vehicle.setAttribute('transform',`translate(${point.x} ${point.y}) rotate(${angle})`);
   return point;
 };
@@ -44,16 +54,17 @@ const routePoint=(path,vehicle,value)=>{
 const localProgress=(value,start,end)=>clamp((value-start)/(end-start),0,1);
 const reveal=(selector,visible)=>$(selector)?.classList.toggle('is-revealed',visible);
 
-function frameScene(scene,focusX=600){
+function frameScene(scene,focusX=680,focusY=465,overview=false){
   const rect=stage.getBoundingClientRect();
   const aspect=rect.width/Math.max(rect.height,1);
   if(scene==='japan'){
-    let height=aspect<1?720:500;
-    let width=height*aspect;
-    if(width>1200){width=1200;height=width/aspect}
+    const routeWidth=aspect<1.1?Math.min(330,720*aspect):(aspect>2.35?600:540);
+    let width=overview?Math.min(720,routeWidth*1.22):routeWidth;
+    let height=width/aspect;
+    if(height>720){height=720;width=height*aspect}
     camera={
-      x:clamp(735-width/2,0,1200-width),
-      y:clamp(440-height/2,0,720-height),
+      x:clamp(focusX-width/2,0,1200-width),
+      y:clamp(focusY-height/2,0,720-height),
       w:width,
       h:height
     };
@@ -100,7 +111,10 @@ function render(value){
   flightPath.style.strokeDashoffset=String(100-flightValue*100);
   trainPath.style.strokeDashoffset=String(100-trainValue*100);
   const flightPosition=routePoint(flightPath,plane,flightValue);
-  routePoint(trainPath,train,trainValue);
+  const trainPosition=routePoint(trainPath,train,trainValue,true);
+  const trainArrived=trainValue>.985;
+  train.classList.toggle('has-arrived',trainArrived);
+  kiotoNode?.classList.toggle('is-arrived',trainArrived);
 
   world.style.opacity=String(1-transitionValue);
   world.style.transform=`scale(${1+transitionValue*.08})`;
@@ -110,7 +124,15 @@ function render(value){
   japan.style.pointerEvents=transitionValue>.5?'auto':'none';
 
   if(!cameraTouched){
-    if(transitionValue>.52&&framedScene!=='japan')frameScene('japan');
+    if(transitionValue>.52){
+      const routeComplete=trainValue>.97;
+      frameScene(
+        'japan',
+        routeComplete?675:(trainValue>0?trainPosition.x:780),
+        routeComplete?435:(trainValue>0?trainPosition.y:447),
+        routeComplete
+      );
+    }
     if(transitionValue<.2){
       const portrait=stage.getBoundingClientRect().width/stage.getBoundingClientRect().height<1.1;
       if(framedScene!=='world'||portrait)frameScene('world',flightPosition.x);
@@ -234,7 +256,11 @@ function zoom(factor,originX=.5,originY=.5){
 
 $('#zoom-in').addEventListener('click',()=>{cameraTouched=true;zoom(.78)});
 $('#zoom-out').addEventListener('click',()=>{cameraTouched=true;zoom(1.28)});
-$('#zoom-reset').addEventListener('click',()=>{cameraTouched=false;frameScene(progress>=itinerary.phases.transition.end?'japan':'world')});
+$('#zoom-reset').addEventListener('click',()=>{
+  cameraTouched=false;
+  if(progress>=itinerary.phases.transition.end)frameScene('japan',675,435,progress>=itinerary.phases.train.end);
+  else frameScene('world');
+});
 stage.addEventListener('wheel',event=>{
   event.preventDefault();
   cameraTouched=true;
