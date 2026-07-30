@@ -81,13 +81,24 @@ setClock();
 setInterval(setClock,30000);
 
 function updateProgress(){
-  $('#review-count').textContent=reviewed.size;
+  const reviewCount=$('#review-count');
+  if(reviewCount) reviewCount.textContent=reviewed.size;
   if(reviewed.size===apps.length&&!residualRevealed){
     residualRevealed=true;
     residualButton.hidden=false;
     residualButton.classList.add('is-revealed');
     showToast('Se ha reconstruido una aplicación no identificada.');
+    return true;
   }
+  return false;
+}
+
+function showEvidenceProgress({initial=false}={}){
+  const count=reviewed.size;
+  const message=initial
+    ? '0 revisadas en esta sesión. Abre una evidencia para iniciar la consulta.'
+    : `${count} de ${apps.length} revisadas en esta sesión.`;
+  showToast(message,{title:`${apps.length} evidencias localizadas`,icon:String(count||apps.length)});
 }
 
 function clearCallTimers(){
@@ -115,10 +126,12 @@ function launch(id,{fromHistory=false}={}){
     return showHome();
   }
   currentApp=id;
-  if(apps.some(item=>item.id===id)) reviewed.add(id);
+  const isEvidence=apps.some(item=>item.id===id);
+  const isNewEvidence=isEvidence&&!reviewed.has(id);
+  if(isEvidence) reviewed.add(id);
   if(!recent.includes(id)) recent.unshift(id);
   if(recent.length>5) recent.pop();
-  updateProgress();
+  const residualWasUnlocked=updateProgress();
   home.hidden=true;
   recentsView.hidden=true;
   appView.hidden=false;
@@ -136,6 +149,9 @@ function launch(id,{fromHistory=false}={}){
   }
   appContent.scrollTop=0;
   if(!fromHistory) syncUrl(id);
+  if(isNewEvidence){
+    setTimeout(()=>showEvidenceProgress(),residualWasUnlocked?3600:500);
+  }
 }
 
 function showHome({fromHistory=false}={}){
@@ -779,7 +795,10 @@ window.addEventListener('popstate',event=>{const id=event.state?.app||new URL(lo
 
 const initial=query.get('app');
 if(initial)launch(initial,{fromHistory:true});
-else playHomeEntrance();
+else{
+  playHomeEntrance();
+  setTimeout(()=>showEvidenceProgress({initial:true}),850);
+}
 updateProgress();
 syncDeviceViewport();
 window.addEventListener('resize',syncDeviceViewport,{passive:true});
