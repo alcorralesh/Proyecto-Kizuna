@@ -1819,7 +1819,10 @@ function render(options={}){
     const label=isClosing?'Continuar cierre':isFolder(id)?'Abrir carpeta':'Abrir documento';
     const status=isClosing?(stageLabels[stage]||stageLabels.verification):seen?'LECTURA CONFIRMADA':ok?'DISPONIBLE PARA CONSULTA':'AUTORIZACIÓN PENDIENTE';
     const folderProgress=isFolder(id)?folderCardProgressMarkup(id,done):'';
-    return `<article class="document ${isFolder(id)?'folder-document':''} ${ok?'':'locked'} ${isClosing?'final-flow-card':''} ${newlyUnlocked?'is-new-unlock':''}" data-document-id="${id}">${newlyUnlocked?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">${isClosing?'◐ ':seen?'✓ ':ok?'○ ':'⌕ '}${id}</span><h3>${name(id)}</h3><p class="document-card-status">${status}</p>${folderProgress}<button type="button" data-id="${id}" ${ok?'':'disabled'} ${isClosing?'data-final-resume':''}>${ok?label:'Acceso restringido'}</button></article>`
+    const deviceAccess=id==='AR-06'&&ar06DeviceUnlocked(done)
+      ?`<button type="button" class="folder-card-device-access" data-open-recovered-device aria-label="Abrir el dispositivo clonado SM-G991B"><span class="folder-card-device-icon" aria-hidden="true"><i></i></span><span class="folder-card-device-copy"><small>ACCESO AUTORIZADO</small><strong>Dispositivo clonado</strong><em>SM-G991B</em></span><b aria-hidden="true">→</b></button>`
+      :'';
+    return `<article class="document ${isFolder(id)?'folder-document':''} ${deviceAccess?'has-device-access':''} ${ok?'':'locked'} ${isClosing?'final-flow-card':''} ${newlyUnlocked?'is-new-unlock':''}" data-document-id="${id}">${newlyUnlocked?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">${isClosing?'◐ ':seen?'✓ ':ok?'○ ':'⌕ '}${id}</span><h3>${name(id)}</h3><p class="document-card-status">${status}</p>${folderProgress}<div class="document-card-actions"><button type="button" data-id="${id}" ${ok?'':'disabled'} ${isClosing?'data-final-resume':''}>${ok?label:'Acceso restringido'}</button>${deviceAccess}</div></article>`
   }).join('')+supplementary+alternative;
   if(newUnlocks.length){
     newUnlocks.forEach(id=>{
@@ -1882,6 +1885,12 @@ function render(options={}){
 // Un único manejador delegado evita que un botón recién renderizado quede sin
 // acción y mantiene el clic táctil y de ratón en el mismo flujo.
 document.querySelector('#documents').addEventListener('click',event=>{
+  const deviceButton=event.target.closest('[data-open-recovered-device]');
+  if(deviceButton){
+    event.preventDefault();
+    openRecoveredDeviceFromAr06();
+    return;
+  }
   const button=event.target.closest('.document button[data-id]');
   if(!button||button.disabled||button.hasAttribute('data-final-resume'))return;
   event.preventDefault();
