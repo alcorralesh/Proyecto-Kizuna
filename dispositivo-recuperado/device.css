@@ -285,4 +285,32 @@ button{color:inherit}
   .health-layout{display:grid;grid-template-columns:.8fr 1.2fr}.health-hero{grid-column:1}.metric-grid{grid-column:1;padding:8px}.chart-stack{grid-column:2;grid-row:1/4;overflow:auto}.metric{padding:8px}
   .acta{padding:16px 30px}.acta h2{font-size:26px}
 }
+@media(min-width:1100px) and (hover:hover) and (pointer:fine){
+  body.is-embedded .recovery-stage{
+    display:grid;
+    grid-template-columns:minmax(250px,340px) minmax(340px,430px);
+    align-items:center;
+    justify-content:center;
+    gap:clamp(42px,6vw,96px);
+    min-height:var(--device-viewport-height);
+    padding:24px clamp(32px,5vw,80px);
+    background:
+      radial-gradient(circle at 72% 20%,#1c3a2c 0,transparent 28%),
+      linear-gradient(135deg,#050b08,#0e1813 60%,#09100c)
+  }
+  body.is-embedded .case-file{
+    display:block;
+    max-width:340px
+  }
+  body.is-embedded .device{
+    width:100%;
+    max-width:430px
+  }
+  body.is-embedded .device-bezel{
+    height:min(780px,calc(var(--device-viewport-height) - 48px));
+    border:1px solid #405149;
+    border-radius:42px;
+    box-shadow:0 28px 80px #000b,0 0 0 8px #111a16
+  }
+}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}

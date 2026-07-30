@@ -1899,6 +1899,7 @@ const openRecoveredDeviceFromAr06=()=>{
   readerCanConfirm=false;
   next.style.display='none';
   mark.style.display='none';
+  document.querySelector('.stamp').style.display='none';
   readerTools.hidden=true;
   document.querySelector('#doc-type').textContent='AR-06 · DISPOSITIVO RECUPERADO';
   document.querySelector('#doc-title').textContent='Clon SM-G991B';
