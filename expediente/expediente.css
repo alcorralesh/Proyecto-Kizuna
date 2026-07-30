@@ -1375,20 +1375,10 @@ body.expedient-training-open{overflow:hidden}
 .document.locked .folder-card-progress>i>b{background:#979387}
 .document-card-actions{display:flex;align-items:stretch;gap:9px;margin-top:16px}
 .document .document-card-actions>button{margin-top:0}
-.folder-card-device-access{display:grid;grid-template-columns:27px minmax(0,1fr) auto;align-items:center;gap:8px;min-width:0;padding:7px 9px!important;border:1px solid #4c5c54!important;border-left:3px solid var(--red)!important;background:linear-gradient(135deg,#17231e,#0d1512)!important;color:#f2e8d5!important;text-align:left;box-shadow:3px 3px 0 #1d25201c;animation:folder-device-entry .55s cubic-bezier(.2,.8,.2,1) both}
-.folder-card-device-icon{position:relative;display:grid;place-items:center;width:24px;height:31px;border:1px solid #d5b978;border-radius:4px;color:#d5b978;background:#101915;box-shadow:0 0 11px #d5b97822}
-.folder-card-device-icon::before{content:"";position:absolute;top:4px;width:7px;height:1px;background:currentColor}
-.folder-card-device-icon::after{content:"";position:absolute;bottom:3px;width:6px;height:1px;background:currentColor}
-.folder-card-device-icon i{width:5px;height:5px;border:1px solid currentColor;border-radius:50%;box-shadow:0 0 8px #d5b97866}
-.folder-card-device-copy{display:grid;min-width:0}
-.folder-card-device-copy small{color:#d5b978;font:5px/1.2 var(--mono);letter-spacing:.1em}
-.folder-card-device-copy strong{overflow:hidden;color:#f2e8d5;font:600 12px/1.05 var(--serif);text-overflow:ellipsis;white-space:nowrap}
-.folder-card-device-copy em{margin-top:2px;color:#aab5ae;font:5px/1.2 var(--mono);font-style:normal;letter-spacing:.08em}
-.folder-card-device-access>b{color:#d5b978;font:12px var(--mono)}
-.folder-card-device-access:hover,.folder-card-device-access:focus-visible{border-color:#b8945b!important;background:linear-gradient(135deg,#24342d,#121d18)!important}
+.folder-card-device-access{animation:folder-device-entry .55s cubic-bezier(.2,.8,.2,1) both}
 @keyframes folder-device-entry{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.folder-card-device-access{animation:none}}
-@media(max-width:750px){.document.folder-document{min-height:222px}.folder-card-progress>div{align-items:flex-start;flex-direction:column;gap:4px}.folder-card-progress strong{text-align:left}.document-card-actions{align-items:stretch;flex-direction:column}.document .document-card-actions>button{width:100%;min-height:44px}.folder-card-device-access{grid-template-columns:34px minmax(0,1fr) auto;padding:9px 11px!important}.folder-card-device-icon{width:29px;height:37px}.folder-card-device-copy strong{font-size:15px}.folder-card-device-copy small,.folder-card-device-copy em{font-size:6px}}
+@media(max-width:750px){.document.folder-document{min-height:222px}.folder-card-progress>div{align-items:flex-start;flex-direction:column;gap:4px}.folder-card-progress strong{text-align:left}.document-card-actions{align-items:stretch;flex-direction:column}.document .document-card-actions>button{width:100%;min-height:44px}}
 
 /* AC-01: ficha editorial del cómic y barra segmentada de páginas recuperadas. */
 .documents>.comic-card{grid-column:span 2;min-height:330px;padding:0;overflow:hidden;border-color:#9f927d;background:linear-gradient(135deg,#f8f1e4 0 62%,#eee2cc 100%);box-shadow:inset 5px 0 var(--red)}
