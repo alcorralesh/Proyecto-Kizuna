@@ -677,6 +677,49 @@ body:has(#viewer[open]){overflow:hidden}
 }
 @media(max-width:900px){.reader-toolbar{gap:9px;padding-left:10px;padding-right:10px}.reader-heading{gap:8px}.reader-heading h2{font-size:17px}#reader-status{display:none}.reader-tools{gap:4px}.reader-tools button{min-width:44px;padding:0 8px}.reader-tools button[data-reader-action="fit"]{display:none}#viewer .paper-foot{grid-template-columns:1fr}.reader-position,.reader-hint{display:none}.reader-actions{grid-column:1/-1}.paper-foot .reader-actions #mark-read{min-width:190px}}
 @media(max-width:600px){.reader-toolbar{grid-template-columns:auto minmax(0,1fr) auto;min-height:56px;padding-top:max(6px,env(safe-area-inset-top));padding-bottom:6px}.reader-toolbar .close{width:44px;height:44px}.reader-heading>div{display:none}.reader-heading>span{padding:6px 8px;font-size:8px}.reader-tools output{min-width:42px;font-size:9px}.reader-tools button{min-width:42px;width:42px}.reader-tools button[data-reader-action="fit"]{display:none}.reader-content{padding:8px}.reader-content.has-image{padding:0 8px}#viewer .paper{padding:35px 24px}#viewer .paper .stamp{right:17px;top:15px;font-size:8px}#viewer .paper-foot{display:block;padding:7px max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}.reader-hint{display:block;margin:0 0 6px;text-align:center;font-size:7px}.reader-actions{display:grid;grid-template-columns:1fr}.paper-foot .reader-actions button{width:100%;min-height:48px}.paper-foot .reader-actions #mark-read{min-width:0}.paper-foot .reader-actions #next-doc{order:2}.paper-foot .reader-actions #next-doc[style*="display: none"]{display:none!important}.reader-content.is-folder{padding:8px}.reader-content.is-folder .paper{padding:25px 20px}.folder-index>header{align-items:start}.folder-index>header h3{font-size:28px}.folder-index>header>p span{display:none}.folder-file-list{grid-template-columns:1fr}.folder-file{min-height:64px;padding:10px}.folder-file-copy strong{font-size:14px}.folder-next-phase{grid-template-columns:42px minmax(0,1fr);gap:12px;padding:17px 15px}.folder-next-symbol{width:40px;height:40px;font-size:19px}.folder-next-state{grid-column:2;justify-self:start;justify-items:start;margin-top:2px}.folder-index>footer .folder-next-phase button{grid-column:1/-1;width:100%;min-width:0}.folder-next-copy h4{font-size:17px}.folder-next-copy h4 span{display:block;margin:0 0 5px}}
+
+/* AR-06 · acceso al dispositivo clonado */
+.folder-device-access{display:grid;grid-template-columns:56px minmax(0,1fr) auto;align-items:center;gap:14px;margin:0 0 15px;padding:17px 18px;border:1px solid #4f5c54;border-left:4px solid #9a2722;background:linear-gradient(135deg,#17231e,#0d1512);color:#eee5d2;box-shadow:6px 7px 0 #1d252022}
+.folder-device-access-icon,.confirmation-device-symbol{position:relative;border-color:#b18d55!important;border-radius:9px;color:#d7ba7d!important;background:linear-gradient(145deg,#24332d,#111a17)}
+.folder-device-access-icon{display:grid;place-items:center;box-sizing:border-box;width:50px;height:58px;border:1px solid #b18d55}
+.folder-device-access-icon::before,.confirmation-device-symbol::before{content:"";position:absolute;inset:7px 6px 10px;border:1px solid currentColor;border-radius:3px}
+.folder-device-access-icon::after,.confirmation-device-symbol::after{content:"";position:absolute;bottom:4px;width:10px;height:1px;background:currentColor}
+.folder-device-access-icon i,.confirmation-device-symbol i{width:13px;height:13px;border:1px solid currentColor;border-radius:50%;box-shadow:0 0 14px #d7ba7d88}
+.folder-device-access p{margin:0 0 5px!important;color:#d7ba7d!important;font:6px/1.3 var(--mono)!important;letter-spacing:.12em}
+.folder-device-access h4{margin:0;color:#f4ead7;font:600 19px/1.05 var(--serif)}
+.folder-device-access small{display:block;margin-top:5px;color:#b9c2bb;font:7px/1.45 var(--mono)}
+.folder-device-access>strong{align-self:start;padding:5px 7px;border:1px solid #748f70;color:#a9c29f;font:6px var(--mono);font-weight:500;letter-spacing:.08em}
+.folder-index>footer .folder-device-access button{grid-column:2/4;margin-top:0;border:1px solid #b18d55;background:#ede3cf;color:#101713;transition:background .2s ease,color .2s ease}
+.folder-index>footer .folder-device-access button:hover,.folder-index>footer .folder-device-access button:focus-visible{background:#b18d55;color:#0c120f}
+
+.confirmation-device-access .confirmation-device-symbol{overflow:visible}
+.confirmation-device-access .confirmation-action-copy button{margin-top:7px;padding:7px 10px;border:1px solid #8d1f1b;background:transparent;color:#7e1b19;font:6px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.confirmation-device-access .confirmation-action-copy button:hover,.confirmation-device-access .confirmation-action-copy button:focus-visible{background:#8d1f1b;color:#f4ead7}
+
+#viewer .reader-content.is-recovered-device{place-items:stretch;padding:0;overflow:hidden;background:#07110d}
+#viewer .reader-content.is-recovered-device .paper{align-self:stretch;box-sizing:border-box;width:100%;max-width:none;height:100%;min-height:0;padding:0;overflow:hidden;border:0;background:#07110d;box-shadow:none}
+#viewer .reader-content.is-recovered-device .stamp{display:none}
+#viewer .reader-content.is-recovered-device #doc-body,.recovered-device-embed{width:100%;height:100%;min-height:0}
+.recovered-device-embed{display:block;overflow:hidden;background:#07110d}
+.recovered-device-embed iframe{display:block;width:100%;height:100%;border:0;background:#07110d}
+
+@media(max-width:700px){
+  .folder-device-access{grid-template-columns:44px minmax(0,1fr);gap:10px;padding:14px 12px}
+  .folder-device-access-icon{width:40px;height:48px}
+  .folder-device-access h4{font-size:17px}
+  .folder-device-access>strong{grid-column:2;justify-self:start}
+  .folder-index>footer .folder-device-access button{grid-column:1/-1;min-height:42px}
+  .confirmation-actions .confirmation-device-access>.confirmation-action-state{grid-column:3;justify-self:end}
+  .confirmation-device-access .confirmation-action-copy button{min-height:34px;padding:6px 8px}
+}
+
+@media(max-height:520px) and (orientation:landscape){
+  #viewer:has(.confirmation-acta.has-device-unlock) .confirmation-actions .confirmation-action{min-height:53px;padding:4px 0}
+  #viewer:has(.confirmation-acta.has-device-unlock) .confirmation-actions .confirmation-device-symbol{width:38px;height:43px}
+  #viewer:has(.confirmation-acta.has-device-unlock) .confirmation-device-access .confirmation-action-copy button{display:inline-block;margin-top:3px;min-height:0;padding:4px 6px;font-size:5px}
+  #viewer:has(.confirmation-acta.has-device-unlock) .confirmation-action-copy h4{font-size:13px}
+  #viewer:has(.confirmation-acta.has-device-unlock) .confirmation-action-copy>p:not(.system-line){font-size:5px!important;line-height:1.25!important}
+}
 @media(max-width:600px){.reader-share-trigger b{display:none}.reader-share-sheet{padding:0}.reader-share-sheet>article{width:100%;padding:20px max(18px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));border-width:1px 0 0}.reader-share-sheet h3{font-size:26px}}
 @media(max-width:600px){.ticket-archive-header{align-items:start;gap:14px}.ticket-archive-header h3{font-size:28px}.ticket-archive-header>div>p:last-child{font-size:8px!important}.ticket-progress-count strong{font-size:27px}.ticket-progress-count span{font-size:6px}.ticket-grid{grid-template-columns:1fr;gap:10px}.ticket-card img{height:auto;aspect-ratio:2.25/1}.ticket-card-copy{padding:10px 12px}.ticket-card-copy strong{font-size:16px}.ticket-batch-summary{grid-template-columns:42px minmax(0,1fr);gap:12px;padding:15px}.ticket-batch-symbol{width:40px;height:40px;font-size:16px}.ticket-batch-summary h4{font-size:17px}.paper-foot .reader-actions #ticket-confirm-batch{order:-1;min-width:0}}
 @media(max-width:390px){.reader-heading{display:none}.reader-toolbar{grid-template-columns:auto 1fr}.reader-tools{justify-content:flex-end}.reader-tools output{min-width:38px}.reader-tools button{min-width:40px;width:40px}}

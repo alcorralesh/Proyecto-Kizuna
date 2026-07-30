@@ -1368,12 +1368,14 @@ const syncReaderChrome=()=>{
     readerCanConfirm=mark.style.display!=='none';
     readerChromeActive=active;
   }
-  readerReturnToFolder=ar01Tickets.some(ticket=>ticket.id===active)?'tickets':active==='AR01-BILLETES'?'AR-01':active==='AR03-CARTA'||active.startsWith('AR03-T-')?'temples':active.startsWith('AR03-C-')?'cities':active==='AR03-cities'||active==='AR03-temples'?'AR-03':folders[active]?null:fileFolder(active)||null;
+  const recoveredDeviceView=active==='AR06-DEVICE';
+  readerReturnToFolder=recoveredDeviceView?'AR-06':ar01Tickets.some(ticket=>ticket.id===active)?'tickets':active==='AR01-BILLETES'?'AR-01':active==='AR03-CARTA'||active.startsWith('AR03-T-')?'temples':active.startsWith('AR03-C-')?'cities':active==='AR03-cities'||active==='AR03-temples'?'AR-03':folders[active]?null:fileFolder(active)||null;
   const folderView=Boolean(folders[active]||active==='AR-03'||active==='AR01-BILLETES'||active==='AR03-cities'||active==='AR03-temples');
   readerContent.classList.toggle('has-image',hasImage);
-  readerContent.classList.toggle('is-folder',folderView);
-  readerPosition.innerHTML=comicImage?`PÁGINA ${comicPage} <span>·</span> ${comicPages} DE 11 RECUPERADAS`:folderView?'ÍNDICE DE CARPETA <span>·</span> ARCHIVO RECUPERADO':'DOCUMENTO COMPLETO <span>·</span> FINAL DEL DOCUMENTO';
-  readerHint.innerHTML=comicImage?'Navega entre las páginas disponibles':folderView?'Selecciona un documento para abrirlo':'Desplaza para leer <span>·</span> Pellizca para ampliar';
+  readerContent.classList.toggle('is-folder',folderView||recoveredDeviceView);
+  readerContent.classList.toggle('is-recovered-device',recoveredDeviceView);
+  readerPosition.innerHTML=recoveredDeviceView?'DISPOSITIVO CLONADO <span>·</span> ACCESO AUTORIZADO':comicImage?`PÁGINA ${comicPage} <span>·</span> ${comicPages} DE 11 RECUPERADAS`:folderView?'ÍNDICE DE CARPETA <span>·</span> ARCHIVO RECUPERADO':'DOCUMENTO COMPLETO <span>·</span> FINAL DEL DOCUMENTO';
+  readerHint.innerHTML=recoveredDeviceView?'Explora las evidencias recuperadas del dispositivo':comicImage?'Navega entre las páginas disponibles':folderView?'Selecciona un documento para abrirlo':'Desplaza para leer <span>·</span> Pellizca para ampliar';
   readerTools.hidden=!hasImage;
   readerShareButton.hidden=!hasImage;
   comicPrevious.hidden=!comicImage;
@@ -1515,7 +1517,7 @@ const enhanceDocumentImages=()=>{
 document.addEventListener('fullscreenchange',()=>setReaderFullscreenState(document.fullscreenElement===viewer));
 readerBackExpedient.onclick=()=>{viewer.close();render()};
 readerBackFolder.onclick=()=>{if(readerReturnToFolder==='tickets')openTicketMosaic();else if(readerReturnToFolder==='cities'||readerReturnToFolder==='temples')openAr03Mosaic(readerReturnToFolder);else if(readerReturnToFolder==='AR-03')openAr03();else if(readerReturnToFolder)openFolder(readerReturnToFolder)};
-viewer.addEventListener('close',()=>{closeReaderShare();readerSharePrepared=null;readerSharePreparing=null;clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery');readerReturnToFolder=null;readerCanConfirm=false;readerChromeActive='';comicPrevious.hidden=true;comicFollowing.hidden=true;const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin='';delete body.dataset.comicPage;delete body.dataset.comicPages;if(viewer.classList.contains('is-fallback-fullscreen')){viewer.classList.remove('is-fallback-fullscreen');document.body.style.overflow=readerPreviousBodyOverflow}if(document.fullscreenElement===viewer)document.exitFullscreen();setReaderFullscreenState(false)});
+viewer.addEventListener('close',()=>{closeReaderShare();readerSharePrepared=null;readerSharePreparing=null;clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery','is-recovered-device');readerReturnToFolder=null;readerCanConfirm=false;readerChromeActive='';comicPrevious.hidden=true;comicFollowing.hidden=true;const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin='';delete body.dataset.comicPage;delete body.dataset.comicPages;if(viewer.classList.contains('is-fallback-fullscreen')){viewer.classList.remove('is-fallback-fullscreen');document.body.style.overflow=readerPreviousBodyOverflow}if(document.fullscreenElement===viewer)document.exitFullscreen();setReaderFullscreenState(false)});
 const documentImageObserver=new MutationObserver(()=>enhanceDocumentImages());documentImageObserver.observe(document.querySelector('#doc-body'),{childList:true});document.addEventListener('keydown',event=>{if(!viewer.open)return;if(event.key==='ArrowLeft'&&!comicPrevious.hidden&&!comicPrevious.disabled){event.preventDefault();comicPrevious.click()}if(event.key==='ArrowRight'&&!comicFollowing.hidden&&!comicFollowing.disabled){event.preventDefault();comicFollowing.click()}});
 const allowed=id=>{const index=sequence.indexOf(id);return index===0||read().includes(sequence[index-1])};const roman=value=>{const table=[[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];let result='';for(const [number,symbol] of table){while(value>=number){result+=symbol;value-=number}}return result};
 const mailboxButton=document.createElement('button'),mailbox=document.createElement('aside'),publicReturnButton=document.createElement('button');mailboxButton.id='mailbox-toggle';mailboxButton.type='button';mailboxButton.setAttribute('aria-label','Abrir buzón del expediente');mailbox.id='mailbox';mailbox.style.cssText='display:none;position:fixed;right:5vw;top:82px;z-index:30;width:min(450px,calc(100vw - 32px));max-height:72vh;overflow:auto;background:#f6f0e2;color:#202726;border:1px solid #8b887d;box-shadow:12px 14px 30px #0004;padding:22px';publicReturnButton.id='return-public-site';publicReturnButton.type='button';publicReturnButton.innerHTML='<span aria-hidden="true">⌂</span><b>Web</b>';publicReturnButton.setAttribute('aria-label','Volver a la web pública');publicReturnButton.title='Volver a la web pública';publicReturnButton.onclick=()=>{location.href='../index.html'};const headerActions=document.querySelector('.header-actions'),exitButton=document.querySelector('#exit');if(exitButton){exitButton.innerHTML='<span aria-hidden="true">↗</span><b>Salir</b>';exitButton.setAttribute('aria-label','Cerrar sesión');exitButton.title='Cerrar sesión'}headerActions?.prepend(mailboxButton);headerActions?.insertBefore(publicReturnButton,exitButton);dash.appendChild(mailbox);
@@ -1890,6 +1892,32 @@ const nextRequiredDocument=(id,buttonId,locked=false)=>{const confirmed=read().i
 function openFolder(folderId){active=folderId;readerReturnToFolder=null;readerCanConfirm=false;next.style.display='none';document.querySelector('#doc-type').textContent='CARPETA DE ARCHIVOS RECUPERADOS / ACCESO AUTORIZADO';document.querySelector('#doc-title').textContent=`${folderId} · ${folders[folderId].title}`;const done=read(),files=folders[folderId].files,seenCount=files.filter(file=>done.includes(file.id)).length;const list=files.map((file,index)=>{const unlocked=index===0||done.includes(files[index-1].id),seen=done.includes(file.id);return `<button class="folder-file ${seen?'is-read':unlocked?'is-ready':'is-locked'}" data-file="${file.id}" ${unlocked?'':'disabled'}><span class="folder-file-number">${String(index+1).padStart(2,'0')}</span><span class="folder-file-copy"><strong>${file.title}</strong><small>${seen?'LECTURA CONFIRMADA':unlocked?'DISPONIBLE':'BLOQUEADO HASTA COMPLETAR EL ANTERIOR'}</small></span><span class="folder-file-action">${seen?'REVISAR':unlocked?'ABRIR':'⌕'}</span></button>`}).join('');const complete=files.every(file=>done.includes(file.id)),update=folders[folderId].update;document.querySelector('#doc-body').innerHTML=`<section class="folder-index folder-sequence-index ${files.length<=3?'is-short':''}" data-file-count="${files.length}"><header><div><p class="system-line">ÍNDICE DE LA CARPETA</p><h3>${folders[folderId].title}</h3></div><p><strong>${seenCount}</strong> de ${files.length}<span>documentos leídos</span></p></header><p class="folder-intro">Los documentos internos deben consultarse siguiendo el orden autorizado.</p><p class="folder-sequence-label"><span>SECUENCIA DOCUMENTAL</span><strong>${files.length-seenCount} ${files.length-seenCount===1?'pendiente':'pendientes'}</strong></p><div class="folder-file-list">${list}</div><footer>${nextRequiredDocument(update,'folder-update',!complete)}</footer></section>`;mark.style.display='none';if(!viewer.open)viewer.showModal();document.querySelectorAll('.folder-file:not([disabled])').forEach(button=>button.onclick=()=>openFolderFile(folderId,button.dataset.file));const updateButton=document.querySelector('#folder-update');if(updateButton&&!updateButton.disabled)updateButton.onclick=()=>openDoc(update);revealCollectionAdvance(`folder:${folderId}`)}
 function openFolderFile(folderId,fileId){const file=folders[folderId].files.find(item=>item.id===fileId);active=fileId;readerReturnToFolder=folderId;readerCanConfirm=true;next.style.display='none';mark.style.display='inline-block';document.querySelector('#doc-type').textContent=`${folderId} / DOCUMENTO INTERNO`;document.querySelector('#doc-title').textContent=file.title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="../assets/documents/${folderId}/${file.src}" alt="${file.title}">`}
 function openFolderFile(folderId,fileId){const file=folders[folderId].files.find(item=>item.id===fileId);if(file.mosaic==='tickets'){openTicketMosaic();return}active=fileId;readerReturnToFolder=folderId;readerCanConfirm=true;next.style.display='none';mark.style.display='inline-block';document.querySelector('#doc-type').textContent=`${folderId} / DOCUMENTO INTERNO`;document.querySelector('#doc-title').textContent=file.title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="../assets/documents/${folderId}/${file.src}" alt="${file.title}">`}
+const ar06DeviceUnlocked=(progress=read())=>folders['AR-06'].files.every(file=>progress.includes(file.id))&&progress.includes('KTB-012');
+const openRecoveredDeviceFromAr06=()=>{
+  active='AR06-DEVICE';
+  readerReturnToFolder='AR-06';
+  readerCanConfirm=false;
+  next.style.display='none';
+  mark.style.display='none';
+  readerTools.hidden=true;
+  document.querySelector('#doc-type').textContent='AR-06 · DISPOSITIVO RECUPERADO';
+  document.querySelector('#doc-title').textContent='Clon SM-G991B';
+  document.querySelector('#doc-body').innerHTML=`<section class="recovered-device-embed" aria-label="Dispositivo clonado SM-G991B"><iframe src="../dispositivo-recuperado/index.html?embedded=1" title="Dispositivo clonado SM-G991B" loading="eager" allow="autoplay; fullscreen"></iframe></section>`;
+  if(!viewer.open)viewer.showModal();
+  syncReaderChrome();
+};
+const openFolderWithoutDeviceAccess=openFolder;
+openFolder=function(folderId){
+  openFolderWithoutDeviceAccess(folderId);
+  if(folderId!=='AR-06'||!ar06DeviceUnlocked())return;
+  const footer=document.querySelector('.folder-sequence-index>footer');
+  if(!footer)return;
+  const deviceAccess=document.createElement('section');
+  deviceAccess.className='folder-device-access';
+  deviceAccess.innerHTML=`<span class="folder-device-access-icon" aria-hidden="true"><i></i></span><div><p>DISPOSITIVO CLONADO · SM-G991B</p><h4>Acceso al dispositivo recuperado</h4><small>7 evidencias localizadas · extracción disponible para consulta</small></div><strong>DESBLOQUEADO</strong><button type="button">Abrir dispositivo <span>→</span></button>`;
+  deviceAccess.querySelector('button').onclick=openRecoveredDeviceFromAr06;
+  footer.prepend(deviceAccess);
+};
 function openTicketMosaic(){
   active='AR01-BILLETES';readerReturnToFolder='AR-01';readerCanConfirm=false;next.style.display='none';mark.style.display='none';
   const done=read(),seen=ar01Tickets.filter(ticket=>done.includes(ticket.id)).length,total=ar01Tickets.length,remaining=total-seen,complete=remaining===0,batchConfirmed=done.includes('AR01-BILLETES'),progress=Math.round(seen/total*100),firstPending=ar01Tickets.find(ticket=>!done.includes(ticket.id));
@@ -2029,7 +2057,7 @@ function syncKtb(id,onComplete){
   readerHint.innerHTML='Desplaza para leer <span>·</span> Pellizca para ampliar';
   document.querySelector('#doc-type').textContent='DIVISIÓN DE ARCHIVOS TEMPORALES · REGISTRO DE CONSULTA';
   document.querySelector('#doc-title').textContent='Actualizando expediente…';
-  const body=document.querySelector('#doc-body'),folder=confirmationFolderAfter(id),acPage=confirmationAcPage(id),isAcDiscovery=id==='KTB-003',isFinal=id==='KTB-014';
+  const body=document.querySelector('#doc-body'),folder=confirmationFolderAfter(id),acPage=confirmationAcPage(id),isAcDiscovery=id==='KTB-003',isFinal=id==='KTB-014',hasDeviceUnlock=id==='KTB-012'&&ar06DeviceUnlocked();
   delete body.dataset.comicPage;
   delete body.dataset.comicPages;
   const nextKtb=sequence.slice(sequence.indexOf(id)+1).find(item=>item.startsWith('KTB-'));
@@ -2043,8 +2071,10 @@ function syncKtb(id,onComplete){
     :isFinal
       ?`<article class="confirmation-action confirmation-unlock confirmation-final-action" id="confirmation-unlock"><span class="confirmation-action-index">03</span><span class="confirmation-action-symbol">Ω</span><div class="confirmation-action-copy"><p class="system-line">PROTOCOLO FINAL AUTORIZADO</p><h4>Verificación del expediente.</h4><p>La secuencia principal está preparada para iniciar el cierre.</p></div><strong class="confirmation-action-state">DISPONIBLE</strong></article>`
       :`<article class="confirmation-action confirmation-unlock confirmation-next-document" id="confirmation-unlock"><span class="confirmation-action-index">03</span><span class="confirmation-action-symbol">${nextKtb||'✓'}</span><div class="confirmation-action-copy"><p class="system-line">${nextKtb?'SIGUIENTE DOCUMENTO AUTORIZADO':'SECUENCIA COMPLETADA'}</p><h4>${nextKtb?`${nextKtb} queda disponible.`:'Registro actualizado.'}</h4><p>${nextKtb?'El siguiente documento puede consultarse al volver al expediente.':'No quedan documentos pendientes en esta fase.'}</p></div><strong class="confirmation-action-state">${nextKtb?'DISPONIBLE':'COMPLETO'}</strong></article>`;
-  body.innerHTML=`<section class="reading-confirmation confirmation-acta ${isFinal?'is-final':''}" aria-live="polite"><header><p class="system-line">REGISTRO DE LECTURA · ${id}</p><h3>Confirmando<br><em>lectura.</em></h3></header><div class="confirmation-progress" aria-hidden="true"><i id="confirmation-progress"></i></div><ol class="confirmation-log"><li id="confirmation-step-1"><span></span>Integridad verificada</li><li id="confirmation-step-2"><span></span>Registro incorporado</li><li id="confirmation-step-3"><span></span>Autorización sincronizada</li></ol><section class="confirmation-actions"><header><span>RESULTADOS INCORPORADOS</span><strong>3 ACTUALIZACIONES</strong></header><article class="confirmation-action confirmation-result" id="confirmation-result" hidden><span class="confirmation-action-index">01</span><div class="confirmation-action-symbol confirmation-seal"><span>LECTURA</span><strong>CONFIRMADA</strong></div><div class="confirmation-action-copy"><p class="system-line">REGISTRO COMPLETADO</p><h4>${id} ha quedado archivado.</h4><p>La secuencia autorizada se ha actualizado correctamente.</p></div><strong class="confirmation-action-state">ARCHIVADO</strong></article>${detail}${unlock}</section><footer><p id="confirmation-final-note">Procesando cambios en el Archivo Central…</p></footer></section>`;
-  const progress=document.querySelector('#confirmation-progress'),result=document.querySelector('#confirmation-result'),event=document.querySelector('#confirmation-event'),unlockPanel=document.querySelector('#confirmation-unlock'),note=document.querySelector('#confirmation-final-note');
+  const deviceUnlock=hasDeviceUnlock?`<article class="confirmation-action confirmation-device-access" id="confirmation-device-access"><span class="confirmation-action-index">04</span><span class="confirmation-action-symbol confirmation-device-symbol" aria-hidden="true"><i></i></span><div class="confirmation-action-copy"><p class="system-line">ACCESO DE DISPOSITIVO AUTORIZADO</p><h4>Clon SM-G991B disponible.</h4><p>La extracción de AR-06 ha habilitado la consulta del dispositivo recuperado.</p><button type="button" id="confirmation-open-device">Acceder al dispositivo <span>→</span></button></div><strong class="confirmation-action-state">DESBLOQUEADO</strong></article>`:'';
+  body.innerHTML=`<section class="reading-confirmation confirmation-acta ${isFinal?'is-final':''} ${hasDeviceUnlock?'has-device-unlock':''}" aria-live="polite"><header><p class="system-line">REGISTRO DE LECTURA · ${id}</p><h3>Confirmando<br><em>lectura.</em></h3></header><div class="confirmation-progress" aria-hidden="true"><i id="confirmation-progress"></i></div><ol class="confirmation-log"><li id="confirmation-step-1"><span></span>Integridad verificada</li><li id="confirmation-step-2"><span></span>Registro incorporado</li><li id="confirmation-step-3"><span></span>Autorización sincronizada</li></ol><section class="confirmation-actions"><header><span>RESULTADOS INCORPORADOS</span><strong>${hasDeviceUnlock?4:3} ACTUALIZACIONES</strong></header><article class="confirmation-action confirmation-result" id="confirmation-result" hidden><span class="confirmation-action-index">01</span><div class="confirmation-action-symbol confirmation-seal"><span>LECTURA</span><strong>CONFIRMADA</strong></div><div class="confirmation-action-copy"><p class="system-line">REGISTRO COMPLETADO</p><h4>${id} ha quedado archivado.</h4><p>La secuencia autorizada se ha actualizado correctamente.</p></div><strong class="confirmation-action-state">ARCHIVADO</strong></article>${detail}${unlock}${deviceUnlock}</section><footer><p id="confirmation-final-note">Procesando cambios en el Archivo Central…</p></footer></section>`;
+  const progress=document.querySelector('#confirmation-progress'),result=document.querySelector('#confirmation-result'),event=document.querySelector('#confirmation-event'),unlockPanel=document.querySelector('#confirmation-unlock'),devicePanel=document.querySelector('#confirmation-device-access'),note=document.querySelector('#confirmation-final-note');
+  document.querySelector('#confirmation-open-device')?.addEventListener('click',openRecoveredDeviceFromAr06);
   readerBackExpedient.disabled=true;
   const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const pace=reducedMotion ? .12 : 1;
@@ -2077,10 +2107,14 @@ function syncKtb(id,onComplete){
   },4050);
   later(()=>{
     if(!viewer.open)return;
-    readerBackExpedient.disabled=false;
-    note.textContent=isFinal?'La verificación final ya puede comenzar.':folder?'La nueva carpeta queda disponible desde este momento.':'El expediente está preparado para continuar.';
-    if(isFinal)setFinalFlowAction('verification','Iniciar verificación final →',onComplete,true);
+    devicePanel?.classList.add('is-visible');
   },4850);
+  later(()=>{
+    if(!viewer.open)return;
+    readerBackExpedient.disabled=false;
+    note.textContent=isFinal?'La verificación final ya puede comenzar.':hasDeviceUnlock?'El siguiente documento y el dispositivo clonado ya están disponibles.':folder?'La nueva carpeta queda disponible desde este momento.':'El expediente está preparado para continuar.';
+    if(isFinal)setFinalFlowAction('verification','Iniciar verificación final →',onComplete,true);
+  },hasDeviceUnlock?5650:4850);
 }
 function startFinale(resumeCompleted=false){
   if(!finalClosureAuthorized()){discardStaleFinalFlowUi();return}
@@ -3906,7 +3940,7 @@ if(readerLayerNavigation){
   };
   const desiredReaderContentDepth=()=>{
     if(ar01Tickets.some(ticket=>ticket.id===active)||active==='AR03-CARTA'||active.startsWith('AR03-C-')||active.startsWith('AR03-T-'))return 2;
-    if(active==='AR01-BILLETES'||active==='AR03-cities'||active==='AR03-temples'||Boolean(fileFolder(active)))return 1;
+    if(active==='AR06-DEVICE'||active==='AR01-BILLETES'||active==='AR03-cities'||active==='AR03-temples'||Boolean(fileFolder(active)))return 1;
     return 0;
   };
   const ensureReaderContentLayers=()=>{
