@@ -1,4 +1,4 @@
-import {apps,locations,routes,galleryItems,searches,lostFiles} from './evidence-data.js?v=20260730-device-dock01';
+import {apps,locations,routes,galleryItems,searches,lostFiles} from './evidence-data.js?v=20260730-device-icons01';
 
 const $=selector=>document.querySelector(selector);
 const query=new URLSearchParams(location.search);
@@ -24,21 +24,55 @@ let galleryActiveIndex=-1;
 let galleryTouchStartX=0;
 let residualRevealed=false;
 let callTimers=[];
+let homeEntrancePlayed=false;
+
+const iconDrawings={
+  timeline:'<path d="M12 21c4-4.4 6-7.5 6-10.1a6 6 0 1 0-12 0C6 13.5 8 16.6 12 21Z"/><circle cx="12" cy="10.7" r="2.1"/><path class="icon-accent" d="M4.4 20.4h15.2"/>',
+  routes:'<path d="M6.2 18.8c2.1-2.8 3.2-5.3 3.3-7.6.2-2.9 1.5-5 3.9-6.2"/><path d="m10.7 6.4 2.7-1.4-.2 3"/><circle cx="6.1" cy="19" r="2"/><circle class="icon-accent" cx="16.9" cy="5.1" r="2"/><path d="M13.2 16.7c1.9-.2 3.2.6 4.5 2.2"/>',
+  gallery:'<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="16.8" cy="8.3" r="1.6"/><path d="m5.7 17 4.2-4.6 3.1 3 2.2-2.2 3.1 3.8"/><path class="icon-accent" d="M7.2 3v3M16.8 18v3"/>',
+  whatsapp:'<path d="M5.2 17.8 4 21l3.6-1.1a8 8 0 1 0-2.4-2.1Z"/><path d="M8.3 8.4c.7 3.3 2.5 5.2 5.7 6.4l1.5-1.7-2.4-1.2-1 1c-1.1-.6-1.9-1.4-2.4-2.5l.9-1-1.1-2.2-1.2 1.2Z"/>',
+  search:'<circle cx="10.5" cy="10.5" r="6.2"/><path d="m15 15 5 5"/><path class="icon-accent" d="M5.2 10.5h10.6M10.5 4.3c2.1 2.2 2.1 10.2 0 12.4"/>',
+  health:'<path d="M12 20S4.2 15.5 4.2 9.4A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7.8 2.2C19.8 15.5 12 20 12 20Z"/><path class="icon-accent" d="M7.3 12h2.1l1.2-2.4 2.1 4.8 1.2-2.4h2.6"/>',
+  lost:'<path d="M3.5 7.2h6l1.8 2h9.2v9.3a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V7.2Z"/><path d="M3.5 7.2V5.4a2 2 0 0 1 2-2h4l1.7 1.8h5.3"/><path class="icon-accent" d="m9.2 12.2 5.6 5.6m0-5.6-5.6 5.6"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4.6 7 7.4 6 7.4-6"/><path class="icon-accent" d="m4.7 17 4.7-4.2m9.9 4.2-4.7-4.2"/>',
+  music:'<path d="M9 18V7.3L19 5v10.2"/><path d="m9 10.5 10-2.3"/><ellipse cx="6.5" cy="18.2" rx="2.6" ry="2"/><ellipse class="icon-accent" cx="16.5" cy="15.4" rx="2.6" ry="2"/>',
+  phone:'<path d="M7.1 3.8h3l1.5 4.4-2 1.8c1.1 2.3 2.1 3.3 4.4 4.4l1.8-2 4.4 1.5v3c0 2-1.7 3.3-3.7 3.1C9.8 19.2 4.8 14.2 4 7.5c-.2-2 1.1-3.7 3.1-3.7Z"/><path class="icon-accent" d="M14.7 4.6c2.5.4 4.3 2.2 4.7 4.7"/>',
+  settings:'<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.1m0 14.2v2.1M2.8 12h2.1m14.2 0h2.1M5.5 5.5 7 7m10 10 1.5 1.5m0-13L17 7M7 17l-1.5 1.5"/><circle class="icon-accent" cx="12" cy="12" r="7.1"/>',
+  residual:'<path d="m12 3 7.5 5.2v7.6L12 21l-7.5-5.2V8.2L12 3Z"/><path d="m8.3 9.7 3.7-2.2 3.7 2.2v4.6L12 16.5l-3.7-2.2V9.7Z"/><path class="icon-accent" d="M12 3v4.5m7.5.7-3.8 1.5m3.8 6.1-3.8-1.5M12 21v-4.5m-7.5-.7 3.8-1.5m-3.8-6.1 3.8 1.5"/>',
+  ktb:'<path d="M6 3.5h9l3 3v14H6v-17Z"/><path d="M15 3.5v4h3"/><path d="M9 11h6m-6 3h6m-6 3h4"/><path class="icon-accent" d="M3.5 7.5v13H15"/>'
+};
+
+function appIcon(id){
+  return `<svg class="kizuna-app-glyph" viewBox="0 0 24 24" aria-hidden="true">${iconDrawings[id]||iconDrawings.residual}</svg>`;
+}
+
+function syncDeviceViewport(){
+  const viewportHeight=window.visualViewport?.height||window.innerHeight;
+  document.documentElement.style.setProperty('--device-viewport-height',`${Math.round(viewportHeight)}px`);
+}
 
 const iconForType={Imagen:'▧',Vídeo:'▷',Audio:'♩',Documento:'▤'};
 const healthBars=[31,34,29,25,28,40,31,37,34,33,27,31,29,41,36,33,45,50,47,42,38,32,18,46,49,34,31,27];
 
-function appButton(app){
-  return `<button class="app-button" data-open-app="${app.id}" style="--app-color:${app.color}" type="button">
-    <span>${app.icon}</span><b>${app.title}</b><small>${app.subtitle}</small>
+function appButton(app,index=0){
+  return `<button class="app-button" data-open-app="${app.id}" style="--app-color:${app.color};--icon-order:${index}" type="button">
+    <span class="app-icon-shell">${appIcon(app.id)}</span><b>${app.title}</b><small>${app.subtitle}</small>
   </button>`;
 }
 
-$('#app-grid').innerHTML=apps.map(appButton).join('')+appButton({...residualApp,hidden:true});
+$('#app-grid').innerHTML=apps.map((app,index)=>appButton(app,index)).join('')+appButton({...residualApp,hidden:true},apps.length);
 const residualButton=$('[data-open-app="residual"]');
 residualButton.hidden=true;
 residualButton.classList.add('residual-app');
-$('#system-dock').innerHTML=systemApps.map(app=>`<button data-open-app="${app.id}" style="--dock-color:${app.color}" type="button"><span>${app.icon}</span><small>${app.title}</small></button>`).join('');
+$('#system-dock').innerHTML=systemApps.map((app,index)=>`<button data-open-app="${app.id}" style="--dock-color:${app.color};--icon-order:${apps.length+index}" type="button"><span class="app-icon-shell">${appIcon(app.id)}</span><small>${app.title}</small></button>`).join('');
+
+function playHomeEntrance(){
+  if(homeEntrancePlayed||window.matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+  homeEntrancePlayed=true;
+  home.classList.remove('is-icon-entering');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>home.classList.add('is-icon-entering')));
+  window.setTimeout(()=>home.classList.remove('is-icon-entering'),1700);
+}
 
 function setClock(){
   $('#device-clock').textContent=new Intl.DateTimeFormat('es-ES',{hour:'2-digit',minute:'2-digit'}).format(new Date());
@@ -89,7 +123,7 @@ function launch(id,{fromHistory=false}={}){
   recentsView.hidden=true;
   appView.hidden=false;
   appView.style.setProperty('--app-color',app.color);
-  $('#app-header-icon').textContent=app.icon;
+  $('#app-header-icon').innerHTML=appIcon(app.id);
   $('#app-header-icon').style.background=app.color;
   $('#app-code').textContent=app.code;
   $('#app-title').textContent=app.title;
@@ -110,6 +144,7 @@ function showHome({fromHistory=false}={}){
   appView.hidden=true;
   recentsView.hidden=true;
   home.hidden=false;
+  playHomeEntrance();
   if(!fromHistory) syncUrl('home');
 }
 
@@ -118,7 +153,7 @@ function showRecents(){
   $('#recents-list').innerHTML=recent.length?recent.map(id=>{
     const app=appMeta(id)||{id:'ktb',title:'KIZUNA',subtitle:'Acta de reanudación',icon:'✦',color:'#8c742e'};
     return `<button class="recent-card" data-open-app="${id}" style="--recent-color:${app.color}" type="button">
-      <span>${app.icon}</span><strong>${app.title}</strong><small>${app.subtitle}</small>
+      <span>${appIcon(app.id||id)}</span><strong>${app.title}</strong><small>${app.subtitle}</small>
     </button>`;
   }).join(''):'<p class="history-empty">No hay aplicaciones recientes.</p>';
 }
@@ -154,12 +189,14 @@ function renderMail(){
 
 function renderMusic(){
   return `<article class="system-page music-app">
-    <header class="system-hero"><p>LISTA RECUPERADA · ENLACE EXTERNO</p><h2>Música</h2><span>Selección guardada para el viaje</span></header>
+    <header class="system-hero"><p>LISTA RECUPERADA · REPRODUCTOR AUTORIZADO</p><h2>Música</h2><span>Selección guardada para el viaje</span></header>
     <section class="album-card">
       <div class="album-art"><span>日本</span><i></i></div>
-      <p>PLAYLIST DE JOSÉ</p><h3>Project Japan</h3><span>Reproducción externa · YouTube</span>
+      <p>PLAYLIST DE JOSÉ</p><h3>Project Japan</h3><span>Reproducción integrada · YouTube</span>
       <div class="music-wave" aria-hidden="true">${Array.from({length:24},(_,i)=>`<i style="--h:${18+(i*17)%64}%"></i>`).join('')}</div>
-      <button class="music-preview" data-music-toggle type="button"><span>▶</span><b>PREVISUALIZAR INTERFAZ</b></button>
+      <div class="music-player" data-music-player hidden></div>
+      <p class="music-player-note" data-music-note hidden>Si el audio no comienza, pulsa ▶ en el reproductor.</p>
+      <button class="music-preview" data-music-toggle type="button"><span>▶</span><b>REPRODUCIR PLAYLIST</b></button>
       <a href="https://www.youtube.com/watch?v=5XBYEQYBUdA&list=RD5XBYEQYBUdA&start_radio=1" target="_blank" rel="noopener">ABRIR PLAYLIST EN YOUTUBE ↗</a>
     </section>
   </article>`;
@@ -382,16 +419,117 @@ function galleryCard(item,index){
 }
 
 function renderSearch(){
-  return `<section class="app-page" style="padding:0">
+  return `<section class="app-page chrome-app" style="padding:0">
     <div class="chrome-top">
       ${heading('AR-06-05','Historial de Chrome','127 resultados · 103 únicos')}
       <label class="chrome-search"><span>⌕</span><input id="history-filter" placeholder="Buscar en el historial" autocomplete="off"></label>
     </div>
     <div class="history-list" id="history-list">${searchRows(searches)}</div>
+    <section class="chrome-results-view" id="chrome-results-view" hidden></section>
   </section>`;
 }
 function searchRows(rows){
-  return rows.length?rows.map(([time,text])=>`<div class="history-row"><time>${time}</time><i>G</i><span>${text}</span><b>☆</b></div>`).join(''):'<p class="history-empty">No se encontraron coincidencias.</p>';
+  return rows.length?rows.map(([time,text])=>`<button class="history-row" data-history-query="${escapeMarkup(text)}" type="button"><time>${time}</time><i>G</i><span>${escapeMarkup(text)}</span><b>☆</b></button>`).join(''):'<p class="history-empty">No se encontraron coincidencias.</p>';
+}
+
+function escapeMarkup(value){
+  return String(value).replace(/[&<>"']/g,character=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[character]);
+}
+
+const reconstructedSearchCatalog=[
+  {
+    match:/ramen|cerveza|comida|mercado|izakaya|sushi/i,
+    results:[
+      ['www.japan-guide.com / gastronomia','Gastronomía japonesa: platos y lugares que merece la pena probar','Una introducción a los sabores de Japón, desde el ramen regional hasta los mercados y pequeños izakaya.'],
+      ['matcha-jp.com / food','Dónde comer como un local durante un viaje por Japón','Barrios, horarios y recomendaciones para encontrar restaurantes sin perderse entre tantas opciones.'],
+      ['tokyocheapo.com / food','Guía práctica para comer bien en Japón','Opciones asequibles, normas básicas y consejos para pedir incluso cuando la carta no está traducida.']
+    ]
+  },
+  {
+    match:/bici|bicicleta|ciclista|carril/i,
+    results:[
+      ['www.japan.travel / ciclismo','Viajar en bicicleta por Japón','Rutas urbanas y paisajísticas, normas de circulación y lugares donde alquilar una bicicleta.'],
+      ['cyclekyoto.com / rutas','Rutas recomendadas en bicicleta por Kioto','Recorridos junto al río y conexiones tranquilas entre templos, barrios y bosques.'],
+      ['tokyobike.com / guide','Moverse en bicicleta por Tokio','Aparcamiento, seguridad y consejos para circular por una de las ciudades más grandes del mundo.']
+    ]
+  },
+  {
+    match:/hotel|ryokan|cápsula|capsula|alojamiento/i,
+    results:[
+      ['www.japan.travel / alojamiento','Dónde alojarse en Japón','Diferencias entre hoteles, ryokan, minshuku y alojamientos cápsula.'],
+      ['www.japan-guide.com / ryokan','Cómo es dormir en un ryokan japonés','Tatami, futón, cena kaiseki y las normas que conviene conocer antes de llegar.'],
+      ['booking.example / japon','Alojamientos recomendados por zonas','Comparativa orientativa de barrios, conexiones y tipos de estancia para preparar la ruta.']
+    ]
+  },
+  {
+    match:/templo|fushimi|senso|kinkaku|kiyomizu|nara|ciervo|hiroshima|miyajima|hakone|fuji|osaka/i,
+    results:[
+      ['www.japan.travel / destinos','Lugares imprescindibles de Japón','Información para visitar templos, santuarios, parques y enclaves históricos del país.'],
+      ['www.japan-guide.com / itinerarios','Cómo organizar una ruta entre Tokio, Kioto y los alrededores','Tiempos de visita, transporte y recomendaciones para combinar los principales destinos.'],
+      ['matcha-jp.com / cultura','Tradición, naturaleza y patrimonio japonés','Una selección de lugares para descubrir Japón más allá de sus grandes ciudades.']
+    ]
+  },
+  {
+    match:/suica|pasmo|jr pass|shinkansen|tren|transporte|moverse|vuelo|cabina|maleta|equipaje/i,
+    results:[
+      ['www.japan.travel / transporte','Cómo moverse por Japón','Trenes, tarjetas de transporte, reservas y consejos prácticos para enlazar ciudades.'],
+      ['www.japan-guide.com / rail','Shinkansen y trenes japoneses: guía de uso','Tipos de servicio, equipaje, asientos reservados y cómo localizar el vagón correcto.'],
+      ['tokyocheapo.com / transport','Suica, Pasmo y billetes de transporte','Qué tarjeta elegir, cómo recargarla y en qué medios de transporte puede utilizarse.']
+    ]
+  }
+];
+
+function reconstructedResults(query){
+  const category=reconstructedSearchCatalog.find(item=>item.match.test(query));
+  if(category)return category.results;
+  return [
+    ['www.japan.travel / es','Viaje a Japón: información oficial para preparar la visita',`Información y recomendaciones relacionadas con «${query}» para organizar un viaje por Japón.`],
+    ['www.japan-guide.com','Guía de Japón: destinos, transporte y cultura','Consejos detallados, itinerarios y datos prácticos para descubrir el país.'],
+    ['matcha-jp.com / es','Ideas para conocer el Japón cotidiano','Lugares, costumbres y experiencias para preparar una ruta con calma.']
+  ];
+}
+
+function renderSearchResults(query){
+  const safeQuery=escapeMarkup(query);
+  return `<div class="chrome-browser-bar">
+      <button data-close-search-results type="button" aria-label="Volver al historial">‹</button>
+      <form class="chrome-query-form" id="chrome-query-form">
+        <span>G</span><input id="chrome-query" value="${safeQuery}" aria-label="Consulta">
+        <button type="submit" aria-label="Buscar">⌕</button>
+      </form>
+    </div>
+    <div class="google-results">
+      <div class="google-brand" aria-label="Google"><b>G</b><b>o</b><b>o</b><b>g</b><b>l</b><b>e</b></div>
+      <nav><span class="active">Todo</span><span>Imágenes</span><span>Maps</span><span>Noticias</span></nav>
+      <p class="result-count">Aproximadamente 127 resultados recuperados</p>
+      <h2>${safeQuery}</h2>
+      ${reconstructedResults(query).map(([url,title,description])=>`<article class="google-result">
+        <small>${url}</small>
+        <h3>${title}</h3>
+        <p>${description}</p>
+      </article>`).join('')}
+      <aside class="recovery-search-note"><b>EXTRACCIÓN PARCIAL</b><span>Los resultados han sido reconstruidos desde la caché del dispositivo. Algunos enlaces originales ya no están disponibles.</span></aside>
+    </div>`;
+}
+
+function openSearchResults(query){
+  const view=$('#chrome-results-view');
+  if(!view||!query.trim())return;
+  view.innerHTML=renderSearchResults(query.trim());
+  view.hidden=false;
+  view.scrollTop=0;
+  view.querySelector('#chrome-query-form').addEventListener('submit',event=>{
+    event.preventDefault();
+    openSearchResults(view.querySelector('#chrome-query').value);
+  });
+  view.querySelector('[data-close-search-results]').addEventListener('click',closeSearchResults);
+}
+
+function closeSearchResults(){
+  const view=$('#chrome-results-view');
+  if(view)view.hidden=true;
 }
 
 function renderHealth(){
@@ -434,7 +572,7 @@ function fileRows(rows){
 function openKtb(fromHistory=false){
   currentApp='ktb';if(!recent.includes('ktb'))recent.unshift('ktb');
   home.hidden=true;recentsView.hidden=true;appView.hidden=false;
-  $('#app-header-icon').textContent='✦';$('#app-header-icon').style.background='#8c742e';
+  $('#app-header-icon').innerHTML=appIcon('ktb');$('#app-header-icon').style.background='#8c742e';
   $('#app-code').textContent='KTB-012';$('#app-title').textContent='KIZUNA';$('#app-integrity').textContent='SEGURO';
   if(reviewed.size<apps.length){
     appContent.innerHTML=`<section class="acta-lock"><div class="lock-card"><span>⌁</span><h2>Acta protegida.</h2><p>La reanudación sólo puede consultarse cuando todas las evidencias extraídas hayan sido examinadas durante esta sesión.</p><div class="review-checklist">${apps.map(app=>`<div><span>${app.code} · ${app.title}</span><b>${reviewed.has(app.id)?'REVISADA':'PENDIENTE'}</b></div>`).join('')}</div><p>${reviewed.size} DE ${apps.length} EVIDENCIAS REVISADAS</p></div></section>`;
@@ -463,9 +601,21 @@ function bindAppInteractions(id){
   }
   if(id==='music'){
     $('[data-music-toggle]')?.addEventListener('click',event=>{
-      const playing=event.currentTarget.closest('.album-card').classList.toggle('is-playing');
-      event.currentTarget.querySelector('span').textContent=playing?'Ⅱ':'▶';
-      event.currentTarget.querySelector('b').textContent=playing?'DETENER PREVISUALIZACIÓN':'PREVISUALIZAR INTERFAZ';
+      const card=event.currentTarget.closest('.album-card');
+      const player=card.querySelector('[data-music-player]');
+      const note=card.querySelector('[data-music-note]');
+      const playing=card.classList.toggle('is-playing');
+      if(playing){
+        player.hidden=false;
+        note.hidden=false;
+        player.innerHTML='<iframe src="https://www.youtube-nocookie.com/embed/5XBYEQYBUdA?autoplay=1&playsinline=1&rel=0&list=RD5XBYEQYBUdA" title="Playlist Project Japan" allow="autoplay; encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';
+      }else{
+        player.innerHTML='';
+        player.hidden=true;
+        note.hidden=true;
+      }
+      event.currentTarget.querySelector('span').textContent=playing?'×':'▶';
+      event.currentTarget.querySelector('b').textContent=playing?'CERRAR REPRODUCTOR':'REPRODUCIR PLAYLIST';
     });
   }
   if(id==='phone'){
@@ -586,6 +736,16 @@ function bindAppInteractions(id){
     $('#history-filter').addEventListener('input',event=>{
       const value=event.target.value.trim().toLocaleLowerCase('es');$('#history-list').innerHTML=searchRows(searches.filter(row=>row[1].toLocaleLowerCase('es').includes(value)));
     });
+    $('#history-filter').addEventListener('keydown',event=>{
+      if(event.key==='Enter'){
+        event.preventDefault();
+        openSearchResults(event.target.value);
+      }
+    });
+    $('#history-list').addEventListener('click',event=>{
+      const row=event.target.closest('[data-history-query]');
+      if(row)openSearchResults(row.dataset.historyQuery);
+    });
   }
   if(id==='lost'){
     $('#file-filter').addEventListener('change',event=>{$('#file-list').innerHTML=fileRows(event.target.value?lostFiles.filter(row=>row[2]===event.target.value):lostFiles)});
@@ -600,6 +760,8 @@ function bindAppInteractions(id){
 
 function goBack(){
   clearCallTimers();
+  const searchResults=appContent.querySelector('.chrome-results-view:not([hidden])');
+  if(searchResults){closeSearchResults();return}
   const modal=appContent.querySelector('.photo-modal:not([hidden]),.failure-modal:not([hidden])');
   if(modal){modal.hidden=true;return}
   if(!recentsView.hidden){showHome();return}
@@ -617,4 +779,8 @@ window.addEventListener('popstate',event=>{const id=event.state?.app||new URL(lo
 
 const initial=query.get('app');
 if(initial)launch(initial,{fromHistory:true});
+else playHomeEntrance();
 updateProgress();
+syncDeviceViewport();
+window.addEventListener('resize',syncDeviceViewport,{passive:true});
+window.visualViewport?.addEventListener('resize',syncDeviceViewport,{passive:true});

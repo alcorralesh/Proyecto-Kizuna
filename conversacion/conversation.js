@@ -125,6 +125,13 @@ let generation=0;
 let paused=false;
 let speed=1;
 let waitResolver=null;
+const playbackTiming={
+  messagePause:460,
+  recoveredEventPause:680,
+  typingBase:780,
+  typingPerCharacter:11,
+  typingMaximum:1550
+};
 
 const wait=duration=>new Promise(resolve=>{
   let elapsed=0;
@@ -234,8 +241,20 @@ async function play(){
   const thread=threads[activeThread];
   for(const item of thread.items){
     const incoming=item.kind==='message'&&item.side==='incoming';
-    if(incoming)await showTyping(Math.min(620+((item.text||item.caption||'').length*8),1100),run);
-    await wait(item.kind==='message'?310:520);
+    if(incoming){
+      const contentLength=(item.text||item.caption||'').length;
+      await showTyping(
+        Math.min(
+          playbackTiming.typingBase+(contentLength*playbackTiming.typingPerCharacter),
+          playbackTiming.typingMaximum
+        ),
+        run
+      );
+    }
+    await wait(item.kind==='message'
+      ?playbackTiming.messagePause
+      :playbackTiming.recoveredEventPause
+    );
     if(run!==generation)return;
     addItem(item);
   }

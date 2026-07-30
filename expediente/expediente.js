@@ -195,6 +195,15 @@ const supportedActivityEventTypes=new Set(['login','logout','document_confirmed'
 const normalizeActivityRecord=(eventType,details={})=>supportedActivityEventTypes.has(eventType)
   ?{eventType,details}
   :{eventType:'document_confirmed',details:{...details,activity_kind:eventType}};
+const isLocalPreviewHost=()=>{
+  if(location.protocol==='file:')return true;
+  const hostname=(location.hostname||'').toLowerCase();
+  return ['localhost','127.0.0.1','0.0.0.0','::1','[::1]'].includes(hostname)||
+    hostname.endsWith('.localhost')||
+    /^10\./.test(hostname)||
+    /^192\.168\./.test(hostname)||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+};
 const recordActivity=async(eventType,documentId=null,details={})=>{
   if(!currentUser)return null;
   try{
@@ -216,7 +225,10 @@ const recordActivity=async(eventType,documentId=null,details={})=>{
       (eventType==='comic_page_read'&&Number(details.read)>=Number(details.total||11))||
       eventType==='final_closure_started'||
       eventType==='expedient_completed';
-    if(canNotify&&data?.id)void client.functions.invoke('notify-expedient-activity',{body:{activityId:data.id}}).catch(error=>console.warn('No se pudo solicitar el aviso de actividad.',error));
+    if(canNotify&&data?.id){
+      if(isLocalPreviewHost())console.info('KIZUNA · correo de actividad simulado en entorno local.',{eventType,documentId});
+      else void client.functions.invoke('notify-expedient-activity',{body:{activityId:data.id}}).catch(error=>console.warn('No se pudo solicitar el aviso de actividad.',error));
+    }
     return data||null;
   }catch(error){
     // El expediente continúa aunque el registro secundario no esté disponible.
