@@ -703,6 +703,11 @@ body:has(#viewer[open]){overflow:hidden}
 .recovered-device-embed{display:block;overflow:hidden;background:#07110d}
 .recovered-device-embed iframe{display:block;width:100%;height:100%;border:0;background:#07110d}
 
+@media(max-width:600px),(orientation:landscape) and (max-height:520px){
+  #viewer:has(.reader-content.is-recovered-device) .reader-shell{grid-template-rows:auto minmax(0,1fr)}
+  #viewer:has(.reader-content.is-recovered-device) .paper-foot{display:none!important}
+}
+
 @media(max-width:700px){
   .folder-device-access{grid-template-columns:44px minmax(0,1fr);gap:10px;padding:14px 12px}
   .folder-device-access-icon{width:40px;height:48px}
