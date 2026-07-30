@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07140f">
+  <title>SM-G991B · Dispositivo recuperado</title>
+  <link rel="icon" href="../assets/kizuna-app-icon-192.png">
+  <link rel="stylesheet" href="device.css?v=20260730-device-notification01">
+</head>
+<body>
+  <main class="recovery-stage">
+    <aside class="case-file" aria-label="Ficha de recuperación">
+      <img src="../assets/kizuna-logo-official.png" alt="">
+      <p>ARCHIVO RECUPERADO 06</p>
+      <h1>Datos recuperados<br>del dispositivo.</h1>
+      <dl>
+        <div><dt>Dispositivo</dt><dd>SM-G991B</dd></div>
+        <div><dt>Sistema</dt><dd>Android 12</dd></div>
+        <div><dt>Extracción</dt><dd>Parcial</dd></div>
+        <div><dt>Integridad</dt><dd>68 %</dd></div>
+      </dl>
+      <small>Simulación aislada. No modifica el expediente ni conserva actividad local.</small>
+    </aside>
+
+    <section class="device" aria-label="Dispositivo móvil recuperado">
+      <div class="device-bezel">
+        <div class="status-bar" aria-hidden="true">
+          <strong id="device-clock">20:58</strong>
+          <span>▮▮▮ 5G ◉ <b>72</b></span>
+        </div>
+        <div class="screen" id="device-screen">
+          <section class="home-screen" id="home-screen" aria-label="Inicio del dispositivo">
+            <header class="recovery-widget">
+              <p>KIZUNA · EXTRACCIÓN PARCIAL</p>
+              <strong>7 evidencias localizadas</strong>
+              <span><i></i><b id="review-count">0</b> revisadas en esta sesión</span>
+            </header>
+            <div class="home-time">
+              <strong>20:58</strong>
+              <span>Miércoles, 24 de septiembre</span>
+            </div>
+            <div class="app-grid" id="app-grid"></div>
+            <nav class="system-dock" id="system-dock" aria-label="Aplicaciones del dispositivo"></nav>
+          </section>
+
+          <section class="app-view" id="app-view" hidden>
+            <header class="app-header">
+              <button class="app-back" id="app-back" type="button" aria-label="Volver">‹</button>
+              <span class="app-header-icon" id="app-header-icon"></span>
+              <div>
+                <p id="app-code"></p>
+                <strong id="app-title"></strong>
+              </div>
+              <span class="integrity" id="app-integrity"></span>
+            </header>
+            <div class="app-content" id="app-content"></div>
+          </section>
+
+          <section class="recents-view" id="recents-view" hidden>
+            <header><p>APLICACIONES RECIENTES</p><strong>Extracción en memoria</strong></header>
+            <div id="recents-list"></div>
+          </section>
+        </div>
+        <nav class="android-nav" aria-label="Navegación Android">
+          <button id="android-recents" type="button" aria-label="Aplicaciones recientes">Ⅲ</button>
+          <button id="android-home" type="button" aria-label="Inicio">○</button>
+          <button id="android-back" type="button" aria-label="Atrás">‹</button>
+        </nav>
+        <div class="toast" id="toast" role="status" aria-live="polite">
+          <span class="toast-icon" id="toast-icon">i</span>
+          <div class="toast-copy">
+            <b id="toast-title">Sistema del dispositivo</b>
+            <p id="toast-message"></p>
+          </div>
+          <time>ahora</time>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="device.js?v=20260730-device-notification01"></script>
+</body>
+</html>

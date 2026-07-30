@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b141a">
+  <title>Conversación recuperada · José</title>
+  <link rel="icon" href="../assets/kizuna-app-icon-192.png">
+  <link rel="stylesheet" href="conversation.css?v=20260729-chat05">
+</head>
+<body>
+  <main class="conversation-stage">
+    <section class="phone" aria-label="Conversación recuperada con José">
+      <div class="device-status" aria-hidden="true">
+        <span id="device-time">19:42</span>
+        <span class="device-island"></span>
+        <span class="device-signals">▮▮▮ ◉ <b>86</b></span>
+      </div>
+
+      <header class="chat-header">
+        <button class="icon-button back-button" type="button" aria-label="Volver">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <img class="contact-avatar" src="../assets/hero/hakone-fuji-dawn.webp" alt="">
+        <button class="contact-data" type="button">
+          <strong>José</strong>
+          <small id="contact-status">en línea</small>
+        </button>
+        <button class="icon-button" type="button" aria-label="Videollamada">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 10 21 6v12l-6-4v4H3V6h12Z"/></svg>
+        </button>
+        <button class="icon-button" type="button" aria-label="Llamada">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h3l2 5-2 2c1.2 2.4 2.7 3.9 5 5l2-2 5 2v3c0 2-2 3-4 3C10 20 4 14 3 6c0-2 1-3 4-3Z"/></svg>
+        </button>
+        <button class="icon-button" type="button" aria-label="Más opciones">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+        </button>
+      </header>
+
+      <nav class="archive-strip" aria-label="Fragmentos recuperados">
+        <div class="archive-summary">
+          <span><b>AR-06-04</b> · CONVERSACIÓN RECUPERADA</span>
+          <span><i></i> INTEGRIDAD 74 %</span>
+        </div>
+        <div class="thread-tabs" id="thread-tabs"></div>
+      </nav>
+
+      <section class="messages" id="messages" aria-live="polite" aria-label="Mensajes">
+        <p class="encryption-note">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3m-9 0h8v8H8Z"/></svg>
+          Esta conversación fue reconstruida a partir de datos parciales. Algunos mensajes o archivos presentan daños.
+        </p>
+        <time class="date-chip" id="thread-date"></time>
+      </section>
+
+      <form class="composer" id="composer">
+        <button class="composer-icon" type="button" aria-label="Emoji">☺</button>
+        <label>
+          <span class="sr-only">Mensaje</span>
+          <input id="message-input" type="text" placeholder="Mensaje" autocomplete="off">
+        </label>
+        <button class="composer-icon attach" type="button" aria-label="Adjuntar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12 6-6a4 4 0 0 1 6 6l-8 8a6 6 0 0 1-8-8l8-8"/></svg>
+        </button>
+        <button class="send-button" type="submit" aria-label="Enviar mensaje">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8Z"/><path d="M7 12h14"/></svg>
+        </button>
+      </form>
+    </section>
+
+    <aside class="demo-panel" aria-label="Controles de recuperación">
+      <p>ARCHIVO RECUPERADO 06</p>
+      <strong id="demo-title">Hilo 01 · Cumpleaños</strong>
+      <dl>
+        <div><dt>Contacto</dt><dd>José</dd></div>
+        <div><dt>Periodo</dt><dd>29/08 – 24/09/2025</dd></div>
+        <div><dt>Fragmentos</dt><dd>5 hilos</dd></div>
+        <div><dt>Integridad</dt><dd>74 %</dd></div>
+      </dl>
+      <div class="demo-actions">
+        <button id="toggle-playback" type="button">PAUSAR</button>
+        <button id="restart-chat" type="button">REINICIAR HILO</button>
+        <label>VELOCIDAD
+          <select id="playback-speed">
+            <option value="1">1×</option>
+            <option value="1.5">1,5×</option>
+            <option value="2">2×</option>
+          </select>
+        </label>
+      </div>
+      <small>Simulación aislada. No modifica el expediente ni guarda información.</small>
+    </aside>
+  </main>
+
+  <template id="typing-template">
+    <div class="message-row incoming typing-row">
+      <div class="bubble typing-bubble" aria-label="José está escribiendo">
+        <i></i><i></i><i></i>
+      </div>
+    </div>
+  </template>
+
+  <script type="module" src="conversation.js?v=20260729-chat05"></script>
+</body>
+</html>
