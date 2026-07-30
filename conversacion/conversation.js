@@ -1,0 +1,294 @@
+const $=selector=>document.querySelector(selector);
+if(new URLSearchParams(location.search).has('embedded')){
+  document.body.classList.add('is-embedded');
+}
+const messages=$('#messages');
+const typingTemplate=$('#typing-template');
+
+const threads=[
+  {
+    id:'cumpleanos',short:'Cumpleaños',title:'Hilo 01 · Cumpleaños',date:'29 de agosto de 2025',
+    items:[
+      m('incoming','¡Feliz cumpleaños, crack! 🎉🎂','19:42'),
+      m('outgoing','Gracias tío! 😂','19:43'),
+      m('outgoing','42 ya...','19:43'),
+      m('incoming','Jajaja sí... qué rápido pasa 😅','19:43'),
+      m('incoming','¿Qué toca este año? ¿Libro? 🤭','19:45'),
+      m('outgoing','Este año quería regalarte algo diferente.','19:58'),
+      m('incoming','Ajá... dime, dime 👀','19:58'),
+      m('outgoing','¿Te acuerdas de los billetes de avión que me tocaron en el sorteo de Northgate?','20:00'),
+      m('incoming','¡Cómo olvidarlo! 🍀✈️','20:00'),
+      m('incoming','Tremenda suerte tuviste.','20:00'),
+      m('outgoing','Pues quiero usarlos contigo.','20:02'),
+      m('outgoing','Nos vamos a Japón. 🇯🇵','20:03',{reaction:'😳'}),
+      gif('incoming','assets/pikachu-sorprendido.gif','20:08'),
+      m('incoming','¿Lo dices en serio? 😳','20:08'),
+      m('outgoing','Muy en serio.','20:09'),
+      m('outgoing','Los vuelos ya los tengo.\nY el alojamiento corre por mi cuenta.\nEse es tu regalo de cumpleaños. 🎁','20:10'),
+      m('incoming','Pero Alberto... es muchísimo.','20:11'),
+      m('outgoing','No. Es un viaje que quiero hacer contigo.','20:11'),
+      m('incoming','No sé qué decir... 🥹','20:12'),
+      m('outgoing','Di que sí. Lo demás ya lo organizamos 💪','20:13'),
+      m('incoming','Vale. ❤️','20:14',{reaction:'❤️'}),
+      missing('Mensaje no recuperado','20:17'),
+      partial('Último mensaje parcialmente irrecuperable','Solo se ha podido recuperar una palabra:','recuerdos','20:21')
+    ]
+  },
+  {
+    id:'preparativos',short:'Preparativos',title:'Hilo 02 · Preparativos',date:'2 de septiembre de 2025',
+    items:[
+      m('incoming','Ya me estoy empezando a hacer a la idea 😅','21:15'),
+      m('outgoing','Ahora ya sí, no hay marcha atrás 😂','21:16'),
+      m('incoming','Estoy mirando maletas...\n¿Qué me recomiendas?','21:17'),
+      m('outgoing','Cómoda y ligera.','21:18'),
+      m('outgoing','Y deja hueco para la vuelta,\nque vas a traer cosas seguro 😂','21:18'),
+      m('incoming','Eso por descontado 😎','21:19'),
+      m('incoming','Oye, una duda...','21:20'),
+      m('incoming','¿Allí podremos movernos\nen bici en algunos sitios?','21:20'),
+      m('outgoing','SÍ! En varias ciudades hay bici pública\ny merece mucho la pena.\nTengo apuntadas algunas rutas 🚲','21:21'),
+      m('incoming','Genial! Me encanta.','21:22'),
+      m('outgoing','Pero prepárate para andar...\nmucho 😂','21:22'),
+      m('incoming','Ya me veo haciendo 30.000 pasos\ndiarios fácil jajaja','21:23'),
+      m('outgoing','No vas desencaminado... 😅','21:23'),
+      gif('incoming','assets/jeremy-renner-celebra.gif','21:24'),
+      missing('4 mensajes no recuperados','21:30')
+    ]
+  },
+  {
+    id:'planes',short:'Qué hacer',title:'Hilo 03 · Qué queremos hacer',date:'7 de septiembre de 2025',
+    items:[
+      m('incoming','Yo solo tengo una prioridad.','18:47'),
+      m('outgoing','Dime 😂','18:48'),
+      m('incoming','Ramen.','18:48'),
+      m('incoming','Mucho ramen. 🍜🍜🍜🍜','18:48'),
+      m('outgoing','Eso está en el plan desde el día 1 jajaja','18:49'),
+      m('incoming','Y cerveza japonesa. 🍺🍺','18:49'),
+      m('outgoing','Por supuesto.','18:50'),
+      m('outgoing','Vamos a probar de todo!','18:50'),
+      m('incoming','Y templos! Quiero ver los más importantes.','18:51'),
+      m('outgoing','Todos los que podamos.','18:51'),
+      m('incoming','Fushimi Inari no puede faltar.','18:52'),
+      m('outgoing','Ese es obligatorio.\nVa a ser brutal.','18:52'),
+      gif('incoming','assets/grogu-te.gif','18:53'),
+      missing('5 mensajes no recuperados','19:02')
+    ]
+  },
+  {
+    id:'itinerario',short:'Itinerario',title:'Hilo 04 · Itinerario',date:'14 de septiembre de 2025',
+    items:[
+      m('incoming','¿Cómo queda al final la ruta?','20:32'),
+      m('outgoing','Te cuento lo que tengo pensado 🤭','20:33'),
+      m('outgoing','Tokio','20:33'),
+      m('outgoing','Kyoto','20:33'),
+      redacted('outgoing','20:33'),
+      m('outgoing','Nara','20:33'),
+      redacted('outgoing','20:34'),
+      m('outgoing','Hakone','20:34'),
+      m('incoming','😲😲😲 vaya viaje...','20:35'),
+      m('incoming','Alguna sorpresa más me imagino 👀','20:35'),
+      m('outgoing','Siempre guardo alguna 😉','20:36'),
+      m('outgoing','Ya la descubrirás allí.','20:36'),
+      gif('incoming','assets/homer-arbusto.gif','20:37'),
+      missing('3 mensajes no recuperados','20:45')
+    ]
+  },
+  {
+    id:'cuenta-atras',short:'Cuenta atrás',title:'Hilo 05 · Cuenta atrás',date:'24 de septiembre de 2025',
+    items:[
+      m('incoming','Quedan 4 días... 😳','22:08'),
+      m('incoming','Todavía no me lo creo.','22:08'),
+      m('outgoing','Yo tampoco jajaja','22:09'),
+      m('incoming','He empezado a hacer la maleta\n... creo que llevo de todo 😂','22:10'),
+      m('outgoing','Lleva menos y compra allí 😂','22:10'),
+      m('incoming','Difícil misión...','22:11'),
+      m('outgoing','Pasaporte, cargadores, adaptador,\nropa cómoda y ganas. Lo demás se compra.','22:11'),
+      m('incoming','¡Qué ganas tenemos ya!','22:12'),
+      m('outgoing','Va a ser inolvidable.','22:13',{reaction:'❤️'}),
+      m('incoming','Gracias, de verdad. ❤️','22:13'),
+      m('outgoing','Ya me darás las gracias cuando\nestemos con un ramen en Tokio 😂🍜','22:14'),
+      m('incoming','Trato hecho! 🤝','22:14'),
+      damagedAudio('Mensaje de voz (00:18)','Archivo dañado. No se ha podido recuperar.','22:15'),
+      missing('2 mensajes no recuperados','22:17')
+    ]
+  }
+];
+
+function m(side,text,time,extra={}){return {kind:'message',side,text,time,ticks:side==='outgoing'?'read':null,...extra}}
+function gif(side,src,time,caption=''){return {kind:'message',side,gif:src,time,caption,ticks:side==='outgoing'?'read':null,corrupted:caption.includes('parcialmente')}}
+function missing(text,time){return {kind:'missing',text,time}}
+function partial(label,text,word,time){return {kind:'partial',label,text,word,time}}
+function redacted(side,time){return {kind:'message',side,redacted:true,time,ticks:'read'}}
+function damagedAudio(title,text,time){return {kind:'damagedAudio',title,text,time}}
+
+let activeThread=-1;
+let generation=0;
+let paused=false;
+let speed=1;
+let waitResolver=null;
+
+const wait=duration=>new Promise(resolve=>{
+  let elapsed=0;
+  let last=performance.now();
+  const step=now=>{
+    if(paused){
+      waitResolver=()=>{
+        last=performance.now();
+        requestAnimationFrame(step);
+      };
+      return;
+    }
+    elapsed+=(now-last)*speed;
+    last=now;
+    if(elapsed>=duration){waitResolver=null;resolve();return}
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+});
+
+function renderTabs(){
+  const tabs=$('#thread-tabs');
+  tabs.innerHTML='';
+  threads.forEach((thread,index)=>{
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='thread-tab';
+    button.dataset.index=index;
+    button.setAttribute('aria-current',String(index===activeThread));
+    button.innerHTML=`<b>HILO ${String(index+1).padStart(2,'0')}</b><small>${thread.short}</small>`;
+    button.addEventListener('click',()=>selectThread(index));
+    tabs.append(button);
+  });
+  requestAnimationFrame(()=>tabs.querySelector('[aria-current=true]')?.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'}));
+}
+
+function meta(message){
+  const ticks=message.ticks
+    ?`<span class="ticks ${message.ticks==='read'?'read':''}" aria-label="${message.ticks==='read'?'Leído':'Enviado'}">✓✓</span>`
+    :'';
+  return `<span class="message-meta"><time>${message.time||''}</time>${ticks}</span>`;
+}
+
+function bubbleContent(message){
+  if(message.redacted)return `<p><span class="redaction" aria-label="Contenido irrecuperable"></span></p>${meta(message)}`;
+  if(message.gif){
+    return `<div class="media-frame"><img src="${message.gif}" alt="${message.caption}"><span class="gif-badge">GIF</span></div>
+      ${message.caption?`<p class="media-caption">${message.caption}</p>`:''}${meta(message)}`;
+  }
+  return `<p>${message.text}</p>${meta(message)}`;
+}
+
+function addItem(item){
+  if(item.kind==='missing'){
+    const node=document.createElement('div');
+    node.className='system-event danger';
+    node.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 8 8 8m0-8-8 8"/></svg><span>${item.text}</span><time>${item.time}</time>`;
+    messages.append(node);
+    scrollToLatest();
+    return;
+  }
+  if(item.kind==='partial'){
+    const node=document.createElement('div');
+    node.className='partial-card';
+    node.innerHTML=`<small>${item.label} · ${item.time}</small><p>${item.text}<br>······ <span class="partial-word">${item.word}</span> ······</p>`;
+    messages.append(node);
+    scrollToLatest();
+    return;
+  }
+  if(item.kind==='damagedAudio'){
+    const node=document.createElement('div');
+    node.className='damaged-card';
+    node.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0m-6 6v4m-4 0h8"/></svg><small>ARCHIVO NO RECUPERABLE · ${item.time}</small><p><strong>${item.title}</strong>${item.text}</p>`;
+    messages.append(node);
+    scrollToLatest();
+    return;
+  }
+  const row=document.createElement('div');
+  row.className=`message-row ${item.side}`;
+  const bubble=document.createElement('div');
+  bubble.className=`bubble ${item.gif?'media-bubble':''} ${item.corrupted?'is-corrupted':''}`;
+  bubble.innerHTML=bubbleContent(item);
+  if(item.reaction)bubble.insertAdjacentHTML('beforeend',`<span class="reaction" aria-label="Reacción ${item.reaction}">${item.reaction}</span>`);
+  row.append(bubble);
+  messages.append(row);
+  scrollToLatest();
+}
+
+function scrollToLatest(){
+  requestAnimationFrame(()=>messages.scrollTo({top:messages.scrollHeight,behavior:'smooth'}));
+}
+
+async function showTyping(duration,run){
+  messages.append(typingTemplate.content.cloneNode(true));
+  $('#contact-status').textContent='escribiendo…';
+  scrollToLatest();
+  await wait(duration);
+  if(run!==generation)return;
+  messages.querySelector('.typing-row:last-of-type')?.remove();
+  $('#contact-status').textContent='en línea';
+}
+
+async function play(){
+  const run=++generation;
+  paused=false;
+  $('#toggle-playback').textContent='PAUSAR';
+  const thread=threads[activeThread];
+  for(const item of thread.items){
+    const incoming=item.kind==='message'&&item.side==='incoming';
+    if(incoming)await showTyping(Math.min(620+((item.text||item.caption||'').length*8),1100),run);
+    await wait(item.kind==='message'?310:520);
+    if(run!==generation)return;
+    addItem(item);
+  }
+  $('#contact-status').textContent=`últ. vez el ${thread.date.replace(' de 2025','')}`;
+  $('#toggle-playback').textContent='REPRODUCIR';
+}
+
+function clearThread(){
+  generation++;
+  paused=false;
+  waitResolver=null;
+  messages.querySelectorAll('.message-row,.system-event,.partial-card,.damaged-card').forEach(node=>node.remove());
+  messages.scrollTop=0;
+  $('#contact-status').textContent='en línea';
+}
+
+function selectThread(index){
+  if(index===activeThread&&$('#toggle-playback').textContent!=='REPRODUCIR')return;
+  activeThread=index;
+  clearThread();
+  renderTabs();
+  const thread=threads[activeThread];
+  $('#thread-date').textContent=thread.date.toUpperCase();
+  $('#thread-date').dateTime=`2025-${['08-29','09-02','09-07','09-14','09-24'][activeThread]}`;
+  $('#demo-title').textContent=thread.title;
+  play();
+}
+
+function restart(){
+  clearThread();
+  play();
+}
+
+$('#toggle-playback').addEventListener('click',()=>{
+  if($('#toggle-playback').textContent==='REPRODUCIR'){restart();return}
+  paused=!paused;
+  $('#toggle-playback').textContent=paused?'CONTINUAR':'PAUSAR';
+  if(!paused&&waitResolver){const resume=waitResolver;waitResolver=null;resume()}
+});
+$('#restart-chat').addEventListener('click',restart);
+$('#playback-speed').addEventListener('change',event=>speed=Number(event.target.value)||1);
+
+$('#composer').addEventListener('submit',event=>{
+  event.preventDefault();
+  const input=$('#message-input');
+  const text=input.value.trim();
+  if(!text)return;
+  addItem(m('outgoing',text,new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})));
+  input.value='';
+});
+
+const clock=()=>$('#device-time').textContent=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+clock();
+setInterval(clock,30000);
+renderTabs();
+selectThread(0);
