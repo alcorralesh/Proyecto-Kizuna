@@ -9,6 +9,26 @@ const corsHeaders = {
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: corsHeaders })
 
+const isLocalOrPrivateHost = (hostname: string) => {
+  const host = hostname.toLowerCase()
+  return ['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'].includes(host) ||
+    host.endsWith('.localhost') ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+}
+
+const isLocalPreviewRequest = (request: Request) =>
+  [request.headers.get('origin'), request.headers.get('referer')].some(value => {
+    if (!value) return false
+    if (value === 'null') return true
+    try {
+      return isLocalOrPrivateHost(new URL(value).hostname)
+    } catch {
+      return false
+    }
+  })
+
 const htmlEntities: Record<string, string> = {
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 }
@@ -23,6 +43,10 @@ const responseLabels: Record<string, string> = {
 Deno.serve(async request => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (request.method !== 'POST') return json({ error: 'Método no permitido.' }, 405)
+  if (isLocalPreviewRequest(request)) {
+    console.info('Correo de aceptación omitido: solicitud procedente de un entorno local.')
+    return json({ sent: false, simulated: true, reason: 'local-preview' })
+  }
 
   const authorization = request.headers.get('Authorization')
   if (!authorization) return json({ error: 'Autorización requerida.' }, 401)
