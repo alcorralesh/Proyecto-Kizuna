@@ -1748,6 +1748,19 @@ body.expedient-training-open{overflow:hidden}
     overscroll-behavior: contain;
   }
 }
+
+/* Acceso instalado en iPhone: la cabecera debe comenzar por debajo de la
+   isla dinámica/notch aunque las reglas de poca altura compacten la vista. */
+@media (orientation: portrait) and (max-width: 750px) {
+  #access.access-screen {
+    min-height: 100dvh;
+    padding-top: max(14px, calc(env(safe-area-inset-top) + 10px));
+    padding-right: max(4vw, env(safe-area-inset-right));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    padding-left: max(4vw, env(safe-area-inset-left));
+    scroll-padding-top: calc(env(safe-area-inset-top) + 10px);
+  }
+}
 @media(max-width:380px){
   #auth-loading.access-screen{gap:9px;padding-left:9px;padding-right:9px}
   #auth-loading>.division-brand img{width:38px;height:38px}
