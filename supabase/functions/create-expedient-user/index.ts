@@ -174,6 +174,16 @@ Deno.serve(async (request) => {
       .upsert({ user_id: userId, state: cleanState })
     if (progressError) return response({ error: progressError.message }, 400)
 
+    // El dispositivo clonado conserva su avance en una tabla independiente.
+    // Sólo el reinicio total de Administración debe eliminarlo.
+    const { error: deviceProgressError } = await adminClient
+      .from('expedient_device_progress')
+      .delete()
+      .eq('user_id', userId)
+    if (deviceProgressError && deviceProgressError.code !== '42P01') {
+      return response({ error: deviceProgressError.message }, 400)
+    }
+
     // El historial anterior se elimina para dejar una única evidencia del reinicio.
     const { error: deleteLogError } = await adminClient
       .from('expedient_activity_log')

@@ -2,7 +2,8 @@ import {apps,locations,routes,galleryItems,searches,lostFiles} from './evidence-
 
 const $=selector=>document.querySelector(selector);
 const query=new URLSearchParams(location.search);
-if(query.has('embedded')){
+const embedded=query.has('embedded');
+if(embedded){
   document.body.classList.add('is-embedded');
 }
 const screen=$('#device-screen');
@@ -28,6 +29,9 @@ let anomalyState='idle';
 let anomalyTimers=[];
 let callTimers=[];
 let homeEntrancePlayed=false;
+let progressHydrated=!embedded;
+let initialBooted=false;
+let progressFallbackTimer=0;
 
 const iconDrawings={
   timeline:'<path d="M12 21c4-4.4 6-7.5 6-10.1a6 6 0 1 0-12 0C6 13.5 8 16.6 12 21Z"/><circle cx="12" cy="10.7" r="2.1"/><path class="icon-accent" d="M4.4 20.4h15.2"/>',
@@ -83,16 +87,24 @@ function setClock(){
 setClock();
 setInterval(setClock,30000);
 
-function updateProgress(){
+function currentModuleState(){
+  if(residualConsumed)return 'consumed';
+  if(residualRevealed)return 'available';
+  return 'locked';
+}
+
+function updateProgress({emit=true}={}){
   const reviewCount=$('#review-count');
   if(reviewCount) reviewCount.textContent=reviewed.size;
   const complete=reviewed.size===apps.length;
-  if(window.parent!==window){
+  if(emit&&progressHydrated&&embedded){
     window.parent.postMessage({
       type:'kizuna:recovered-device-progress',
       reviewed:reviewed.size,
       total:apps.length,
-      complete
+      complete,
+      reviewedIds:[...reviewed],
+      moduleState:currentModuleState()
     },location.origin);
   }
   return complete;
@@ -101,8 +113,8 @@ function updateProgress(){
 function showEvidenceProgress({initial=false}={}){
   const count=reviewed.size;
   const message=initial
-    ? '0 revisadas en esta sesión. Abre una evidencia para iniciar la consulta.'
-    : `${count} de ${apps.length} revisadas en esta sesión.`;
+    ? count?`${count} de ${apps.length} evidencias conservadas. Continúa el análisis.`:'Abre una evidencia para iniciar el análisis.'
+    : `${count} de ${apps.length} evidencias revisadas y guardadas.`;
   showToast(message,{title:`${apps.length} evidencias localizadas`,icon:String(count||apps.length)});
 }
 
@@ -633,7 +645,7 @@ function openKtb(fromHistory=false){
   $('#app-header-icon').innerHTML=appIcon('ktb');$('#app-header-icon').style.background='#8c742e';
   $('#app-code').textContent='KTB-012';$('#app-title').textContent='KIZUNA';$('#app-integrity').textContent='SEGURO';
   if(reviewed.size<apps.length){
-    appContent.innerHTML=`<section class="acta-lock"><div class="lock-card"><span>⌁</span><h2>Acta protegida.</h2><p>La reanudación sólo puede consultarse cuando todas las evidencias extraídas hayan sido examinadas durante esta sesión.</p><div class="review-checklist">${apps.map(app=>`<div><span>${app.code} · ${app.title}</span><b>${reviewed.has(app.id)?'REVISADA':'PENDIENTE'}</b></div>`).join('')}</div><p>${reviewed.size} DE ${apps.length} EVIDENCIAS REVISADAS</p></div></section>`;
+    appContent.innerHTML=`<section class="acta-lock"><div class="lock-card"><span>⌁</span><h2>Acta protegida.</h2><p>La reanudación sólo puede consultarse cuando todas las evidencias extraídas hayan sido examinadas.</p><div class="review-checklist">${apps.map(app=>`<div><span>${app.code} · ${app.title}</span><b>${reviewed.has(app.id)?'REVISADA':'PENDIENTE'}</b></div>`).join('')}</div><p>${reviewed.size} DE ${apps.length} EVIDENCIAS REVISADAS</p></div></section>`;
   }else{
     appContent.innerHTML=`<article class="acta"><span class="code">KTB-012</span><span class="seal">ARCHIVO<br>TEMPORAL</span><h2>Acta de reanudación del expediente</h2><h3>ARCHIVO KIZUNA // DIVISIÓN DE ARCHIVOS TEMPORALES</h3><p>Estimado Jose:</p><p>La consulta de la totalidad de los <b>ARCHIVOS RECUPERADOS</b> ha concluido correctamente. La información contenida en dichos archivos ha sido incorporada al contexto operativo y validada por los sistemas de KIZUNA.</p><p>El nivel de comprensión requerido para continuar con el expediente ha sido alcanzado.</p><div class="acta-grid"><div><small>ESTADO ANTERIOR</small><b>INTERRUMPIDO</b><small>durante la revisión</small></div><div><small>ESTADO ACTUAL</small><b>REANUDADO</b><small>acceso autorizado</small></div></div><p>Se autoriza la reanudación del expediente PROJECT JAPAN. El destinatario queda habilitado para continuar a partir del siguiente documento:</p><h3>KTB-013 · ANÁLISIS DE RIESGO TEMPORAL</h3><blockquote>«El camino no se ve, se recuerda.»</blockquote><button id="close-acta" type="button">VOLVER AL DISPOSITIVO</button></article>`;
   }
@@ -695,6 +707,7 @@ function revealResidualModule(){
     residualButton.hidden=false;
     residualButton.classList.remove('is-revealed');
     requestAnimationFrame(()=>residualButton.classList.add('is-revealed'));
+    updateProgress();
   },260);
 }
 
@@ -802,6 +815,7 @@ function consumeResidualModule(){
   anomalyState='consumed';
   residualButton.hidden=true;
   residualButton.classList.remove('is-revealed');
+  updateProgress();
   const recentIndex=recent.indexOf('residual');
   if(recentIndex>=0)recent.splice(recentIndex,1);
   clearAnomalyTimers();
@@ -1022,13 +1036,64 @@ $('#android-home').addEventListener('click',()=>{
 $('#android-recents').addEventListener('click',showRecents);
 window.addEventListener('popstate',event=>{const id=event.state?.app||new URL(location.href).searchParams.get('app');id&&id!=='home'?launch(id,{fromHistory:true}):showHome({fromHistory:true})});
 
-const initial=query.get('app');
-if(initial)launch(initial,{fromHistory:true});
-else{
-  playHomeEntrance();
-  setTimeout(()=>showEvidenceProgress({initial:true}),850);
+function bootRecoveredDevice(){
+  if(initialBooted)return;
+  initialBooted=true;
+  const initial=query.get('app');
+  if(initial)launch(initial,{fromHistory:true});
+  else{
+    playHomeEntrance();
+    setTimeout(()=>showEvidenceProgress({initial:true}),850);
+  }
+  if(reviewed.size===apps.length&&anomalyState==='idle'){
+    anomalyState='pending';
+    anomalyLater(()=>{
+      $('#toast').classList.remove('show');
+      showHome();
+      beginRecoveryAnomaly();
+    },2300);
+  }
 }
-updateProgress();
+
+function applyRecoveredDeviceState(payload={}){
+  clearTimeout(progressFallbackTimer);
+  const inFlightState=['pending','scanning','dialog'].includes(anomalyState)?anomalyState:null;
+  const validIds=new Set(apps.map(app=>app.id));
+  const incoming=Array.isArray(payload.reviewedIds)?payload.reviewedIds:[];
+  [...reviewed,...incoming].filter(id=>validIds.has(id)).forEach(id=>reviewed.add(id));
+  const stateRank={locked:0,available:1,consumed:2};
+  const incomingState=stateRank[payload.moduleState]===undefined?'locked':payload.moduleState;
+  const moduleState=reviewed.size===apps.length&&stateRank[incomingState]>=stateRank[currentModuleState()]?incomingState:currentModuleState();
+  residualConsumed=moduleState==='consumed';
+  residualRevealed=moduleState==='available';
+  anomalyState=residualConsumed?'consumed':residualRevealed?'ready':inFlightState||'idle';
+  residualButton.hidden=!residualRevealed;
+  residualButton.classList.toggle('is-revealed',residualRevealed);
+  progressHydrated=true;
+  updateProgress({emit:false});
+  bootRecoveredDevice();
+  if(initialBooted&&reviewed.size===apps.length&&anomalyState==='idle'){
+    anomalyState='pending';
+    anomalyLater(()=>{
+      $('#toast').classList.remove('show');
+      showHome();
+      beginRecoveryAnomaly();
+    },2300);
+  }
+}
+
+window.addEventListener('message',event=>{
+  if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='kizuna:recovered-device-state')return;
+  applyRecoveredDeviceState(event.data);
+});
+
+if(embedded){
+  window.parent.postMessage({type:'kizuna:recovered-device-ready'},location.origin);
+  progressFallbackTimer=setTimeout(()=>applyRecoveredDeviceState(),6000);
+}else{
+  bootRecoveredDevice();
+  updateProgress({emit:false});
+}
 syncDeviceViewport();
 window.addEventListener('resize',syncDeviceViewport,{passive:true});
 window.visualViewport?.addEventListener('resize',syncDeviceViewport,{passive:true});

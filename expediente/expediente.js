@@ -1232,7 +1232,54 @@ const enhanceDocumentImagesLegacy=()=>{
 imageToolsStyle.remove();
 const readerTools=document.querySelector('.reader-tools'),readerZoom=document.querySelector('#reader-zoom'),readerStatus=document.querySelector('#reader-status'),readerCode=document.querySelector('#reader-code'),readerContent=document.querySelector('.reader-content'),readerPosition=document.querySelector('.reader-position'),readerHint=document.querySelector('.reader-hint');
 const readerCloseButton=document.querySelector('#viewer .reader-toolbar .close');
-let recoveredDeviceProgress={reviewed:0,total:7,complete:false};
+const recoveredDeviceEvidenceIds=['timeline','routes','gallery','whatsapp','search','health','lost'];
+const emptyRecoveredDeviceProgress=()=>({reviewed:0,total:recoveredDeviceEvidenceIds.length,complete:false,reviewedIds:[],moduleState:'locked'});
+const normalizeRecoveredDeviceProgress=value=>{
+  const source=Array.isArray(value?.reviewedIds)?value.reviewedIds:Array.isArray(value?.reviewed)?value.reviewed:[];
+  const reviewedIds=[...new Set(source)].filter(id=>recoveredDeviceEvidenceIds.includes(id));
+  const requestedState=['locked','available','consumed'].includes(value?.moduleState)?value.moduleState:
+    ['locked','available','consumed'].includes(value?.module_state)?value.module_state:'locked';
+  const complete=reviewedIds.length===recoveredDeviceEvidenceIds.length;
+  return {reviewed:reviewedIds.length,total:recoveredDeviceEvidenceIds.length,complete,reviewedIds,moduleState:complete?requestedState:'locked'};
+};
+let recoveredDeviceProgress=emptyRecoveredDeviceProgress();
+let recoveredDeviceSaveQueue=Promise.resolve();
+const recoveredDeviceFrame=()=>document.querySelector('.recovered-device-embed iframe');
+const sendRecoveredDeviceProgress=(frame=recoveredDeviceFrame())=>{
+  if(!frame?.contentWindow)return;
+  frame.contentWindow.postMessage({type:'kizuna:recovered-device-state',reviewedIds:recoveredDeviceProgress.reviewedIds,moduleState:recoveredDeviceProgress.moduleState},location.origin);
+};
+const loadRecoveredDeviceProgress=async()=>{
+  if(!currentUser)return emptyRecoveredDeviceProgress();
+  try{
+    const client=await getSupabase();
+    const {data,error}=await client.from('expedient_device_progress').select('reviewed,module_state').eq('user_id',currentUser.id).maybeSingle();
+    if(error)throw error;
+    return normalizeRecoveredDeviceProgress(data||null);
+  }catch(error){
+    console.warn('No se pudo recuperar el avance del dispositivo clonado.',error);
+    return emptyRecoveredDeviceProgress();
+  }
+};
+const persistRecoveredDeviceProgress=progress=>{
+  if(!currentUser)return Promise.resolve(normalizeRecoveredDeviceProgress(progress));
+  const userId=currentUser.id;
+  const requested=normalizeRecoveredDeviceProgress(progress);
+  recoveredDeviceSaveQueue=recoveredDeviceSaveQueue.then(async()=>{
+    if(currentUser?.id!==userId)return recoveredDeviceProgress;
+    const client=await getSupabase();
+    const {data,error}=await client.rpc('save_expedient_device_progress',{p_reviewed:requested.reviewedIds,p_module_state:requested.moduleState});
+    if(error)throw error;
+    const saved=Array.isArray(data)?data[0]:data;
+    recoveredDeviceProgress=normalizeRecoveredDeviceProgress(saved||requested);
+    sendRecoveredDeviceProgress();
+    return recoveredDeviceProgress;
+  }).catch(error=>{
+    console.warn('No se pudo guardar el avance del dispositivo clonado.',error);
+    return recoveredDeviceProgress;
+  });
+  return recoveredDeviceSaveQueue;
+};
 const closeRecoveredDeviceExitPrompt=()=>document.querySelector('#recovered-device-exit-prompt')?.remove();
 const recoveredDeviceNeedsExitConfirmation=()=>active==='AR06-DEVICE'&&!recoveredDeviceProgress.complete;
 const showRecoveredDeviceExitPrompt=()=>{
@@ -1240,7 +1287,7 @@ const showRecoveredDeviceExitPrompt=()=>{
   const reviewed=Math.max(0,Math.min(recoveredDeviceProgress.reviewed,recoveredDeviceProgress.total));
   const touchDevice=window.matchMedia('(hover:none) and (pointer:coarse)').matches;
   const promptTitle=touchDevice?'¿Apagar el dispositivo?':'¿Abandonar el dispositivo?';
-  const promptWarning=touchDevice?'El análisis se reiniciará la próxima vez que lo enciendas.':'Si abandonas ahora, el análisis del dispositivo se reiniciará.';
+  const promptWarning='El avance del análisis queda guardado. Podrás continuar desde este punto cuando vuelvas.';
   const continueLabel=touchDevice?'Mantener encendido':'Continuar análisis';
   const abandonLabel=touchDevice?'Apagar dispositivo':'Abandonar dispositivo';
   const prompt=document.createElement('section');
@@ -1269,13 +1316,17 @@ const showRecoveredDeviceExitPrompt=()=>{
   };
   prompt.querySelector('[data-device-exit="continue"]').focus();
 };
-window.addEventListener('message',event=>{
-  if(event.origin!==location.origin||event.data?.type!=='kizuna:recovered-device-progress')return;
+window.addEventListener('message',async event=>{
+  if(event.origin!==location.origin||!['kizuna:recovered-device-ready','kizuna:recovered-device-progress'].includes(event.data?.type))return;
   const frame=document.querySelector('.recovered-device-embed iframe');
   if(!frame||event.source!==frame.contentWindow)return;
-  const total=Number(event.data.total)||7;
-  const reviewed=Math.max(0,Math.min(Number(event.data.reviewed)||0,total));
-  recoveredDeviceProgress={reviewed,total,complete:Boolean(event.data.complete)||reviewed>=total};
+  if(event.data.type==='kizuna:recovered-device-ready'){
+    recoveredDeviceProgress=await loadRecoveredDeviceProgress();
+    sendRecoveredDeviceProgress(frame);
+    return;
+  }
+  recoveredDeviceProgress=normalizeRecoveredDeviceProgress(event.data);
+  void persistRecoveredDeviceProgress(recoveredDeviceProgress);
 });
 const readerShareButton=document.createElement('button');
 readerShareButton.type='button';
@@ -1948,7 +1999,7 @@ function openFolderFile(folderId,fileId){const file=folders[folderId].files.find
 function openFolderFile(folderId,fileId){const file=folders[folderId].files.find(item=>item.id===fileId);if(file.mosaic==='tickets'){openTicketMosaic();return}active=fileId;readerReturnToFolder=folderId;readerCanConfirm=true;next.style.display='none';mark.style.display='inline-block';document.querySelector('#doc-type').textContent=`${folderId} / DOCUMENTO INTERNO`;document.querySelector('#doc-title').textContent=file.title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="../assets/documents/${folderId}/${file.src}" alt="${file.title}">`}
 const ar06DeviceUnlocked=(progress=read())=>folders['AR-06'].files.every(file=>progress.includes(file.id))&&progress.includes('KTB-012');
 const openRecoveredDeviceFromAr06=()=>{
-  recoveredDeviceProgress={reviewed:0,total:7,complete:false};
+  recoveredDeviceProgress=emptyRecoveredDeviceProgress();
   closeRecoveredDeviceExitPrompt();
   active='AR06-DEVICE';
   readerReturnToFolder='AR-06';
