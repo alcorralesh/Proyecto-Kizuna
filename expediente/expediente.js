@@ -1024,6 +1024,7 @@ setTimeout(()=>{
     const parent=fileFolder(id);
     if(parent){openFolder(parent);return}
     if(id.startsWith('KTB-')){
+      if(id!=='KTB-014')rememberPendingConfirmation(id);
       syncKtb(id,()=>{if(id==='KTB-014')startFinale();else closeViewerAndFocusPending({confirmedId:id})});
       void recordActivity('document_confirmed',id,{source:'recipient_consultation'}).catch(error=>console.warn('No se pudo registrar la actividad.',error));
       if(id==='KTB-014')void recordActivity('final_closure_started',id,{source:'recipient_consultation',closure_stage:'verification'});
@@ -1070,8 +1071,28 @@ const folderCardProgressMarkup=(id,done)=>{
   const progress=folderCardProgress(id,done);
   return `<div class="folder-card-progress ${progress.updateRead?'is-complete':progress.readCount?'is-started':''}" aria-label="${progress.readCount} de ${progress.total} documentos leídos. ${progress.detail.toLowerCase()}"><div><span><b>${progress.readCount}</b> de ${progress.total} leídos</span><strong>${progress.detail}</strong></div><i aria-hidden="true"><b style="width:${progress.percent}%"></b></i></div>`;
 };
-const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='';
+const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='',pendingConfirmedUnlockId='',pendingUnlockPresentationTimer=0;
+const rememberPendingConfirmation=id=>{
+  if(!id)return;
+  pendingConfirmedUnlockId=id;
+  viewer.dataset.confirmedUnlockId=id;
+  clearTimeout(pendingUnlockPresentationTimer);
+};
+const pendingConfirmationId=(options={})=>options.confirmedId||pendingConfirmedUnlockId||viewer.dataset.confirmedUnlockId||'';
+const clearPendingConfirmation=id=>{
+  if(id&&pendingConfirmedUnlockId&&pendingConfirmedUnlockId!==id)return;
+  pendingConfirmedUnlockId='';
+  delete viewer.dataset.confirmedUnlockId;
+  clearTimeout(pendingUnlockPresentationTimer);
+  pendingUnlockPresentationTimer=0;
+};
+const keepPendingConfirmationVisible=(id,duration=15000)=>{
+  if(!id)return;
+  clearTimeout(pendingUnlockPresentationTimer);
+  pendingUnlockPresentationTimer=setTimeout(()=>clearPendingConfirmation(id),duration);
+};
 const closeViewerAndFocusPending=(options={})=>{
+  if(options.confirmedId)rememberPendingConfirmation(options.confirmedId);
   const focusPending=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>render({...options,focusNext:true})));
   if(!viewer.open){focusPending();return}
   // Chrome Android restaura el scroll de la página al terminar de cerrar el
@@ -1898,6 +1919,7 @@ const locateUnlockedAccess=(id,{focus=true}={})=>{
 };
 function render(options={}){
   const done=read(),visible=sequence.filter(id=>!nestedKtb.has(id));
+  const confirmedId=pendingConfirmationId(options);
   const completed=sequence.filter(id=>done.includes(id)).length;
   const integrity=finalFlowClosed()?100:Math.round(completed/sequence.length*100);
   const ktbRead=done.filter(id=>id.startsWith('KTB-')).length;
@@ -1913,7 +1935,7 @@ function render(options={}){
     'KTB-003':['KTB-004','AC-01'],
     'KTB-012':['KTB-013','AR06-DEVICE']
   };
-  const confirmedUnlocks=(confirmationUnlocks[options.confirmedId]||[]).filter(id=>candidateUnlocks.includes(id));
+  const confirmedUnlocks=(confirmationUnlocks[confirmedId]||[]).filter(id=>candidateUnlocks.includes(id));
   // Un desbloqueo solo se consume cuando el expediente vuelve a estar visible.
   // Los resultados de la lectura recién confirmada se fuerzan una única vez en
   // ese regreso, incluso si una versión anterior los marcó prematuramente como
@@ -1923,6 +1945,7 @@ function render(options={}){
   const newUnlocks=done.length&&!finalFlowClosed()&&canPresentUnlocks
     ?[...new Set([...unseenUnlocks,...confirmedUnlocks])]
     :[];
+  if(confirmedId&&newUnlocks.length)keepPendingConfirmationVisible(confirmedId);
   const revealingAc01=newUnlocks.includes('AC-01');
   const noticeUnlocks=newUnlocks;
   const stageLabels={verification:'VERIFICACIÓN FINAL EN CURSO',summary:'VERIFICACIÓN FINAL EN CURSO',complete:'VERIFICACIÓN FINAL EN CURSO',interrupted:'CIERRE BLOQUEADO · FINAL-01 PENDIENTE'};
@@ -1965,7 +1988,8 @@ function render(options={}){
     return `<article class="document ${isFolder(id)?'folder-document':''} ${deviceAccess?'has-device-access':''} ${ok?'':'locked'} ${isClosing?'final-flow-card':''} ${newlyUnlocked?'is-new-unlock':''}" data-document-id="${id}">${newlyUnlocked?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">${isClosing?'◐ ':seen?'✓ ':ok?'○ ':'⌕ '}${id}</span><h3>${name(id)}</h3><p class="document-card-status">${status}</p>${folderProgress}<div class="document-card-actions"><button type="button" data-id="${id}" ${ok?'':'disabled'} ${isClosing?'data-final-resume':''}>${ok?label:'Acceso restringido'}</button>${deviceAccess}</div></article>`
   }).join('')+supplementary+alternative;
   if(newUnlocks.length){
-    newUnlocks.forEach(id=>{
+    const freshUnlocks=newUnlocks.filter(id=>!seenUnlocks.includes(id));
+    freshUnlocks.forEach(id=>{
       const activityKind=id==='AR06-DEVICE'
         ?'device_clone_unlocked'
         :isFolder(id)
@@ -1975,18 +1999,24 @@ function render(options={}){
           :'document_unlocked';
       void recordActivity(activityKind,id,{source:'sequence_unlock'});
     });
-    void patchState({seenUnlocks:[...new Set([...seenUnlocks,...newUnlocks])]});
+    if(freshUnlocks.length)void patchState({seenUnlocks:[...new Set([...seenUnlocks,...freshUnlocks])]});
     requestAnimationFrame(()=>document.querySelectorAll('.is-new-unlock').forEach(card=>{
       if(card.matches('[data-document-id="AC-01"].is-ac-reveal'))revealComicCard(card,{scroll:newUnlocks.length===1});
       else card.classList.add('is-new-unlock-visible');
     }));
-    document.querySelectorAll('[data-unlock-target]').forEach(button=>button.onclick=()=>locateUnlockedAccess(button.dataset.unlockTarget));
+    document.querySelectorAll('[data-unlock-target]').forEach(button=>button.onclick=()=>{
+      clearPendingConfirmation(confirmedId);
+      locateUnlockedAccess(button.dataset.unlockTarget);
+    });
     document.querySelector('.new-unlock-dismiss')?.addEventListener('click',event=>{
       const notice=event.currentTarget.closest('.new-unlock-notice');
       const primary=notice?.querySelector('[data-unlock-kind="primary"]')?.dataset.unlockTarget;
+      clearPendingConfirmation(confirmedId);
       notice?.remove();
       if(primary)locateUnlockedAccess(primary,{focus:false});
     });
+  }else if(confirmedId&&canPresentUnlocks){
+    clearPendingConfirmation(confirmedId);
   }
   document.querySelectorAll('[data-final-resume]').forEach(button=>button.onclick=resumeFinalFlow);
   if(options.focusNext===true&&!finalFlowClosed()){
