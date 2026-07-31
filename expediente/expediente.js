@@ -1024,7 +1024,7 @@ setTimeout(()=>{
     const parent=fileFolder(id);
     if(parent){openFolder(parent);return}
     if(id.startsWith('KTB-')){
-      syncKtb(id,()=>{if(id==='KTB-014')startFinale();else closeViewerAndFocusPending()});
+      syncKtb(id,()=>{if(id==='KTB-014')startFinale();else closeViewerAndFocusPending({confirmedId:id})});
       void recordActivity('document_confirmed',id,{source:'recipient_consultation'}).catch(error=>console.warn('No se pudo registrar la actividad.',error));
       if(id==='KTB-014')void recordActivity('final_closure_started',id,{source:'recipient_consultation',closure_stage:'verification'});
       return;
@@ -1071,8 +1071,8 @@ const folderCardProgressMarkup=(id,done)=>{
   return `<div class="folder-card-progress ${progress.updateRead?'is-complete':progress.readCount?'is-started':''}" aria-label="${progress.readCount} de ${progress.total} documentos leídos. ${progress.detail.toLowerCase()}"><div><span><b>${progress.readCount}</b> de ${progress.total} leídos</span><strong>${progress.detail}</strong></div><i aria-hidden="true"><b style="width:${progress.percent}%"></b></i></div>`;
 };
 const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='';
-const closeViewerAndFocusPending=()=>{
-  const focusPending=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>render({focusNext:true})));
+const closeViewerAndFocusPending=(options={})=>{
+  const focusPending=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>render({...options,focusNext:true})));
   if(!viewer.open){focusPending();return}
   // Chrome Android restaura el scroll de la página al terminar de cerrar el
   // dialog. Esperamos al cierre real para que esa restauración no anule el
@@ -1908,7 +1908,21 @@ function render(options={}){
   const unlockCandidates=visible.filter(id=>allowed(id)&&!done.includes(id)&&!folderCompleted(id,done));
   if(done.includes('KTB-003'))unlockCandidates.push('AC-01');
   if(ar06DeviceUnlocked(done))unlockCandidates.push('AR06-DEVICE');
-  const newUnlocks=done.length&&!finalFlowClosed()?unlockCandidates.filter(id=>!seenUnlocks.includes(id)):[];
+  const candidateUnlocks=[...new Set(unlockCandidates)];
+  const confirmationUnlocks={
+    'KTB-003':['KTB-004','AC-01'],
+    'KTB-012':['KTB-013','AR06-DEVICE']
+  };
+  const confirmedUnlocks=(confirmationUnlocks[options.confirmedId]||[]).filter(id=>candidateUnlocks.includes(id));
+  // Un desbloqueo solo se consume cuando el expediente vuelve a estar visible.
+  // Los resultados de la lectura recién confirmada se fuerzan una única vez en
+  // ese regreso, incluso si una versión anterior los marcó prematuramente como
+  // anunciados mientras el visor seguía abierto.
+  const canPresentUnlocks=!dash.hidden&&!viewer.open;
+  const unseenUnlocks=candidateUnlocks.filter(id=>!seenUnlocks.includes(id));
+  const newUnlocks=done.length&&!finalFlowClosed()&&canPresentUnlocks
+    ?[...new Set([...unseenUnlocks,...confirmedUnlocks])]
+    :[];
   const revealingAc01=newUnlocks.includes('AC-01');
   const noticeUnlocks=newUnlocks;
   const stageLabels={verification:'VERIFICACIÓN FINAL EN CURSO',summary:'VERIFICACIÓN FINAL EN CURSO',complete:'VERIFICACIÓN FINAL EN CURSO',interrupted:'CIERRE BLOQUEADO · FINAL-01 PENDIENTE'};
