@@ -7,7 +7,7 @@ const typingTemplate=$('#typing-template');
 
 const threads=[
   {
-    id:'cumpleanos',short:'Cumpleaños',title:'Hilo 01 · Cumpleaños',date:'29 de agosto de 2025',
+    id:'cumpleanos',short:'Cumpleaños',title:'Hilo 01 · Cumpleaños',date:'29 de agosto de 2026',
     items:[
       m('incoming','¡Feliz cumpleaños, crack! 🎉🎂','19:42'),
       m('outgoing','Gracias tío! 😂','19:43'),
@@ -35,7 +35,7 @@ const threads=[
     ]
   },
   {
-    id:'preparativos',short:'Preparativos',title:'Hilo 02 · Preparativos',date:'2 de septiembre de 2025',
+    id:'preparativos',short:'Preparativos',title:'Hilo 02 · Preparativos',date:'2 de septiembre de 2026',
     items:[
       m('incoming','Ya me estoy empezando a hacer a la idea 😅','21:15'),
       m('outgoing','Ahora ya sí, no hay marcha atrás 😂','21:16'),
@@ -55,7 +55,7 @@ const threads=[
     ]
   },
   {
-    id:'planes',short:'Qué hacer',title:'Hilo 03 · Qué queremos hacer',date:'7 de septiembre de 2025',
+    id:'planes',short:'Qué hacer',title:'Hilo 03 · Qué queremos hacer',date:'7 de septiembre de 2026',
     items:[
       m('incoming','Yo solo tengo una prioridad.','18:47'),
       m('outgoing','Dime 😂','18:48'),
@@ -74,7 +74,7 @@ const threads=[
     ]
   },
   {
-    id:'itinerario',short:'Itinerario',title:'Hilo 04 · Itinerario',date:'14 de septiembre de 2025',
+    id:'itinerario',short:'Itinerario',title:'Hilo 04 · Itinerario',date:'14 de septiembre de 2026',
     items:[
       m('incoming','¿Cómo queda al final la ruta?','20:32'),
       m('outgoing','Te cuento lo que tengo pensado 🤭','20:33'),
@@ -93,7 +93,7 @@ const threads=[
     ]
   },
   {
-    id:'cuenta-atras',short:'Cuenta atrás',title:'Hilo 05 · Cuenta atrás',date:'24 de septiembre de 2025',
+    id:'cuenta-atras',short:'Cuenta atrás',title:'Hilo 05 · Cuenta atrás',date:'24 de septiembre de 2026',
     items:[
       m('incoming','Quedan 4 días... 😳','22:08'),
       m('incoming','Todavía no me lo creo.','22:08'),
@@ -258,7 +258,7 @@ async function play(){
     if(run!==generation)return;
     addItem(item);
   }
-  $('#contact-status').textContent=`últ. vez el ${thread.date.replace(' de 2025','')}`;
+  $('#contact-status').textContent=`últ. vez el ${thread.date.replace(' de 2026','')}`;
   $('#toggle-playback').textContent='REPRODUCIR';
 }
 
@@ -278,7 +278,7 @@ function selectThread(index){
   renderTabs();
   const thread=threads[activeThread];
   $('#thread-date').textContent=thread.date.toUpperCase();
-  $('#thread-date').dateTime=`2025-${['08-29','09-02','09-07','09-14','09-24'][activeThread]}`;
+  $('#thread-date').dateTime=`2026-${['08-29','09-02','09-07','09-14','09-24'][activeThread]}`;
   $('#demo-title').textContent=thread.title;
   play();
 }

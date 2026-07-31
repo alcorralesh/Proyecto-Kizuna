@@ -18,11 +18,14 @@ const systemApps=[
   {id:'phone',code:'SISTEMA · TELEFONÍA',title:'Teléfono',subtitle:'Alberto',icon:'☎',color:'#31785b',state:'SIN SEÑAL'},
   {id:'settings',code:'SISTEMA · ANDROID 12',title:'Ajustes',subtitle:'SM-G991B',icon:'⚙',color:'#56636b',state:'SISTEMA'}
 ];
-const residualApp={id:'residual',code:'APLICACIÓN RECONSTRUIDA',title:'Desconocida',subtitle:'Definición pendiente',icon:'◇',color:'#9e302d',state:'NUEVA'};
+const residualApp={id:'residual',code:'MÓDULO RECUPERADO',title:'Recuerdos',subtitle:'Sin remitente',icon:'◇',color:'#9e302d',state:'ANOMALÍA'};
 let currentApp=null;
 let galleryActiveIndex=-1;
 let galleryTouchStartX=0;
 let residualRevealed=false;
+let residualConsumed=false;
+let anomalyState='idle';
+let anomalyTimers=[];
 let callTimers=[];
 let homeEntrancePlayed=false;
 
@@ -83,14 +86,16 @@ setInterval(setClock,30000);
 function updateProgress(){
   const reviewCount=$('#review-count');
   if(reviewCount) reviewCount.textContent=reviewed.size;
-  if(reviewed.size===apps.length&&!residualRevealed){
-    residualRevealed=true;
-    residualButton.hidden=false;
-    residualButton.classList.add('is-revealed');
-    showToast('Se ha reconstruido una aplicación no identificada.');
-    return true;
+  const complete=reviewed.size===apps.length;
+  if(window.parent!==window){
+    window.parent.postMessage({
+      type:'kizuna:recovered-device-progress',
+      reviewed:reviewed.size,
+      total:apps.length,
+      complete
+    },location.origin);
   }
-  return false;
+  return complete;
 }
 
 function showEvidenceProgress({initial=false}={}){
@@ -106,6 +111,17 @@ function clearCallTimers(){
   callTimers=[];
 }
 
+function clearAnomalyTimers(){
+  anomalyTimers.forEach(timer=>clearTimeout(timer));
+  anomalyTimers=[];
+}
+
+function anomalyLater(callback,delay){
+  const timer=setTimeout(callback,delay);
+  anomalyTimers.push(timer);
+  return timer;
+}
+
 function appMeta(id){
   return apps.find(item=>item.id===id)||systemApps.find(item=>item.id===id)||(id==='residual'?residualApp:null);
 }
@@ -117,11 +133,12 @@ function syncUrl(id){
 }
 
 function launch(id,{fromHistory=false}={}){
+  if(['pending','scanning','dialog'].includes(anomalyState))return;
   if(id==='ktb') return openKtb(fromHistory);
   clearCallTimers();
   const app=appMeta(id);
   if(!app) return showHome();
-  if(id==='residual'&&!residualRevealed){
+  if(id==='residual'&&(!residualRevealed||residualConsumed)){
     showToast('La aplicación todavía no ha podido reconstruirse.');
     return showHome();
   }
@@ -131,10 +148,11 @@ function launch(id,{fromHistory=false}={}){
   if(isEvidence) reviewed.add(id);
   if(!recent.includes(id)) recent.unshift(id);
   if(recent.length>5) recent.pop();
-  const residualWasUnlocked=updateProgress();
+  const allEvidenceReviewed=updateProgress();
   home.hidden=true;
   recentsView.hidden=true;
   appView.hidden=false;
+  appView.classList.toggle('is-memory-module',id==='residual');
   appView.style.setProperty('--app-color',app.color);
   $('#app-header-icon').innerHTML=appIcon(app.id);
   $('#app-header-icon').style.background=app.color;
@@ -150,7 +168,15 @@ function launch(id,{fromHistory=false}={}){
   appContent.scrollTop=0;
   if(!fromHistory) syncUrl(id);
   if(isNewEvidence){
-    setTimeout(()=>showEvidenceProgress(),residualWasUnlocked?3600:500);
+    setTimeout(()=>showEvidenceProgress(),500);
+    if(allEvidenceReviewed&&anomalyState==='idle'){
+      anomalyState='pending';
+      anomalyLater(()=>{
+        $('#toast').classList.remove('show');
+        showHome();
+        beginRecoveryAnomaly();
+      },2300);
+    }
   }
 }
 
@@ -158,6 +184,7 @@ function showHome({fromHistory=false}={}){
   clearCallTimers();
   currentApp=null;
   appView.hidden=true;
+  appView.classList.remove('is-memory-module');
   recentsView.hidden=true;
   home.hidden=false;
   playHomeEntrance();
@@ -165,8 +192,10 @@ function showHome({fromHistory=false}={}){
 }
 
 function showRecents(){
+  if(['pending','scanning','dialog'].includes(anomalyState)||(currentApp==='residual'&&anomalyState==='running'))return;
   home.hidden=true;appView.hidden=true;recentsView.hidden=false;
-  $('#recents-list').innerHTML=recent.length?recent.map(id=>{
+  const visibleRecent=recent.filter(id=>id!=='residual'||!residualConsumed);
+  $('#recents-list').innerHTML=visibleRecent.length?visibleRecent.map(id=>{
     const app=appMeta(id)||{id:'ktb',title:'KIZUNA',subtitle:'Acta de reanudación',icon:'✦',color:'#8c742e'};
     return `<button class="recent-card" data-open-app="${id}" style="--recent-color:${app.color}" type="button">
       <span>${appIcon(app.id||id)}</span><strong>${app.title}</strong><small>${app.subtitle}</small>
@@ -248,10 +277,23 @@ function renderSettings(){
 }
 
 function renderResidual(){
-  return `<article class="system-page residual-page">
-    <div class="residual-symbol">◇</div><p>APLICACIÓN RECONSTRUIDA</p><h2>Identidad pendiente.</h2>
-    <span>Se han localizado fragmentos ejecutables después de revisar las siete evidencias del dispositivo.</span>
-    <div><i></i><b>DEFINICIÓN PENDIENTE</b><small>Este espacio queda preparado para la siguiente fase de diseño.</small></div>
+  return `<article class="memory-module" id="memory-module">
+    <section class="memory-boot" id="memory-boot">
+      <span class="memory-signal"></span>
+      <p id="memory-boot-line">Inicializando...</p>
+      <div class="memory-integrity" id="memory-integrity" hidden><span>Integridad:</span><strong>17 %</strong><i><b></b></i></div>
+    </section>
+    <section class="memory-chat" id="memory-chat" hidden>
+      <header><span class="memory-avatar">∅</span><div><strong>Sin remitente</strong><small>canal recuperado</small></div></header>
+      <div class="memory-messages" id="memory-messages"></div>
+      <footer id="memory-actions"><button data-memory-continue type="button">Continuar</button></footer>
+    </section>
+    <section class="memory-finished" id="memory-finished" hidden>
+      <span class="memory-signal is-closed"></span>
+      <p>Canal cerrado.</p>
+      <small>El módulo recuperado ha finalizado su ejecución.</small>
+      <button data-memory-close type="button">Cerrar</button>
+    </section>
   </article>`;
 }
 
@@ -599,6 +641,173 @@ function openKtb(fromHistory=false){
   $('#close-acta')?.addEventListener('click',showHome);
 }
 
+function recoveryDialogMarkup(stage,progress=12){
+  if(stage==='scan')return `<p class="recovery-kicker">KIZUNA Recovery System</p>
+    <h2>Analizando integridad del dispositivo...</h2>
+    <div class="recovery-progress"><i><b style="width:${progress}%"></b></i><strong>${progress} %</strong></div>`;
+  if(stage==='detected')return `<p class="recovery-kicker">KIZUNA Recovery System</p>
+    <span class="recovery-warning">!</span><h2>Anomalía detectada.</h2>
+    <p>Se ha localizado un módulo que no figura en el índice del dispositivo recuperado.</p>
+    <button data-anomaly-action="analyze" type="button">Analizar</button>`;
+  return `<p class="recovery-kicker">INFORME DE INTEGRIDAD</p>
+    <span class="recovery-safe">✓</span><h2>Módulo estable.</h2>
+    <p>El módulo no presenta riesgo para la integridad del expediente.</p>
+    <p>Se recomienda documentar su contenido antes de continuar.</p>
+    <button data-anomaly-action="open" type="button">Abrir módulo</button>`;
+}
+
+function beginRecoveryAnomaly(){
+  if(anomalyState!=='pending')return;
+  const overlay=$('#recovery-anomaly');
+  const dialog=$('#recovery-dialog');
+  anomalyLater(()=>{
+    anomalyState='scanning';
+    screen.classList.add('is-recovery-frozen');
+    overlay.hidden=false;
+    overlay.classList.add('is-visible');
+    let step=0;
+    const values=[12,41,73,100];
+    const advance=()=>{
+      dialog.innerHTML=recoveryDialogMarkup('scan',values[step]);
+      step++;
+      if(step<values.length)anomalyLater(advance,330);
+      else anomalyLater(()=>{
+        overlay.classList.remove('is-visible');
+        anomalyLater(()=>{
+          dialog.innerHTML=recoveryDialogMarkup('detected');
+          overlay.classList.add('is-visible');
+          anomalyState='dialog';
+        },1000);
+      },430);
+    };
+    advance();
+  },2000);
+}
+
+function revealResidualModule(){
+  const overlay=$('#recovery-anomaly');
+  overlay.classList.remove('is-visible');
+  anomalyLater(()=>{
+    overlay.hidden=true;
+    screen.classList.remove('is-recovery-frozen');
+    residualRevealed=true;
+    anomalyState='ready';
+    residualButton.hidden=false;
+    residualButton.classList.remove('is-revealed');
+    requestAnimationFrame(()=>residualButton.classList.add('is-revealed'));
+  },260);
+}
+
+function addMemoryMessage(text,{accent=false}={}){
+  const list=$('#memory-messages');
+  if(!list)return;
+  const row=document.createElement('p');
+  row.className=`memory-message${accent?' is-anomaly':''}`;
+  row.textContent=text;
+  list.append(row);
+  requestAnimationFrame(()=>row.classList.add('is-visible'));
+  list.scrollTo({top:list.scrollHeight,behavior:'smooth'});
+}
+
+function startMemoryModule(){
+  const boot=$('#memory-boot');
+  const line=$('#memory-boot-line');
+  const integrity=$('#memory-integrity');
+  if(!boot||!line)return;
+  anomalyState='running';
+  const bootLines=['Inicializando...','Canal recuperado.','Restaurando conversación...'];
+  let index=0;
+  const nextBootLine=()=>{
+    line.classList.remove('is-visible');
+    anomalyLater(()=>{
+      line.textContent=bootLines[index++];
+      line.classList.add('is-visible');
+      if(index<bootLines.length)anomalyLater(nextBootLine,820);
+      else anomalyLater(()=>{
+        integrity.hidden=false;
+        requestAnimationFrame(()=>integrity.classList.add('is-visible'));
+        anomalyLater(()=>{
+          boot.classList.add('is-complete');
+          anomalyLater(()=>{
+            boot.hidden=true;
+            const chat=$('#memory-chat');
+            chat.hidden=false;
+            requestAnimationFrame(()=>chat.classList.add('is-visible'));
+            addMemoryMessage('Si estás leyendo esto...');
+          },420);
+        },1200);
+      },820);
+    },180);
+  };
+  nextBootLine();
+}
+
+const memorySequence=[
+  '...es porque has conseguido llegar hasta aquí.',
+  'Eso significa que has revisado todas las aplicaciones del dispositivo.',
+  'Perfecto.',
+  'Entonces todo está ocurriendo exactamente igual que la primera vez.',
+  'Si entiendes esta frase ahora...',
+  'Todavía es demasiado pronto.',
+  'Si no la entiendes...',
+  'Es exactamente lo que esperaba.',
+  'No puedo decirte quién soy.',
+  'Ni puedo explicarte por qué este mensaje está aquí.',
+  'Si lo hiciera...',
+  'Alteraría el propósito del expediente.',
+  'Sigue leyendo.',
+  'Confía en KIZUNA.',
+  'Cuando llegues al final...',
+  'Comprenderás por qué tenía que encontrarte aquí.',
+  'Hasta entonces...',
+  'Gracias por volver.'
+];
+
+function playMemoryConversation(){
+  $('#memory-actions').hidden=true;
+  let index=0;
+  const next=()=>{
+    const list=$('#memory-messages');
+    if(!list)return;
+    const typing=document.createElement('p');
+    typing.className='memory-typing';
+    typing.innerHTML='<i></i><i></i><i></i>';
+    list.append(typing);
+    list.scrollTo({top:list.scrollHeight,behavior:'smooth'});
+    anomalyLater(()=>{
+      typing.remove();
+      const text=memorySequence[index++];
+      addMemoryMessage(text,{accent:text.includes('primera vez')||text==='Gracias por volver.'});
+      if(index<memorySequence.length)anomalyLater(next,text.length>60?1300:920);
+      else anomalyLater(finishMemoryConversation,1800);
+    },580);
+  };
+  next();
+}
+
+function finishMemoryConversation(){
+  const chat=$('#memory-chat');
+  chat.classList.remove('is-visible');
+  anomalyLater(()=>{
+    chat.hidden=true;
+    const finished=$('#memory-finished');
+    finished.hidden=false;
+    requestAnimationFrame(()=>finished.classList.add('is-visible'));
+  },520);
+}
+
+function consumeResidualModule(){
+  residualConsumed=true;
+  residualRevealed=false;
+  anomalyState='consumed';
+  residualButton.hidden=true;
+  residualButton.classList.remove('is-revealed');
+  const recentIndex=recent.indexOf('residual');
+  if(recentIndex>=0)recent.splice(recentIndex,1);
+  clearAnomalyTimers();
+  showHome();
+}
+
 function showToast(message,{title='Sistema del dispositivo',icon='i'}={}){
   const toast=$('#toast');
   $('#toast-title').textContent=title;
@@ -772,9 +981,17 @@ function bindAppInteractions(id){
       modal.querySelector('[data-close-modal]').onclick=()=>modal.hidden=true;
     });
   }
+  if(id==='residual'){
+    startMemoryModule();
+    appContent.addEventListener('click',event=>{
+      if(event.target.closest('[data-memory-continue]'))playMemoryConversation();
+      if(event.target.closest('[data-memory-close]'))consumeResidualModule();
+    });
+  }
 }
 
 function goBack(){
+  if(currentApp==='residual'&&anomalyState==='running')return;
   clearCallTimers();
   const searchResults=appContent.querySelector('.chrome-results-view:not([hidden])');
   if(searchResults){closeSearchResults();return}
@@ -785,11 +1002,23 @@ function goBack(){
 }
 
 document.addEventListener('click',event=>{
+  const anomalyAction=event.target.closest('[data-anomaly-action]')?.dataset.anomalyAction;
+  if(anomalyAction==='analyze'){
+    $('#recovery-dialog').innerHTML=recoveryDialogMarkup('safe');
+    return;
+  }
+  if(anomalyAction==='open'){
+    revealResidualModule();
+    return;
+  }
   const button=event.target.closest('[data-open-app]');if(button)launch(button.dataset.openApp);
 });
 $('#app-back').addEventListener('click',goBack);
 $('#android-back').addEventListener('click',goBack);
-$('#android-home').addEventListener('click',showHome);
+$('#android-home').addEventListener('click',()=>{
+  if(currentApp==='residual'&&anomalyState==='running')return;
+  showHome();
+});
 $('#android-recents').addEventListener('click',showRecents);
 window.addEventListener('popstate',event=>{const id=event.state?.app||new URL(location.href).searchParams.get('app');id&&id!=='home'?launch(id,{fromHistory:true}):showHome({fromHistory:true})});
 

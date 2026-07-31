@@ -1232,6 +1232,51 @@ const enhanceDocumentImagesLegacy=()=>{
 imageToolsStyle.remove();
 const readerTools=document.querySelector('.reader-tools'),readerZoom=document.querySelector('#reader-zoom'),readerStatus=document.querySelector('#reader-status'),readerCode=document.querySelector('#reader-code'),readerContent=document.querySelector('.reader-content'),readerPosition=document.querySelector('.reader-position'),readerHint=document.querySelector('.reader-hint');
 const readerCloseButton=document.querySelector('#viewer .reader-toolbar .close');
+let recoveredDeviceProgress={reviewed:0,total:7,complete:false};
+const closeRecoveredDeviceExitPrompt=()=>document.querySelector('#recovered-device-exit-prompt')?.remove();
+const recoveredDeviceNeedsExitConfirmation=()=>active==='AR06-DEVICE'&&!recoveredDeviceProgress.complete;
+const showRecoveredDeviceExitPrompt=()=>{
+  closeRecoveredDeviceExitPrompt();
+  const reviewed=Math.max(0,Math.min(recoveredDeviceProgress.reviewed,recoveredDeviceProgress.total));
+  const touchDevice=window.matchMedia('(hover:none) and (pointer:coarse)').matches;
+  const promptTitle=touchDevice?'¿Apagar el dispositivo?':'¿Abandonar el dispositivo?';
+  const promptWarning=touchDevice?'El análisis se reiniciará la próxima vez que lo enciendas.':'Si abandonas ahora, el análisis del dispositivo se reiniciará.';
+  const continueLabel=touchDevice?'Mantener encendido':'Continuar análisis';
+  const abandonLabel=touchDevice?'Apagar dispositivo':'Abandonar dispositivo';
+  const prompt=document.createElement('section');
+  prompt.id='recovered-device-exit-prompt';
+  prompt.className='recovered-device-exit-prompt';
+  prompt.setAttribute('role','alertdialog');
+  prompt.setAttribute('aria-modal','true');
+  prompt.setAttribute('aria-labelledby','recovered-device-exit-title');
+  prompt.innerHTML=`<article>
+    <span class="device-exit-power-symbol" aria-hidden="true">⏻</span>
+    <p class="system-line">VALIDACIÓN INCOMPLETA</p>
+    <h2 id="recovered-device-exit-title">${promptTitle}</h2>
+    <p>Has revisado <strong>${reviewed} de ${recoveredDeviceProgress.total} fuentes</strong>.</p>
+    <p>${promptWarning}</p>
+    <footer>
+      <button type="button" data-device-exit="continue">${continueLabel}</button>
+      <button type="button" data-device-exit="abandon">${abandonLabel}</button>
+    </footer>
+  </article>`;
+  viewer.append(prompt);
+  prompt.querySelector('[data-device-exit="continue"]').onclick=closeRecoveredDeviceExitPrompt;
+  prompt.querySelector('[data-device-exit="abandon"]').onclick=()=>{
+    closeRecoveredDeviceExitPrompt();
+    viewer.close();
+    render();
+  };
+  prompt.querySelector('[data-device-exit="continue"]').focus();
+};
+window.addEventListener('message',event=>{
+  if(event.origin!==location.origin||event.data?.type!=='kizuna:recovered-device-progress')return;
+  const frame=document.querySelector('.recovered-device-embed iframe');
+  if(!frame||event.source!==frame.contentWindow)return;
+  const total=Number(event.data.total)||7;
+  const reviewed=Math.max(0,Math.min(Number(event.data.reviewed)||0,total));
+  recoveredDeviceProgress={reviewed,total,complete:Boolean(event.data.complete)||reviewed>=total};
+});
 const readerShareButton=document.createElement('button');
 readerShareButton.type='button';
 readerShareButton.hidden=true;
@@ -1903,6 +1948,8 @@ function openFolderFile(folderId,fileId){const file=folders[folderId].files.find
 function openFolderFile(folderId,fileId){const file=folders[folderId].files.find(item=>item.id===fileId);if(file.mosaic==='tickets'){openTicketMosaic();return}active=fileId;readerReturnToFolder=folderId;readerCanConfirm=true;next.style.display='none';mark.style.display='inline-block';document.querySelector('#doc-type').textContent=`${folderId} / DOCUMENTO INTERNO`;document.querySelector('#doc-title').textContent=file.title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="../assets/documents/${folderId}/${file.src}" alt="${file.title}">`}
 const ar06DeviceUnlocked=(progress=read())=>folders['AR-06'].files.every(file=>progress.includes(file.id))&&progress.includes('KTB-012');
 const openRecoveredDeviceFromAr06=()=>{
+  recoveredDeviceProgress={reviewed:0,total:7,complete:false};
+  closeRecoveredDeviceExitPrompt();
   active='AR06-DEVICE';
   readerReturnToFolder='AR-06';
   readerCanConfirm=false;
@@ -4010,6 +4057,10 @@ if(readerLayerNavigation){
       await exitReaderFullscreen();
       return;
     }
+    if(recoveredDeviceNeedsExitConfirmation()){
+      showRecoveredDeviceExitPrompt();
+      return;
+    }
     if(finalFlowPending()&&active==='KTB-014'){showFinalExitWarning();return}
     closeReaderCompletely();
   };
@@ -4019,12 +4070,17 @@ if(readerLayerNavigation){
       void exitReaderFullscreen();
       return;
     }
+    if(recoveredDeviceNeedsExitConfirmation()){
+      showRecoveredDeviceExitPrompt();
+      return;
+    }
     if(finalFlowPending()&&active==='KTB-014'){showFinalExitWarning();return}
     const contentToken=readerContentLayerTokens.at(-1);
     if(contentToken&&readerLayerNavigation.back(contentToken))return;
     if(readerBaseLayerToken)readerLayerNavigation.back(readerBaseLayerToken);
   });
   viewer.addEventListener('close',()=>{
+    closeRecoveredDeviceExitPrompt();
     if(!closingReaderProgrammatically)readerLayerNavigation.discardScope(readerNavigationScope);
     readerBaseLayerToken=null;
     readerFullscreenLayerToken=null;
