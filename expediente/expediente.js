@@ -1847,7 +1847,7 @@ function updateCompletionHeader(){document.querySelector('.case-head')?.classLis
 let pendingFinalAlertTimer=0;
 let acRevealTimers=[];
 const clearAcRevealTimers=()=>{acRevealTimers.forEach(clearTimeout);acRevealTimers=[]};
-function revealComicCard(card){
+function revealComicCard(card,{scroll=true}={}){
   if(!card)return;
   clearAcRevealTimers();
   const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -1869,13 +1869,33 @@ function revealComicCard(card){
   card.querySelector('.comic-discovery-skip')?.addEventListener('click',finish);
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     if(!card.isConnected)return;
-    card.scrollIntoView({behavior:reduced?'auto':'smooth',block:'center'});
+    if(scroll)card.scrollIntoView({behavior:reduced?'auto':'smooth',block:'center'});
     if(reduced){finish();return}
     card.classList.add('is-ac-scanning');
     acRevealTimers.push(setTimeout(()=>card.isConnected&&card.classList.add('is-ac-opening'),compact?520:760));
     acRevealTimers.push(setTimeout(finish,compact?1250:1750));
   }));
 }
+const unlockNoticeMeta=id=>{
+  if(id==='AC-01')return{kind:'secondary',eyebrow:'ARCHIVO COMPLEMENTARIO',title:'AC-01 · Registro ilustrado',detail:'El archivo complementario ya forma parte del expediente.',action:'Localizar AC-01'};
+  if(id==='AR06-DEVICE')return{kind:'secondary device',eyebrow:'DISPOSITIVO CLONADO',title:'Clon SM-G991B',detail:'La extracción recuperada ya puede consultarse desde AR-06.',action:'Localizar dispositivo'};
+  if(isFolder(id))return{kind:'primary folder',eyebrow:'SECUENCIA PRINCIPAL',title:`${id} · ${name(id)}`,detail:'La siguiente carpeta de la secuencia ya está disponible.',action:'Localizar carpeta'};
+  return{kind:'primary document',eyebrow:'SECUENCIA PRINCIPAL',title:`${id} · ${name(id)}`,detail:'El siguiente documento de la secuencia ya está disponible.',action:'Localizar documento'};
+};
+const unlockTargetNode=id=>{
+  if(id==='AR06-DEVICE')return document.querySelector('[data-open-recovered-device]')?.closest('[data-document-id="AR-06"]')||null;
+  return document.querySelector(`[data-document-id="${id}"]`);
+};
+const locateUnlockedAccess=(id,{focus=true}={})=>{
+  const card=unlockTargetNode(id);
+  if(!card)return;
+  const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  card.scrollIntoView({behavior:reduced?'auto':'smooth',block:'center',inline:'nearest'});
+  card.classList.add('is-new-unlock-located');
+  const focusTarget=id==='AR06-DEVICE'?card.querySelector('[data-open-recovered-device]'):card.querySelector('button:not(:disabled)');
+  if(focus)focusTarget?.focus({preventScroll:true});
+  setTimeout(()=>card?.classList.remove('is-new-unlock-located'),2200);
+};
 function render(options={}){
   const done=read(),visible=sequence.filter(id=>!nestedKtb.has(id));
   const completed=sequence.filter(id=>done.includes(id)).length;
@@ -1887,12 +1907,14 @@ function render(options={}){
   const seenUnlocks=Array.isArray(getState().seenUnlocks)?getState().seenUnlocks:[];
   const unlockCandidates=visible.filter(id=>allowed(id)&&!done.includes(id)&&!folderCompleted(id,done));
   if(done.includes('KTB-003'))unlockCandidates.push('AC-01');
+  if(ar06DeviceUnlocked(done))unlockCandidates.push('AR06-DEVICE');
   const newUnlocks=done.length&&!finalFlowClosed()?unlockCandidates.filter(id=>!seenUnlocks.includes(id)):[];
   const revealingAc01=newUnlocks.includes('AC-01');
-  const noticeUnlocks=revealingAc01?[]:newUnlocks;
+  const noticeUnlocks=newUnlocks;
   const stageLabels={verification:'VERIFICACIÓN FINAL EN CURSO',summary:'VERIFICACIÓN FINAL EN CURSO',complete:'VERIFICACIÓN FINAL EN CURSO',interrupted:'CIERRE BLOQUEADO · FINAL-01 PENDIENTE'};
   const resumeBanner=pending?`<section class="final-flow-resume"><div><p>CIERRE OBLIGATORIO EN CURSO</p><h3>El expediente todavía no está archivado.</h3><span>${stageLabels[stage]||stageLabels.verification}. Continúa desde el punto guardado.</span></div><button type="button" data-final-resume>Continuar cierre →</button></section>`:'';
-  const newUnlockNotice=noticeUnlocks.length?`<section class="new-unlock-notice" role="status" aria-live="polite" aria-atomic="true"><div><p>NUEVO ACCESO AUTORIZADO</p><h3>${noticeUnlocks.length===1?(isFolder(noticeUnlocks[0])?'Nueva carpeta recuperada':'Nuevo documento disponible'):`${noticeUnlocks.length} nuevos registros disponibles`}</h3><span>${noticeUnlocks.length===1?`${noticeUnlocks[0]} ya puede consultarse.`:'La secuencia del expediente se ha actualizado.'}</span></div><button type="button" data-unlock-target="${noticeUnlocks[0]}">Localizar ${isFolder(noticeUnlocks[0])?'carpeta':'documento'} <span>↓</span></button><button type="button" class="new-unlock-dismiss" aria-label="Cerrar aviso">×</button></section>`:'';
+  const unlockNoticeItems=noticeUnlocks.map((id,index)=>{const meta=unlockNoticeMeta(id);return`<button type="button" class="new-unlock-access ${meta.kind}" data-unlock-target="${id}" data-unlock-kind="${meta.kind.includes('primary')?'primary':meta.kind.includes('device')?'device':'secondary'}"><span class="new-unlock-access-index">${String(index+1).padStart(2,'0')}</span><span class="new-unlock-access-copy"><small>${meta.eyebrow}</small><strong>${meta.title}</strong><em>${meta.detail}</em></span><span class="new-unlock-access-action">${meta.action} <b>↓</b></span></button>`}).join('');
+  const newUnlockNotice=noticeUnlocks.length?`<section class="new-unlock-notice ${noticeUnlocks.length>1?'is-multiple':''}" role="status" aria-live="polite" aria-atomic="true"><header class="new-unlock-summary"><div><p>${noticeUnlocks.length>1?'NUEVOS ACCESOS AUTORIZADOS':'NUEVO ACCESO AUTORIZADO'}</p><h3>${noticeUnlocks.length>1?`${noticeUnlocks.length} accesos incorporados`:unlockNoticeMeta(noticeUnlocks[0]).title}</h3><span>${noticeUnlocks.length>1?'La secuencia principal y un hallazgo asociado ya están disponibles.':'La secuencia del expediente se ha actualizado.'}</span></div><button type="button" class="new-unlock-dismiss" aria-label="Cerrar aviso">×</button></header><div class="new-unlock-access-list">${unlockNoticeItems}</div></section>`:'';
   const comicPageBar=Array.from({length:11},(_,index)=>`<i class="${index<comicPages?'is-recovered':''}" aria-hidden="true"><span>${String(index+1).padStart(2,'0')}</span></i>`).join('');
   const alt00Discovered=Boolean(getState().alt00Discovered);
   const alt00PageBar=Array.from({length:10},(_,index)=>`<i class="is-recovered" aria-hidden="true"><span>${String(index+1).padStart(2,'0')}</span></i>`).join('');
@@ -1919,18 +1941,20 @@ function render(options={}){
   updateCompletionHeader(done);
   document.querySelector('#documents').innerHTML=newUnlockNotice+resumeBanner+visible.map(id=>{
     const ok=allowed(id),seen=done.includes(id)||folderCompleted(id,done),isClosing=id==='KTB-014'&&pending;
-    const newlyUnlocked=!revealingAc01&&newUnlocks.includes(id);
+    const newlyUnlocked=newUnlocks.includes(id);
     const label=isClosing?'Continuar cierre':isFolder(id)?'Abrir carpeta':'Abrir documento';
     const status=isClosing?(stageLabels[stage]||stageLabels.verification):seen?'LECTURA CONFIRMADA':ok?'DISPONIBLE PARA CONSULTA':'AUTORIZACIÓN PENDIENTE';
     const folderProgress=isFolder(id)?folderCardProgressMarkup(id,done):'';
     const deviceAccess=id==='AR-06'&&ar06DeviceUnlocked(done)
-      ?'<button type="button" class="folder-card-device-access" data-open-recovered-device aria-label="Abrir el dispositivo clonado SM-G991B">Abrir dispositivo</button>'
+      ?`<button type="button" class="folder-card-device-access ${newUnlocks.includes('AR06-DEVICE')?'is-new-device-unlock':''}" data-open-recovered-device aria-label="Abrir el dispositivo clonado SM-G991B">Abrir dispositivo</button>`
       :'';
     return `<article class="document ${isFolder(id)?'folder-document':''} ${deviceAccess?'has-device-access':''} ${ok?'':'locked'} ${isClosing?'final-flow-card':''} ${newlyUnlocked?'is-new-unlock':''}" data-document-id="${id}">${newlyUnlocked?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">${isClosing?'◐ ':seen?'✓ ':ok?'○ ':'⌕ '}${id}</span><h3>${name(id)}</h3><p class="document-card-status">${status}</p>${folderProgress}<div class="document-card-actions"><button type="button" data-id="${id}" ${ok?'':'disabled'} ${isClosing?'data-final-resume':''}>${ok?label:'Acceso restringido'}</button>${deviceAccess}</div></article>`
   }).join('')+supplementary+alternative;
   if(newUnlocks.length){
     newUnlocks.forEach(id=>{
-      const activityKind=isFolder(id)
+      const activityKind=id==='AR06-DEVICE'
+        ?'device_clone_unlocked'
+        :isFolder(id)
         ?'folder_unlocked'
         :id==='AC-01'
           ?'supplementary_archive_unlocked'
@@ -1939,12 +1963,16 @@ function render(options={}){
     });
     void patchState({seenUnlocks:[...new Set([...seenUnlocks,...newUnlocks])]});
     requestAnimationFrame(()=>document.querySelectorAll('.is-new-unlock').forEach(card=>{
-      if(card.matches('[data-document-id="AC-01"].is-ac-reveal'))revealComicCard(card);
+      if(card.matches('[data-document-id="AC-01"].is-ac-reveal'))revealComicCard(card,{scroll:newUnlocks.length===1});
       else card.classList.add('is-new-unlock-visible');
     }));
-    const locate=document.querySelector('[data-unlock-target]');
-    if(locate)locate.onclick=()=>{const card=document.querySelector(`[data-document-id="${locate.dataset.unlockTarget}"]`);card?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'center'});card?.classList.add('is-new-unlock-located');setTimeout(()=>card?.classList.remove('is-new-unlock-located'),1800)};
-    document.querySelector('.new-unlock-dismiss')?.addEventListener('click',event=>event.currentTarget.closest('.new-unlock-notice')?.remove());
+    document.querySelectorAll('[data-unlock-target]').forEach(button=>button.onclick=()=>locateUnlockedAccess(button.dataset.unlockTarget));
+    document.querySelector('.new-unlock-dismiss')?.addEventListener('click',event=>{
+      const notice=event.currentTarget.closest('.new-unlock-notice');
+      const primary=notice?.querySelector('[data-unlock-kind="primary"]')?.dataset.unlockTarget;
+      notice?.remove();
+      if(primary)locateUnlockedAccess(primary,{focus:false});
+    });
   }
   document.querySelectorAll('[data-final-resume]').forEach(button=>button.onclick=resumeFinalFlow);
   if(options.focusNext===true&&!finalFlowClosed()){
@@ -3351,7 +3379,7 @@ const renderAdminActivityLegacy=async userId=>{
     if(!data?.length){target.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3 style="margin:7px 0 16px;font:27px var(--serif)">Actividad reciente</h3><p>Aún no hay actividad registrada para este destinatario.</p>';return}
     const rows=data.map(item=>{
       const activityKind=item.details?.activity_kind||item.event_type;
-      const title=activityKind==='alt00_discovered'?'ALT-00 descubierto':activityKind==='alt00_completed'?'ALT-00 completado · 10 páginas':activityKind==='login'?'Inicio de sesión verificado':activityKind==='session_restored'?'Acceso al expediente · sesión recuperada':activityKind==='logout'?'Cierre de sesión':activityKind==='push_channel_authorized'?'Terminal autorizado para comunicaciones':activityKind==='push_channel_declined'?'Canal de comunicaciones rechazado':activityKind==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:activityKind==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:activityKind==='onboarding_completed'?'Guía inicial completada':activityKind==='onboarding_skipped'?'Guía inicial omitida':activityKind==='onboarding_reset'?'Guía inicial reactivada por administración':activityKind==='folder_unlocked'?`Carpeta desbloqueada · ${item.document_id||'Archivo recuperado'}`:activityKind==='supplementary_archive_unlocked'?`Archivo complementario desbloqueado · ${item.document_id||'AC-01'}`:activityKind==='document_unlocked'?`Documento desbloqueado · ${item.document_id||'Documento'}`:activityKind==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas leídas`:activityKind==='final_closure_started'?'Protocolo de cierre iniciado':activityKind==='expedient_completed'?'Expediente cerrado correctamente':activityKind==='supplementary_file_consulted'?'Archivo final consultado':activityKind==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado confirmado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
+      const title=activityKind==='alt00_discovered'?'ALT-00 descubierto':activityKind==='alt00_completed'?'ALT-00 completado · 10 páginas':activityKind==='login'?'Inicio de sesión verificado':activityKind==='session_restored'?'Acceso al expediente · sesión recuperada':activityKind==='logout'?'Cierre de sesión':activityKind==='push_channel_authorized'?'Terminal autorizado para comunicaciones':activityKind==='push_channel_declined'?'Canal de comunicaciones rechazado':activityKind==='legal_terms_accepted'?`Bases legales aceptadas · versión ${item.details?.version||1}`:activityKind==='legal_terms_reset'?`Nueva versión de bases legales · versión ${item.details?.version||1}`:activityKind==='onboarding_completed'?'Guía inicial completada':activityKind==='onboarding_skipped'?'Guía inicial omitida':activityKind==='onboarding_reset'?'Guía inicial reactivada por administración':activityKind==='folder_unlocked'?`Carpeta desbloqueada · ${item.document_id||'Archivo recuperado'}`:activityKind==='supplementary_archive_unlocked'?`Archivo complementario desbloqueado · ${item.document_id||'AC-01'}`:activityKind==='device_clone_unlocked'?'Dispositivo clonado desbloqueado · SM-G991B':activityKind==='document_unlocked'?`Documento desbloqueado · ${item.document_id||'Documento'}`:activityKind==='comic_page_read'?`Registro ilustrado · ${item.details?.read||'?'} / ${item.details?.total||11} páginas leídas`:activityKind==='final_closure_started'?'Protocolo de cierre iniciado':activityKind==='expedient_completed'?'Expediente cerrado correctamente':activityKind==='supplementary_file_consulted'?'Archivo final consultado':activityKind==='expedient_reset'?'Expediente reiniciado por administración':item.details?.source?.startsWith('recovered_file')?`Archivo recuperado confirmado · ${item.document_id||'Documento'}`:`Lectura confirmada · ${item.document_id||'Documento'}`;
       const date=new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'});
       return `<li style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:11px 0;border-top:1px solid #ddd1ba;font:13px var(--serif)"><strong>${title}</strong><small style="font:9px var(--mono);color:#7e1b19;white-space:nowrap">${date}</small></li>`;
     }).join('');
@@ -3790,6 +3818,7 @@ const renderAdminActivity=async userId=>{
       if(kind==='push_channel_declined')return'Canal de comunicaciones rechazado';
       if(kind==='folder_unlocked')return`Carpeta desbloqueada · ${item.document_id||'Archivo recuperado'}`;
       if(kind==='supplementary_archive_unlocked')return`Archivo complementario desbloqueado · ${item.document_id||'AC-01'}`;
+      if(kind==='device_clone_unlocked')return'Dispositivo clonado desbloqueado · SM-G991B';
       if(kind==='document_unlocked')return`Documento desbloqueado · ${item.document_id||'Documento'}`;
       if(kind==='final_closure_started')return'Protocolo de cierre iniciado';
       if(kind==='expedient_completed')return'Expediente cerrado correctamente';
