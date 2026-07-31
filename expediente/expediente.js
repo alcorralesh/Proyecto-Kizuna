@@ -809,9 +809,9 @@ setTimeout(()=>{
     // recibir los clics mientras el cierre de KTB-014 está en curso.
     viewer.appendChild(warning);
     warning.querySelector('[data-final-stay]').onclick=()=>warning.remove();
-    warning.querySelector('[data-final-leave]').onclick=()=>{warning.remove();finalSequenceActive=false;finalPopupPending=false;viewer.close();render()};
+    warning.querySelector('[data-final-leave]').onclick=()=>{warning.remove();finalSequenceActive=false;finalPopupPending=false;closeViewerAndFocusPending()};
   };
-  const handleReaderClose=async()=>{if(viewer.classList.contains('is-reader-fullscreen')||document.fullscreenElement===viewer){await exitReaderFullscreen();return}if(finalFlowPending()&&active==='KTB-014'){showFinalExitWarning();return}viewer.close()};
+  const handleReaderClose=async()=>{if(viewer.classList.contains('is-reader-fullscreen')||document.fullscreenElement===viewer){await exitReaderFullscreen();return}if(finalFlowPending()&&active==='KTB-014'){showFinalExitWarning();return}closeViewerAndFocusPending()};
   window.addEventListener('beforeunload',event=>{if(!finalFlowPending())return;event.preventDefault();event.returnValue=''});
   const openGuaranteedFinalAlert=()=>{
     if(!finalClosureAuthorized()){discardStaleFinalFlowUi();return}
@@ -1017,19 +1017,19 @@ setTimeout(()=>{
       mark.disabled=false;
       mark.textContent='Lectura confirmada';
     }
-    if(alreadyRead){viewer.close();render();return}
+    if(alreadyRead){closeViewerAndFocusPending();return}
     if(id.startsWith('AR'))void recordActivity('document_confirmed',id,{source:'recovered_file'}).catch(error=>console.warn('No se pudo registrar la actividad.',error));
     if(id.startsWith('AR03-')){if(ar03Complete())openAr03();else if(id==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(id.startsWith('AR03-C-')?'cities':'temples');return}
     if(readerReturnToFolder){readerBackFolder.click();return}
     const parent=fileFolder(id);
     if(parent){openFolder(parent);return}
     if(id.startsWith('KTB-')){
-      syncKtb(id,()=>{if(id==='KTB-014')startFinale();else{viewer.close();render()}});
+      syncKtb(id,()=>{if(id==='KTB-014')startFinale();else closeViewerAndFocusPending()});
       void recordActivity('document_confirmed',id,{source:'recipient_consultation'}).catch(error=>console.warn('No se pudo registrar la actividad.',error));
       if(id==='KTB-014')void recordActivity('final_closure_started',id,{source:'recipient_consultation',closure_stage:'verification'});
       return;
     }
-    viewer.close();render();
+    closeViewerAndFocusPending();
   };
 },0);
 const progressKeys=[...Array.from({length:14},(_,i)=>`KTB-${String(i+1).padStart(3,'0')}`),...Object.values(folders).flatMap(folder=>folder.files.map(file=>file.id)),'AR03-CARTA',...ar03Cities.map((_,i)=>`AR03-C-${i}`),...ar03Temples.map((_,i)=>`AR03-T-${i}`),...ar01Tickets.map(ticket=>ticket.id),'AR06-PROTOCOL'];
@@ -1071,6 +1071,15 @@ const folderCardProgressMarkup=(id,done)=>{
   return `<div class="folder-card-progress ${progress.updateRead?'is-complete':progress.readCount?'is-started':''}" aria-label="${progress.readCount} de ${progress.total} documentos leídos. ${progress.detail.toLowerCase()}"><div><span><b>${progress.readCount}</b> de ${progress.total} leídos</span><strong>${progress.detail}</strong></div><i aria-hidden="true"><b style="width:${progress.percent}%"></b></i></div>`;
 };
 const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='';
+const closeViewerAndFocusPending=()=>{
+  const focusPending=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>render({focusNext:true})));
+  if(!viewer.open){focusPending();return}
+  // Chrome Android restaura el scroll de la página al terminar de cerrar el
+  // dialog. Esperamos al cierre real para que esa restauración no anule el
+  // desplazamiento hacia el siguiente elemento del expediente.
+  viewer.addEventListener('close',focusPending,{once:true});
+  viewer.close();
+};
 let pendingCollectionAdvance=null;
 const queueCollectionAdvance=(id,done)=>{
   if(ar01Tickets.some(ticket=>ticket.id===id)){
@@ -1311,8 +1320,7 @@ const showRecoveredDeviceExitPrompt=()=>{
   prompt.querySelector('[data-device-exit="continue"]').onclick=closeRecoveredDeviceExitPrompt;
   prompt.querySelector('[data-device-exit="abandon"]').onclick=()=>{
     closeRecoveredDeviceExitPrompt();
-    viewer.close();
-    render();
+    closeViewerAndFocusPending();
   };
   prompt.querySelector('[data-device-exit="continue"]').focus();
 };
@@ -1611,7 +1619,7 @@ const enhanceDocumentImages=()=>{
   syncReaderChrome();
 };
 document.addEventListener('fullscreenchange',()=>setReaderFullscreenState(document.fullscreenElement===viewer));
-readerBackExpedient.onclick=()=>{viewer.close();render()};
+readerBackExpedient.onclick=closeViewerAndFocusPending;
 readerBackFolder.onclick=()=>{if(readerReturnToFolder==='tickets')openTicketMosaic();else if(readerReturnToFolder==='cities'||readerReturnToFolder==='temples')openAr03Mosaic(readerReturnToFolder);else if(readerReturnToFolder==='AR-03')openAr03();else if(readerReturnToFolder)openFolder(readerReturnToFolder)};
 viewer.addEventListener('close',()=>{closeReaderShare();readerSharePrepared=null;readerSharePreparing=null;clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery','is-recovered-device');readerReturnToFolder=null;readerCanConfirm=false;readerChromeActive='';comicPrevious.hidden=true;comicFollowing.hidden=true;const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');paper.classList.remove('is-ac-info-paper');body.classList.remove('is-ac-info');paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin='';delete body.dataset.comicPage;delete body.dataset.comicPages;if(viewer.classList.contains('is-fallback-fullscreen')){viewer.classList.remove('is-fallback-fullscreen');document.body.style.overflow=readerPreviousBodyOverflow}if(document.fullscreenElement===viewer)document.exitFullscreen();setReaderFullscreenState(false)});
 const documentImageObserver=new MutationObserver(()=>enhanceDocumentImages());documentImageObserver.observe(document.querySelector('#doc-body'),{childList:true});document.addEventListener('keydown',event=>{if(!viewer.open)return;if(event.key==='ArrowLeft'&&!comicPrevious.hidden&&!comicPrevious.disabled){event.preventDefault();comicPrevious.click()}if(event.key==='ArrowRight'&&!comicFollowing.hidden&&!comicFollowing.disabled){event.preventDefault();comicFollowing.click()}});
@@ -1953,7 +1961,35 @@ function render(options={}){
       if(!card)return;
       const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
       const phone=matchMedia('(max-width:600px)').matches;
-      card.scrollIntoView({behavior:reduced?'auto':'smooth',block:'center'});
+      const moveToPendingCard=behavior=>{
+        if(!card.isConnected)return;
+        card.scrollIntoView({behavior,block:'center',inline:'nearest'});
+      };
+      const pendingCardIsVisible=()=>{
+        if(!card.isConnected)return true;
+        const rect=card.getBoundingClientRect();
+        const viewportHeight=window.visualViewport?.height||window.innerHeight;
+        const headerBottom=privateHeader?.getBoundingClientRect().bottom||0;
+        const visibleTop=Math.max(0,headerBottom)+12;
+        const visibleBottom=viewportHeight-12;
+        const cardAnchor=rect.top+Math.min(rect.height,Math.max(1,visibleBottom-visibleTop))/2;
+        return cardAnchor>=visibleTop&&cardAnchor<=visibleBottom;
+      };
+      moveToPendingCard(reduced?'auto':'smooth');
+      // Al cerrar un <dialog> en iOS/Chrome Android, el navegador puede
+      // restaurar un instante después la posición que tenía la página antes
+      // de abrir el visor. Repetimos la localización una vez liberada esa capa
+      // y hacemos una última comprobación tras estabilizarse el viewport.
+      setTimeout(()=>moveToPendingCard(reduced?'auto':'smooth'),phone?180:70);
+      setTimeout(()=>{
+        if(!pendingCardIsVisible())moveToPendingCard(reduced?'auto':'smooth');
+      },phone?620:260);
+      if(phone&&window.visualViewport){
+        window.visualViewport.addEventListener('resize',()=>moveToPendingCard(reduced?'auto':'smooth'),{once:true});
+      }
+      setTimeout(()=>{
+        if(!pendingCardIsVisible())moveToPendingCard('auto');
+      },phone?1150:420);
       // En teléfono la lista es de una sola columna y el desplazamiento suele
       // ser más largo. Esperamos a que termine para que el destello no ocurra
       // fuera de pantalla mientras la tarjeta todavía se está moviendo.
@@ -2105,7 +2141,7 @@ const openRecoveredFolder=id=>{clearRecoveryTimers();viewer.classList.remove('is
 const showRecoveredFolderReady=(id,state)=>{document.querySelector('#doc-title').textContent='Carpeta recuperada';document.querySelector('#doc-body').innerHTML=`<section class="recovery-ready recovery-folder-ready"><div class="recovery-ready-symbol">▱</div><p class="recovery-kicker">CARPETA RECUPERADA</p><h3>${id}</h3><p class="recovery-ready-name">${state.title}</p><dl><div><dt>DOCUMENTOS LOCALIZADOS</dt><dd>${state.total}</dd></div><div><dt>DOCUMENTOS CONSULTADOS</dt><dd>${state.seen}</dd></div><div><dt>ESTADO</dt><dd>Disponible para consulta</dd></div></dl><div class="recovery-final-stamp">ÍNDICE RECUPERADO</div><button type="button" id="open-recovered-folder">Abrir carpeta →</button></section>`;document.querySelector('#open-recovered-folder').onclick=()=>openRecoveredFolder(id)};
 function folderRecoveryScreen(id){const state=folderRecoveryState(id),node=randomArchiveNode();prepareRecoveryView(id,state.seen?'Consultando carpeta':'Recuperación de carpeta','DIVISIÓN DE ARCHIVOS TEMPORALES / ÍNDICE DE ARCHIVO');if(state.seen){const heading=state.complete?'Carpeta completada':'Índice recuperado',message=state.complete?'Abriendo archivo histórico…':'Restaurando última posición…';document.querySelector('#doc-body').innerHTML=`<section class="recovery-quick recovery-folder-quick"><div class="recovery-quick-icon">${state.complete?'✓':'↻'}</div><p>CONSULTA DE CARPETA</p><h3>${id}</h3><strong>${heading}</strong><span>${state.seen} de ${state.total} documentos consultados</span><span>${message}</span><small>NODO · ${node}</small></section>`;recoveryLater(()=>openRecoveredFolder(id),1450);return}const steps=['Localizando índice autorizado','Validando permisos de consulta','Catalogando documentos internos','Reconstruyendo estructura de la carpeta'];document.querySelector('#doc-body').innerHTML=`<section class="archive-recovery archive-folder-recovery"><header><div><p>RECUPERACIÓN DE CARPETA</p><h3>${id}</h3><small>${state.title}</small></div><span>NODO DE ARCHIVO<strong>${node}</strong></span></header>${recoveryStepsMarkup(steps)}<div class="recovery-progress"><div><i class="recovery-progress-fill"></i></div><strong class="recovery-progress-value">0 %</strong></div><p class="recovery-live" aria-live="polite">Solicitud de índice recibida…</p></section>`;setRecoveryPhase(0,7,'Localizando índice autorizado…');recoveryLater(()=>setRecoveryPhase(1,29,'Índice localizado. Validando permisos…'),650);recoveryLater(()=>setRecoveryPhase(2,57,`Permisos confirmados. Catalogando ${state.total} registros…`),1350);recoveryLater(()=>setRecoveryPhase(3,84,'Reconstruyendo estructura de la carpeta…'),2150);recoveryLater(()=>{setRecoveryPhase(4,100,'Carpeta recuperada.');recoveryLater(()=>showRecoveredFolderReady(id,state),500)},3050)}
 const warningReadList=()=>Array.from({length:11},(_,index)=>`<li><span>✓</span>KTB-${String(index+1).padStart(3,'0')}</li>`).join('');
-const renderArchiveWarning=(code,title,onAccept)=>{prepareRecoveryView(code,title,'DIVISIÓN DE ARCHIVOS TEMPORALES / ADVERTENCIA DE ACCESO');document.querySelector('#doc-body').innerHTML=`<section class="archive-warning"><header><div><p>ADVERTENCIA DE ACCESO</p><h3>Contenido recuperado<br><em>fuera del expediente original.</em></h3></div><div class="warning-seal">ACCESO<br>CONTROLADO</div></header><p>Los archivos que va a consultar proceden de una extracción parcial realizada sobre un dispositivo asociado al destinatario.</p><div class="warning-risks"><strong>Los registros pueden contener:</strong><ul><li>Fragmentos incompletos</li><li>Errores de recuperación</li><li>Alteraciones en los metadatos</li><li>Información no catalogada</li></ul></div><section><div><p>LECTURAS PREVIAS VERIFICADAS</p><ul class="warning-read-list">${warningReadList()}</ul></div><dl><div><dt>ARCHIVO RECUPERADO</dt><dd>${code.replace('KTB-','')}</dd></div><div><dt>INTEGRIDAD ESTIMADA</dt><dd>68 %</dd></div><div><dt>ESTADO</dt><dd>Acceso autorizado</dd></div></dl></section><label class="warning-consent"><input id="archive-warning-confirm" type="checkbox"><span>Comprendo el origen de estos archivos y deseo continuar.</span></label><footer><button type="button" id="archive-warning-cancel">Volver al expediente</button><button type="button" id="archive-warning-accept" disabled>Aceptar y continuar →</button></footer></section>`;const checkbox=document.querySelector('#archive-warning-confirm'),accept=document.querySelector('#archive-warning-accept');checkbox.onchange=()=>accept.disabled=!checkbox.checked;document.querySelector('#archive-warning-cancel').onclick=()=>viewer.close();accept.onclick=()=>onAccept(accept)};
+const renderArchiveWarning=(code,title,onAccept)=>{prepareRecoveryView(code,title,'DIVISIÓN DE ARCHIVOS TEMPORALES / ADVERTENCIA DE ACCESO');document.querySelector('#doc-body').innerHTML=`<section class="archive-warning"><header><div><p>ADVERTENCIA DE ACCESO</p><h3>Contenido recuperado<br><em>fuera del expediente original.</em></h3></div><div class="warning-seal">ACCESO<br>CONTROLADO</div></header><p>Los archivos que va a consultar proceden de una extracción parcial realizada sobre un dispositivo asociado al destinatario.</p><div class="warning-risks"><strong>Los registros pueden contener:</strong><ul><li>Fragmentos incompletos</li><li>Errores de recuperación</li><li>Alteraciones en los metadatos</li><li>Información no catalogada</li></ul></div><section><div><p>LECTURAS PREVIAS VERIFICADAS</p><ul class="warning-read-list">${warningReadList()}</ul></div><dl><div><dt>ARCHIVO RECUPERADO</dt><dd>${code.replace('KTB-','')}</dd></div><div><dt>INTEGRIDAD ESTIMADA</dt><dd>68 %</dd></div><div><dt>ESTADO</dt><dd>Acceso autorizado</dd></div></dl></section><label class="warning-consent"><input id="archive-warning-confirm" type="checkbox"><span>Comprendo el origen de estos archivos y deseo continuar.</span></label><footer><button type="button" id="archive-warning-cancel">Volver al expediente</button><button type="button" id="archive-warning-accept" disabled>Aceptar y continuar →</button></footer></section>`;const checkbox=document.querySelector('#archive-warning-confirm'),accept=document.querySelector('#archive-warning-accept');checkbox.onchange=()=>accept.disabled=!checkbox.checked;document.querySelector('#archive-warning-cancel').onclick=closeViewerAndFocusPending;accept.onclick=()=>onAccept(accept)};
 function openAr06Protocol(){renderArchiveWarning('AR-06','Autorización de acceso',button=>startAr06Recovery(button))}
 async function startAr06Recovery(button){try{if(!read().includes('AR06-PROTOCOL')){await persistReadMarker('AR06-PROTOCOL',button,{pendingLabel:'Autorizando acceso…'});void recordActivity('document_confirmed','AR06-PROTOCOL',{source:'recovered_file_protocol'}).catch(error=>console.warn('No se pudo registrar la actividad de AR-06.',error))}folderRecoveryScreen('AR-06')}catch(error){console.error('No se pudo autorizar el acceso a AR-06.',error)}}
 function showDoc(id){clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery');document.querySelector('.stamp').style.display='block';if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'){openAr03();return}if(folders[id]){openFolder(id);return}active=id;next.style.display='inline-block';mark.style.display='inline-block';const [title,...paras]=textFor(id);document.querySelector('#doc-type').textContent=isFolder(id)?'CARPETA DE ARCHIVOS RECUPERADOS / ACCESO AUTORIZADO':'DIVISIÓN DE ARCHIVOS TEMPORALES / ACCESO AUTORIZADO';document.querySelector('#doc-title').textContent=documentImages.has(id)?'Documento recuperado':title;document.querySelector('#doc-body').innerHTML=documentImages.has(id)?`<img style="display:block;width:100%;height:auto" src="../assets/documents/${id}.png" alt="Documento ${id}">`:paras.map(text=>`<p>${text}</p>`).join('')+(id==='KTB-014'?'<p><strong>EXPEDIENTE CERRADO<br>ARCHIVADO DEFINITIVAMENTE</strong></p>':'');mark.textContent=read().includes(id)?'Volver al expediente':isFolder(id)?'Cerrar carpeta y autorizar siguiente fase':window.KizunaMicroevents?.labelFor?.(id)||'Confirmar lectura';if(!viewer.open)viewer.showModal()}
@@ -2123,7 +2159,7 @@ function openAlt00Record(){
     assetBase:'../',
     startPage:Math.max(1,Math.min(10,Number(state.alt00LastPage)||1)),
     onSecretState:persistPrivateAlt00State,
-    onClose:()=>render()
+    onClose:()=>render({focusNext:true})
   });
 }
 function openAcInfo(){
@@ -2142,7 +2178,7 @@ function openAcInfo(){
   const open=document.querySelector('#ac-open-record');
   if(open)open.onclick=()=>openComicViewer(1);
 }
-function openComicViewer(page){const pages=Array.from({length:11},(_,i)=>`KTB-${String(i+4).padStart(3,'0')}`).filter(id=>read().includes(id)).length;if(!pages){openAcInfo();return}page=Math.min(Math.max(1,page),pages);active='AC-01';next.style.display='none';mark.style.display='none';const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');paper.style.width='min(1120px,calc(100% - 34px))';paper.style.maxWidth='1120px';paper.style.padding='42px';body.style.maxWidth='900px';body.style.margin='0 auto';document.querySelector('#doc-type').textContent='KIZUNA · DIVISIÓN DE ARCHIVOS TEMPORALES';document.querySelector('#doc-title').textContent='ARCHIVO COMPLEMENTARIO AC-01';document.querySelector('#doc-body').innerHTML=`<img src="../assets/documents/AC-01/Pagina-${page}.png" alt="Página ${page} del registro ilustrado" style="display:block;width:100%;height:auto;border:1px solid #8b887d"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px"><button id="comic-prev" ${page===1?'disabled':''}>← Página anterior</button><strong style="font:12px var(--mono)">PÁGINA ${page} / ${pages}<br><span style="font-size:9px;color:#7e1b19">${pages} DE 11 RECUPERADAS</span></strong><button id="comic-next" ${page===pages?'disabled':''}>Página siguiente →</button></div><button id="comic-back" style="margin-top:18px;background:#7e1b19;color:#fff;border:0;padding:14px 18px;font:11px var(--mono);cursor:pointer">Regresar al expediente</button>`;document.querySelector('#comic-prev').onclick=()=>openComicViewer(page-1);document.querySelector('#comic-next').onclick=()=>openComicViewer(page+1);document.querySelector('#comic-back').onclick=()=>{paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin='';viewer.close()};if(!viewer.open)viewer.showModal()}
+function openComicViewer(page){const pages=Array.from({length:11},(_,i)=>`KTB-${String(i+4).padStart(3,'0')}`).filter(id=>read().includes(id)).length;if(!pages){openAcInfo();return}page=Math.min(Math.max(1,page),pages);active='AC-01';next.style.display='none';mark.style.display='none';const paper=document.querySelector('.paper'),body=document.querySelector('#doc-body');paper.style.width='min(1120px,calc(100% - 34px))';paper.style.maxWidth='1120px';paper.style.padding='42px';body.style.maxWidth='900px';body.style.margin='0 auto';document.querySelector('#doc-type').textContent='KIZUNA · DIVISIÓN DE ARCHIVOS TEMPORALES';document.querySelector('#doc-title').textContent='ARCHIVO COMPLEMENTARIO AC-01';document.querySelector('#doc-body').innerHTML=`<img src="../assets/documents/AC-01/Pagina-${page}.png" alt="Página ${page} del registro ilustrado" style="display:block;width:100%;height:auto;border:1px solid #8b887d"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px"><button id="comic-prev" ${page===1?'disabled':''}>← Página anterior</button><strong style="font:12px var(--mono)">PÁGINA ${page} / ${pages}<br><span style="font-size:9px;color:#7e1b19">${pages} DE 11 RECUPERADAS</span></strong><button id="comic-next" ${page===pages?'disabled':''}>Página siguiente →</button></div><button id="comic-back" style="margin-top:18px;background:#7e1b19;color:#fff;border:0;padding:14px 18px;font:11px var(--mono);cursor:pointer">Regresar al expediente</button>`;document.querySelector('#comic-prev').onclick=()=>openComicViewer(page-1);document.querySelector('#comic-next').onclick=()=>openComicViewer(page+1);document.querySelector('#comic-back').onclick=()=>{paper.style.width='';paper.style.maxWidth='';paper.style.padding='';body.style.maxWidth='';body.style.margin='';closeViewerAndFocusPending()};if(!viewer.open)viewer.showModal()}
 const confirmationFolderAfter=id=>{
   const index=sequence.indexOf(id),candidate=sequence[index+1];
   return candidate&&isFolder(candidate)?candidate:null;
@@ -2287,7 +2323,7 @@ function resumeFinalFlow(){
   }
 }
 function showFinalLogo(){document.querySelector('#doc-type').textContent='';document.querySelector('#doc-title').textContent='KIZUNA';document.querySelector('#doc-body').innerHTML='<img style="display:block;width:130px;margin:0 auto 18px;border-radius:50%" src="../assets/kizuna-logo-official.png" alt="Kizuna Travel Bureau"><p style="text-align:center;font-size:20px">TRAVEL BUREAU</p><p style="text-align:center;margin-top:70px">Porque los mejores recuerdos nunca pertenecieron a un expediente. Siempre te pertenecieron a ti.</p>'}
-document.querySelector('#gate-consent').onchange=event=>document.querySelector('#gate-continue').disabled=!event.target.checked;document.querySelector('#gate-continue').onclick=()=>{patchState({legalAccepted:true});gate.hidden=true;dash.hidden=false;render()};document.querySelector('#access-form').onsubmit=event=>{event.preventDefault();const username=document.querySelector('#username').value.trim().toLowerCase(),password=document.querySelector('#password').value;if(username!=='jose.cuadrado'||password!=='kizuna2026')message.textContent='No se han podido verificar las credenciales de acceso.';else openDashboard()};document.querySelector('#exit').onclick=()=>{location.href='../index.html'};readerCloseButton.onclick=async()=>{if(viewer.classList.contains('is-reader-fullscreen')||document.fullscreenElement===viewer)await exitReaderFullscreen();else viewer.close()};mark.onclick=async()=>{if(active==='FINAL-01'){if(finalFileRead())return;mark.disabled=true;mark.textContent='Registrando lectura…';try{await showFinalPublicTransition()}catch(error){console.error('No se pudo registrar la lectura de FINAL-01.',error);mark.disabled=false;mark.textContent='Confirmar lectura'}return}const done=read();if(!done.includes(active)){done.push(active);active==='KTB-014'?withKtb14ReadMutation(()=>save(done)):save(done)}if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}const parent=fileFolder(active);if(parent){openFolder(parent);return}if(active.startsWith('KTB-')){const id=active;syncKtb(id,()=>{if(id==='KTB-014')startFinale();else{viewer.close();render()}});return}viewer.close();render()};next.onclick=()=>{const index=sequence.indexOf(active);if(index<sequence.length-1&&allowed(sequence[index+1]))openDoc(sequence[index+1])};
+document.querySelector('#gate-consent').onchange=event=>document.querySelector('#gate-continue').disabled=!event.target.checked;document.querySelector('#gate-continue').onclick=()=>{patchState({legalAccepted:true});gate.hidden=true;dash.hidden=false;render()};document.querySelector('#access-form').onsubmit=event=>{event.preventDefault();const username=document.querySelector('#username').value.trim().toLowerCase(),password=document.querySelector('#password').value;if(username!=='jose.cuadrado'||password!=='kizuna2026')message.textContent='No se han podido verificar las credenciales de acceso.';else openDashboard()};document.querySelector('#exit').onclick=()=>{location.href='../index.html'};readerCloseButton.onclick=async()=>{if(viewer.classList.contains('is-reader-fullscreen')||document.fullscreenElement===viewer)await exitReaderFullscreen();else closeViewerAndFocusPending()};mark.onclick=async()=>{if(active==='FINAL-01'){if(finalFileRead())return;mark.disabled=true;mark.textContent='Registrando lectura…';try{await showFinalPublicTransition()}catch(error){console.error('No se pudo registrar la lectura de FINAL-01.',error);mark.disabled=false;mark.textContent='Confirmar lectura'}return}const done=read();if(!done.includes(active)){done.push(active);active==='KTB-014'?withKtb14ReadMutation(()=>save(done)):save(done)}if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}const parent=fileFolder(active);if(parent){openFolder(parent);return}if(active.startsWith('KTB-')){const id=active;syncKtb(id,()=>{if(id==='KTB-014')startFinale();else closeViewerAndFocusPending()});return}closeViewerAndFocusPending()};next.onclick=()=>{const index=sequence.indexOf(active);if(index<sequence.length-1&&allowed(sequence[index+1]))openDoc(sequence[index+1])};
 
 document.querySelector('#gate-continue').onclick=async()=>{
   await patchState({legalAccepted:true,legalAcceptedAt:new Date().toISOString(),legalVersion:Number(getState().legalVersion||1)});
@@ -4033,14 +4069,21 @@ if(readerLayerNavigation){
     else if(readerReturnToFolder==='cities'||readerReturnToFolder==='temples')openAr03Mosaic(readerReturnToFolder);
     else if(readerReturnToFolder==='AR-03')openAr03();
     else if(readerReturnToFolder)openFolder(readerReturnToFolder);
-    else if(viewer.open)viewer.close();
+    else if(viewer.open)closeViewerAndFocusPending()
   };
   const closeReaderFromHistory=()=>{
     readerBaseLayerToken=null;
     closingReaderProgrammatically=true;
-    if(viewer.open)viewer.close();
-    render();
-    closingReaderProgrammatically=false;
+    if(viewer.open){
+      viewer.addEventListener('close',()=>{
+        closingReaderProgrammatically=false;
+        requestAnimationFrame(()=>requestAnimationFrame(()=>render({focusNext:true})));
+      },{once:true});
+      viewer.close();
+    }else{
+      closingReaderProgrammatically=false;
+      requestAnimationFrame(()=>requestAnimationFrame(()=>render({focusNext:true})));
+    }
   };
   const ensureReaderBaseLayer=()=>{
     if(readerBaseLayerToken||!viewer.open)return;
@@ -4077,9 +4120,16 @@ if(readerLayerNavigation){
     readerBaseLayerToken=null;
     readerFullscreenLayerToken=null;
     readerContentLayerTokens.length=0;
-    if(viewer.open)viewer.close();
-    render();
-    closingReaderProgrammatically=false;
+    if(viewer.open){
+      viewer.addEventListener('close',()=>{
+        closingReaderProgrammatically=false;
+        requestAnimationFrame(()=>requestAnimationFrame(()=>render({focusNext:true})));
+      },{once:true});
+      viewer.close();
+    }else{
+      closingReaderProgrammatically=false;
+      requestAnimationFrame(()=>requestAnimationFrame(()=>render({focusNext:true})));
+    }
   };
   const syncReaderFullscreenLayer=()=>{
     const fullscreenActive=document.fullscreenElement===viewer||viewer.classList.contains('is-fallback-fullscreen')||viewer.classList.contains('is-reader-fullscreen');
