@@ -1868,6 +1868,8 @@ function updateCompletionHeader(){document.querySelector('.case-head')?.classLis
 let pendingFinalAlertTimer=0;
 let acRevealTimers=[];
 const clearAcRevealTimers=()=>{acRevealTimers.forEach(clearTimeout);acRevealTimers=[]};
+let unlockPresentationTimers=[];
+const clearUnlockPresentationTimers=()=>{unlockPresentationTimers.forEach(clearTimeout);unlockPresentationTimers=[]};
 function revealComicCard(card,{scroll=true}={}){
   if(!card)return;
   clearAcRevealTimers();
@@ -1918,6 +1920,7 @@ const locateUnlockedAccess=(id,{focus=true}={})=>{
   setTimeout(()=>card?.classList.remove('is-new-unlock-located'),2200);
 };
 function render(options={}){
+  clearUnlockPresentationTimers();
   const done=read(),visible=sequence.filter(id=>!nestedKtb.has(id));
   const confirmedId=pendingConfirmationId(options);
   const completed=sequence.filter(id=>done.includes(id)).length;
@@ -1950,8 +1953,8 @@ function render(options={}){
   const noticeUnlocks=newUnlocks;
   const stageLabels={verification:'VERIFICACIÓN FINAL EN CURSO',summary:'VERIFICACIÓN FINAL EN CURSO',complete:'VERIFICACIÓN FINAL EN CURSO',interrupted:'CIERRE BLOQUEADO · FINAL-01 PENDIENTE'};
   const resumeBanner=pending?`<section class="final-flow-resume"><div><p>CIERRE OBLIGATORIO EN CURSO</p><h3>El expediente todavía no está archivado.</h3><span>${stageLabels[stage]||stageLabels.verification}. Continúa desde el punto guardado.</span></div><button type="button" data-final-resume>Continuar cierre →</button></section>`:'';
-  const unlockNoticeItems=noticeUnlocks.map((id,index)=>{const meta=unlockNoticeMeta(id);return`<button type="button" class="new-unlock-access ${meta.kind}" data-unlock-target="${id}" data-unlock-kind="${meta.kind.includes('primary')?'primary':meta.kind.includes('device')?'device':'secondary'}"><span class="new-unlock-access-index">${String(index+1).padStart(2,'0')}</span><span class="new-unlock-access-copy"><small>${meta.eyebrow}</small><strong>${meta.title}</strong><em>${meta.detail}</em></span><span class="new-unlock-access-action">${meta.action} <b>↓</b></span></button>`}).join('');
-  const newUnlockNotice=noticeUnlocks.length?`<section class="new-unlock-notice ${noticeUnlocks.length>1?'is-multiple':''}" role="status" aria-live="polite" aria-atomic="true"><header class="new-unlock-summary"><div><p>${noticeUnlocks.length>1?'NUEVOS ACCESOS AUTORIZADOS':'NUEVO ACCESO AUTORIZADO'}</p><h3>${noticeUnlocks.length>1?`${noticeUnlocks.length} accesos incorporados`:unlockNoticeMeta(noticeUnlocks[0]).title}</h3><span>${noticeUnlocks.length>1?'La secuencia principal y un hallazgo asociado ya están disponibles.':'La secuencia del expediente se ha actualizado.'}</span></div><button type="button" class="new-unlock-dismiss" aria-label="Cerrar aviso">×</button></header><div class="new-unlock-access-list">${unlockNoticeItems}</div></section>`:'';
+  const unlockNoticeNames=noticeUnlocks.map(id=>unlockNoticeMeta(id).title).join(' · ');
+  const newUnlockNotice=noticeUnlocks.length?`<section class="new-unlock-notice ${noticeUnlocks.length>1?'is-multiple':''}" data-unlock-ids="${noticeUnlocks.join(' ')}" role="status" aria-live="polite" aria-atomic="true"><i aria-hidden="true"></i><div><p>${noticeUnlocks.length>1?'EXPEDIENTE ACTUALIZADO':'NUEVO ACCESO AUTORIZADO'}</p><h3>${noticeUnlocks.length>1?`${noticeUnlocks.length} nuevos accesos`:unlockNoticeMeta(noticeUnlocks[0]).title}</h3><span>${noticeUnlocks.length>1?unlockNoticeNames:'La secuencia ya está disponible para continuar.'}</span></div></section>`:'';
   const comicPageBar=Array.from({length:11},(_,index)=>`<i class="${index<comicPages?'is-recovered':''}" aria-hidden="true"><span>${String(index+1).padStart(2,'0')}</span></i>`).join('');
   const alt00Discovered=Boolean(getState().alt00Discovered);
   const alt00PageBar=Array.from({length:10},(_,index)=>`<i class="is-recovered" aria-hidden="true"><span>${String(index+1).padStart(2,'0')}</span></i>`).join('');
@@ -2004,17 +2007,19 @@ function render(options={}){
       if(card.matches('[data-document-id="AC-01"].is-ac-reveal'))revealComicCard(card,{scroll:newUnlocks.length===1});
       else card.classList.add('is-new-unlock-visible');
     }));
-    document.querySelectorAll('[data-unlock-target]').forEach(button=>button.onclick=()=>{
-      clearPendingConfirmation(confirmedId);
-      locateUnlockedAccess(button.dataset.unlockTarget);
-    });
-    document.querySelector('.new-unlock-dismiss')?.addEventListener('click',event=>{
-      const notice=event.currentTarget.closest('.new-unlock-notice');
-      const primary=notice?.querySelector('[data-unlock-kind="primary"]')?.dataset.unlockTarget;
-      clearPendingConfirmation(confirmedId);
-      notice?.remove();
-      if(primary)locateUnlockedAccess(primary,{focus:false});
-    });
+    const notice=document.querySelector('.new-unlock-notice');
+    if(notice){
+      unlockPresentationTimers.push(setTimeout(()=>notice.isConnected&&notice.classList.add('is-leaving'),4200));
+      unlockPresentationTimers.push(setTimeout(()=>notice.remove(),4700));
+    }
+    // focusNext ya conduce al siguiente acceso de la secuencia principal. Si
+    // la lectura también revela un hallazgo asociado, lo presentamos después
+    // para que ambos cambios se entiendan sin exigir botones en el aviso.
+    if(newUnlocks.length>1){
+      const secondaryUnlock=newUnlocks.find(id=>id==='AC-01'||id==='AR06-DEVICE')||newUnlocks[1];
+      unlockPresentationTimers.push(setTimeout(()=>locateUnlockedAccess(secondaryUnlock,{focus:false}),2800));
+    }
+    unlockPresentationTimers.push(setTimeout(()=>clearPendingConfirmation(confirmedId),4800));
   }else if(confirmedId&&canPresentUnlocks){
     clearPendingConfirmation(confirmedId);
   }
@@ -4066,7 +4071,7 @@ const soundObserver=new MutationObserver(records=>{
   for(const record of records)for(const node of record.addedNodes){if(!(node instanceof Element))continue;
     if(node.matches?.('#final-file-alert')||node.querySelector?.('#final-file-alert'))playKizunaSound('unexpected_file',{exclusive:true,vibrate:[30,40,30]});
     if(node.matches?.('.alberto-message-alert,.alberto-notice')||node.querySelector?.('.alberto-message-alert,.alberto-notice'))playKizunaSound('alberto_message',{exclusive:true});
-    if(node.matches?.('.new-unlock-notice')||node.querySelector?.('.new-unlock-notice')){const folder=Boolean(document.querySelector('.new-unlock-notice [data-unlock-target^="AR-"]'));playKizunaSound(folder?'folder_unlocked':'document_unlocked',{exclusive:true,vibrate:[25,35,25]});setTimeout(()=>playKizunaSound('card_highlight'),650)}
+    if(node.matches?.('.new-unlock-notice')||node.querySelector?.('.new-unlock-notice')){const notice=document.querySelector('.new-unlock-notice'),folder=String(notice?.dataset.unlockIds||'').split(/\s+/).some(id=>isFolder(id));playKizunaSound(folder?'folder_unlocked':'document_unlocked',{exclusive:true,vibrate:[25,35,25]});setTimeout(()=>playKizunaSound('card_highlight'),650)}
     if(node.matches?.('#confirmation-event.confirmation-event-page')||node.querySelector?.('#confirmation-event.confirmation-event-page'))setTimeout(()=>playKizunaSound('comic_page_recovered'),2200);
     if(node.matches?.('.final-closed')||node.querySelector?.('.final-closed'))setTimeout(()=>playKizunaSound('expedient_closed',{exclusive:true,vibrate:[35,45,70]}),2500);
   }
