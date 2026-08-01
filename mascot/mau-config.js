@@ -1,4 +1,4 @@
-export const MAU_CONFIG = Object.freeze({
+const MAU_CONFIG = Object.freeze({
   enabled: true,
   triggerProgress: 0.3,
   minimumPageAge: 8000,
@@ -31,6 +31,7 @@ export const MAU_CONFIG = Object.freeze({
   dialogue: Object.freeze({
     albertoChance: 0.3,
     residualChance: 0.5,
+    contextualChance: 0.7,
     general: Object.freeze([
       'Solo estaba comprobando que esta línea temporal siguiera en su sitio.',
       'Todo parece estar donde debería.',
@@ -101,6 +102,28 @@ export const MAU_CONFIG = Object.freeze({
       'Alberto confió en que llegarías al final. Yo también.'
     ])
   }),
+  albertoFlow: Object.freeze({
+    messagePrompt: 'Jose… Alberto ha dejado algo importante para ti. No hay prisa, pero creo que deberías verlo.',
+    physicalPrompt: 'Ahora toca salir un momento de la pantalla. Busca el sobre que guardas en tu carpeta.',
+    responseReminder: 'Alberto ya ha dicho lo que necesitaba decir. Ahora la decisión es tuya.',
+    decision: 'Piénsalo con calma. Esta decisión cerrará el expediente.',
+    deferredNotice: 'Está bien. La carta seguirá aquí cuando quieras volver.',
+    letterClosed: 'Está bien, Jose. Aún no has respondido. La carta seguirá esperándote cuando quieras volver.',
+    farewell: 'Ya está, Jose. Algunas historias terminan… y otras empiezan justo aquí.'
+  }),
+  mapFlow: Object.freeze([
+    'Madrid registrada. El resto del itinerario permanece oculto.',
+    'Tokio recuperada. Ahora sí empieza el mapa de Japón.',
+    'Nikko localizada. Incluso yo sé que aquí toca caminar en silencio.',
+    'Yokohama recuperada. El puerto siempre sabe cuándo llega alguien.',
+    'Kamakura localizada. El Gran Buda ya nos había visto venir.',
+    'Hakone recuperada. Si aparece el Fuji, Alberto dirá que lo tenía previsto.',
+    'Kioto localizada. Alberto insistió en que no llegáramos tarde.',
+    'Nara recuperada. Los ciervos ya estaban esperando.',
+    'Osaka localizada. He verificado el itinerario y también el takoyaki.',
+    'Hiroshima recuperada. Esta parte del mapa se recorre despacio.',
+    'Miyajima localizada. La marea confirma el final del recorrido.'
+  ]),
   interaction: Object.freeze({
     awake: Object.freeze([
       '¿Sí? Estoy trabajando.',
@@ -120,3 +143,5 @@ export const MAU_CONFIG = Object.freeze({
     ])
   })
 });
+
+globalThis.KIZUNA_MAU_CONFIG = MAU_CONFIG;

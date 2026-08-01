@@ -1,21 +1,12 @@
 import {itinerary} from './itinerary.js?v=20260729-story-map14';
+import '../mascot/mau-config.js?v=20260801-admin-mau02';
+
+const MAU_CONFIG=globalThis.KIZUNA_MAU_CONFIG;
 
 const $=selector=>document.querySelector(selector);
 const $$=selector=>[...document.querySelectorAll(selector)];
 const stops=['madrid','tokio','nikko','yokohama','kamakura','hakone','kioto','nara','osaka','hiroshima','miyajima'];
-const messages=[
-  'Madrid registrada. El resto del itinerario permanece oculto.',
-  'Tokio recuperada. Ahora sí empieza el mapa de Japón.',
-  'Nikko localizada. Incluso yo sé que aquí toca caminar en silencio.',
-  'Yokohama recuperada. El puerto siempre sabe cuándo llega alguien.',
-  'Kamakura localizada. El Gran Buda ya nos había visto venir.',
-  'Hakone recuperada. Si aparece el Fuji, Alberto dirá que lo tenía previsto.',
-  'Kioto localizada. Alberto insistió en que no llegáramos tarde.',
-  'Nara recuperada. Los ciervos ya estaban esperando.',
-  'Osaka localizada. He verificado el itinerario y también el takoyaki.',
-  'Hiroshima recuperada. Esta parte del mapa se recorre despacio.',
-  'Miyajima localizada. La marea confirma el final del recorrido.'
-];
+const messages=MAU_CONFIG.mapFlow;
 const timelineCopy=['Origen','Llegada','Excursión','Puerto','Templos','Monte Fuji','Shinkansen','Tren regional','Sabores','Memoria','Ferry'];
 
 let currentStep=0;

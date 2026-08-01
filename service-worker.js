@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260801-admin-simulations01';
+const VERSION='20260801-admin-mau02';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -16,11 +16,11 @@ const CORE_ASSETS=[
   './styles.css',
   './recipient-messages.css',
   './recipient-messages.js',
-  './script.js',
+  './script.js?v=20260801-admin-mau02',
   './hero-carousel.js',
-  './mascot/mau.js?v=20260727-mau24',
-  './mascot/mau-config.js?v=20260727-mau24',
-  './mascot/mau.css?v=20260727-mau24',
+  './mascot/mau.js?v=20260801-admin-mau02',
+  './mascot/mau-config.js?v=20260801-admin-mau02',
+  './mascot/mau.css?v=20260801-admin-mau02',
   './mascot/assets/sprites/mau-peek.webp',
   './mascot/assets/sprites/mau-guide.webp',
   './mascot/assets/sprites/mau-leave.webp',

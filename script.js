@@ -62,6 +62,15 @@ const albertoMauMessages=Object.freeze({
   'alberto-deferred-notice':'Está bien. La carta seguirá aquí cuando quieras volver.',
   'alberto-letter-closed':'Está bien, Jose. Aún no has respondido. La carta seguirá esperándote cuando quieras volver.'
 });
+const albertoMauMessageKeys=Object.freeze({
+  'alberto-message-prompt':'messagePrompt',
+  'alberto-physical-prompt':'physicalPrompt',
+  'alberto-response-reminder':'responseReminder',
+  'alberto-decision':'decision',
+  'alberto-deferred-notice':'deferredNotice',
+  'alberto-letter-closed':'letterClosed'
+});
+const albertoMauMessage=id=>window.KIZUNA_MAU_CONFIG?.albertoFlow?.[albertoMauMessageKeys[id]]||albertoMauMessages[id];
 const tellMau=(message,context='alberto')=>{
   const cue={message,options:{context,duration:7600}};
   if(window.KizunaMau?.say)return window.KizunaMau.say(cue.message,cue.options);
@@ -96,19 +105,19 @@ const cueAlbertoMau=root=>{
             link?.classList.remove('is-deferred-highlight');
             menuToggle?.classList.remove('is-alberto-deferred-highlight');
           },9000);
-          tellMau(albertoMauMessages['alberto-letter-closed'],'alberto');
+          tellMau(albertoMauMessage('alberto-letter-closed'),'alberto');
         }
       },420),{once:true});
       return
     }
     if(panel.id==='alberto-finale'){void silenceMau(false);return}
-    const message=albertoMauMessages[panel.id];
+    const message=albertoMauMessage(panel.id);
     if(message)setTimeout(()=>tellMau(message,panel.id==='alberto-decision'?'decision':'alberto'),420);
   });
 };
 new MutationObserver(changes=>changes.forEach(change=>{
   change.addedNodes.forEach(cueAlbertoMau);
-  change.removedNodes.forEach(node=>{if(node.nodeType===1&&(node.matches?.('#alberto-finale')||node.querySelector?.('#alberto-finale')))setTimeout(()=>tellMau('Ya está, Jose. Algunas historias terminan… y otras empiezan justo aquí.','farewell'),350)});
+  change.removedNodes.forEach(node=>{if(node.nodeType===1&&(node.matches?.('#alberto-finale')||node.querySelector?.('#alberto-finale')))setTimeout(()=>tellMau(window.KIZUNA_MAU_CONFIG?.albertoFlow?.farewell||'Ya está, Jose. Algunas historias terminan… y otras empiezan justo aquí.','farewell'),350)});
 })).observe(document.documentElement,{childList:true,subtree:true});
 document.querySelectorAll('#alberto-message-prompt,#alberto-physical-prompt,#alberto-response-reminder,#alberto-decision,#alberto-deferred-notice,#alberto-letter,#alberto-finale').forEach(cueAlbertoMau);
 document.addEventListener('pointerdown',event=>{if(event.target.closest?.('#alberto-authorize,#alberto-physical-read'))publicAlbertoLetterSoundAt=Date.now();if(event.target.closest?.('[data-response]'))PublicKizunaSound.play('response_registered')},{capture:true});
