@@ -112,6 +112,8 @@ const normalizeFinalState=state=>{
     finalAlertShown:true
   };
 };
+const albertoPublicHandoffPending=state=>{const done=Array.isArray(state?.read)?state.read:[];return Boolean(state?.completed&&done.includes('KTB-014')&&done.includes('FINAL-01')&&state.albertoResponseAccepted!==true)};
+const redirectToAlbertoPublicSite=state=>{if(!albertoPublicHandoffPending(state))return false;location.replace('../index.html#carta-alberto');return true};
 const getState=()=>normalizeFinalState(currentUser?(remoteState||emptyProgressState()):transientState());
 const read=()=>getState().read||[];
 const finalFileRead=()=>{const done=read();return done.includes('KTB-014')&&done.includes('FINAL-01')};
@@ -804,7 +806,7 @@ setTimeout(()=>{
        if(error)throw error;
        const loadedProgress=await loadRemoteProgress(data.user);
        message.textContent='';
-      openDashboard(loadedProgress);
+      if(!redirectToAlbertoPublicSite(loadedProgress))openDashboard(loadedProgress);
     }catch(error){message.textContent=recipientAccessErrorMessage(error);console.error(error)}finally{submit.disabled=false}
   };
   let finalSequenceActive=false,finalPopupPending=false;
@@ -3995,7 +3997,7 @@ setTimeout(()=>{
       const loginActivity=await recordActivity('login',null,{source:'credentials'});
       if(!loginActivity)console.warn('La sesión se inició, pero no pudo añadirse al registro de actividad.');
       message.textContent='';
-      openDashboard(loadedProgress);
+      if(!redirectToAlbertoPublicSite(loadedProgress))openDashboard(loadedProgress);
     }catch(error){message.textContent=recipientAccessErrorMessage(error);console.error(error)}finally{submit.disabled=false}
   };
 
@@ -4010,6 +4012,7 @@ setTimeout(()=>{
       const restoredActivity=await recordActivity('session_restored',null,{source:'persisted_session'});
       if(!restoredActivity)console.warn('La sesión se restauró, pero no pudo añadirse al registro de actividad.');
       message.textContent='';
+      if(redirectToAlbertoPublicSite(getState()))return;
       access.hidden=true;
       adminAccess.hidden=true;
       loading.hidden=true;
