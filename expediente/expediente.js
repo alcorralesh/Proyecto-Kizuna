@@ -3492,6 +3492,94 @@ const renderAdminActivityLegacy=async userId=>{
 };
 
 const adminEditorEscape=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+const adminDeviceApps=[
+  {id:'timeline',code:'AR-06-01',name:'Cronología',detail:'Ubicaciones'},
+  {id:'routes',code:'AR-06-02',name:'Actividad',detail:'Rutas GPS'},
+  {id:'gallery',code:'AR-06-03',name:'Galería',detail:'Miniaturas'},
+  {id:'whatsapp',code:'AR-06-04',name:'WhatsApp',detail:'Conversación'},
+  {id:'search',code:'AR-06-05',name:'Chrome',detail:'Búsquedas'},
+  {id:'health',code:'AR-06-06',name:'Salud',detail:'Estadísticas'},
+  {id:'lost',code:'AR-06-07',name:'Mis archivos',detail:'Irrecuperables'}
+];
+const normalizeAdminDeviceProgress=value=>{
+  const requested=new Set(Array.isArray(value?.reviewed)?value.reviewed:[]);
+  const reviewed=adminDeviceApps.map(app=>app.id).filter(id=>requested.has(id));
+  const requestedModuleState=['locked','available','consumed'].includes(value?.moduleState)?value.moduleState:'locked';
+  return {reviewed,moduleState:reviewed.length===adminDeviceApps.length?requestedModuleState:'locked',updatedAt:value?.updatedAt||null};
+};
+const invokeAdminDeviceProgress=async(profileId,action,progress={})=>{
+  const {data,error}=await supabaseClient.functions.invoke('create-expedient-user',{body:{action,userId:profileId,...progress}});
+  if(error)throw error;
+  return normalizeAdminDeviceProgress(data);
+};
+const renderAdminDevicePanel=async(profile,panel,providedState=null)=>{
+  if(!panel)return;
+  const editor=panel.closest('#admin-editor');
+  const isCurrentPanel=()=>panel.isConnected&&editor?.dataset.adminUserId===profile.id;
+  if(!providedState)panel.innerHTML='<div class="admin-device-loading"><p class="system-line">AR-06 · DISPOSITIVO CLONADO</p><h3>Progreso del dispositivo</h3><p>Consultando aplicaciones revisadas…</p></div>';
+  let deviceState;
+  try{
+    deviceState=providedState?normalizeAdminDeviceProgress(providedState):await invokeAdminDeviceProgress(profile.id,'get-device-progress');
+  }catch(error){
+    console.error(error);
+    if(isCurrentPanel())panel.innerHTML=`<div class="admin-device-loading is-error"><p class="system-line">AR-06 · DISPOSITIVO CLONADO</p><h3>No se pudo recuperar el dispositivo</h3><p>${adminEditorEscape(await functionErrorMessage(error))}</p><button type="button" id="admin-device-retry">Volver a intentar</button></div>`;
+    panel.querySelector('#admin-device-retry')?.addEventListener('click',()=>renderAdminDevicePanel(profile,panel));
+    return;
+  }
+  if(!isCurrentPanel())return;
+  const selected=new Set(deviceState.reviewed);
+  const moduleLabels={locked:'BLOQUEADA',available:'DISPONIBLE',consumed:'YA CONSULTADA'};
+  const moduleDescriptions={
+    locked:'La aplicación secreta no se muestra. Al completar las siete evidencias, el dispositivo activará su desbloqueo narrativo.',
+    available:'La aplicación «Recuerdos» está visible y pendiente de consulta.',
+    consumed:'La aplicación secreta ya fue consultada y permanece oculta.'
+  };
+  panel.innerHTML=`<header class="admin-device-heading"><div><p class="system-line">AR-06 · DISPOSITIVO CLONADO</p><h3>Progreso del dispositivo</h3><p>Gestiona únicamente las evidencias del teléfono. Los documentos y el resto del expediente no se modifican.</p></div><strong id="admin-device-count">${selected.size} de ${adminDeviceApps.length} revisadas</strong></header><form id="admin-device-form"><div class="admin-device-apps">${adminDeviceApps.map(app=>`<label class="admin-device-app ${selected.has(app.id)?'is-reviewed':''}"><span class="admin-device-code">${app.code}</span><span><strong>${app.name}</strong><small>${app.detail}</small></span><span class="admin-device-app-state">${selected.has(app.id)?'REVISADA':'PENDIENTE'}</span><input type="checkbox" name="device-app" value="${app.id}" ${selected.has(app.id)?'checked':''}><i aria-hidden="true"></i></label>`).join('')}</div><section class="admin-device-secret"><div><p class="system-line">MÓDULO RESIDUAL · RECUERDOS</p><h4>Aplicación secreta</h4></div><span class="admin-device-secret-state ${deviceState.moduleState}">${moduleLabels[deviceState.moduleState]}</span><p id="admin-device-secret-description">${moduleDescriptions[deviceState.moduleState]}</p><button type="button" id="admin-device-reveal" ${selected.size===adminDeviceApps.length?'':'disabled'}>${deviceState.moduleState==='consumed'?'Volver a mostrar app secreta':'Mostrar app secreta'}</button></section><footer class="admin-device-actions"><button type="submit" id="admin-device-save">Guardar estado</button><button type="button" id="admin-device-reset">Reiniciar dispositivo</button><span id="admin-device-status" role="status"></span></footer></form>`;
+  const form=panel.querySelector('#admin-device-form'),status=panel.querySelector('#admin-device-status'),initialModuleState=deviceState.moduleState;
+  const draft=()=>[...form.querySelectorAll('input[name="device-app"]:checked')].map(input=>input.value);
+  const syncRows=()=>{
+    const reviewed=draft(),allReviewed=reviewed.length===adminDeviceApps.length;
+    form.querySelectorAll('.admin-device-app').forEach(row=>{const checked=row.querySelector('input').checked;row.classList.toggle('is-reviewed',checked);row.querySelector('.admin-device-app-state').textContent=checked?'REVISADA':'PENDIENTE'});
+    panel.querySelector('#admin-device-count').textContent=`${reviewed.length} de ${adminDeviceApps.length} revisadas`;
+    panel.querySelector('#admin-device-reveal').disabled=!allReviewed;
+    deviceState.moduleState=allReviewed?initialModuleState:'locked';
+    const badge=panel.querySelector('.admin-device-secret-state');badge.className=`admin-device-secret-state ${deviceState.moduleState}`;badge.textContent=moduleLabels[deviceState.moduleState];
+    panel.querySelector('#admin-device-secret-description').textContent=allReviewed?moduleDescriptions[deviceState.moduleState]:'Al guardar una selección incompleta, la aplicación secreta volverá a quedar bloqueada.';
+    panel.querySelector('#admin-device-reveal').textContent=deviceState.moduleState==='consumed'?'Volver a mostrar app secreta':'Mostrar app secreta';
+    status.textContent='Cambios sin guardar.';
+  };
+  form.querySelectorAll('input[name="device-app"]').forEach(input=>input.onchange=syncRows);
+  form.onsubmit=async event=>{
+    event.preventDefault();
+    const button=panel.querySelector('#admin-device-save'),reviewed=draft();
+    button.disabled=true;status.textContent='Guardando estado del dispositivo…';
+    try{
+      const saved=await invokeAdminDeviceProgress(profile.id,'update-device-progress',{reviewed,moduleState:reviewed.length===adminDeviceApps.length?deviceState.moduleState:'locked'});
+      await renderAdminDevicePanel(profile,panel,saved);
+      panel.querySelector('#admin-device-status').textContent='Estado del dispositivo guardado.';
+    }catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}
+  };
+  panel.querySelector('#admin-device-reveal').onclick=async()=>{
+    const reviewed=draft();
+    if(reviewed.length!==adminDeviceApps.length)return;
+    if(!await adminConfirm({title:deviceState.moduleState==='consumed'?'Volver a mostrar «Recuerdos»':'Mostrar «Recuerdos»',message:`La aplicación secreta volverá a estar visible para ${profile.display_name||profile.email}. Las siete evidencias revisadas se conservarán.`,confirmLabel:'Mostrar aplicación'}))return;
+    const button=panel.querySelector('#admin-device-reveal');button.disabled=true;status.textContent='Preparando la aplicación secreta…';
+    try{
+      const saved=await invokeAdminDeviceProgress(profile.id,'update-device-progress',{reviewed,moduleState:'available'});
+      await renderAdminDevicePanel(profile,panel,saved);
+      panel.querySelector('#admin-device-status').textContent='La aplicación secreta volverá a mostrarse.';
+    }catch(error){console.error(error);status.textContent=await functionErrorMessage(error);button.disabled=false}
+  };
+  panel.querySelector('#admin-device-reset').onclick=async()=>{
+    if(!await adminConfirm({eyebrow:'PROTOCOLO DE REINICIO · AR-06',title:'Reiniciar dispositivo clonado',message:`Se desmarcarán las siete aplicaciones y se bloqueará «Recuerdos» para ${profile.display_name||profile.email}. El progreso documental no cambiará.`,confirmLabel:'Reiniciar dispositivo',danger:true}))return;
+    const buttons=[panel.querySelector('#admin-device-save'),panel.querySelector('#admin-device-reveal'),panel.querySelector('#admin-device-reset')];buttons.forEach(button=>button.disabled=true);status.textContent='Reiniciando únicamente el dispositivo…';
+    try{
+      const reset=await invokeAdminDeviceProgress(profile.id,'reset-device-progress');
+      await renderAdminDevicePanel(profile,panel,reset);
+      panel.querySelector('#admin-device-status').textContent='Dispositivo reiniciado. El expediente se ha conservado.';
+    }catch(error){console.error(error);status.textContent=await functionErrorMessage(error);buttons.forEach(button=>button.disabled=false)}
+  };
+};
 const adminConfirm=({eyebrow='PROTOCOLO DE ADMINISTRACIÓN',title='Confirmar acción',message,confirmLabel='Confirmar',danger=false}={})=>new Promise(resolve=>{
   document.querySelector('.admin-confirm')?.remove();
   const previousFocus=document.activeElement;
@@ -3684,7 +3772,7 @@ const saveAdminProgressState=async(userId,nextState)=>{
 
 const renderAdminEditor=(profile,state,initialTab='summary')=>{
   const editor=document.querySelector('#admin-editor'),current=safeState(state);
-  const requestedTab=['summary','documents','activity','purchases','settings'].includes(initialTab)?initialTab:'summary';
+  const requestedTab=['summary','documents','device','activity','purchases','simulations','settings'].includes(initialTab)?initialTab:'summary';
   const selected=new Set(current.read),reviewed=progressKeys.filter(id=>selected.has(id)).length,total=progressKeys.length;
   const integrity=Math.round(reviewed/total*100),isActive=profile.is_active!==false;
   const ktbRead=progressKeys.filter(id=>id.startsWith('KTB-')&&selected.has(id)).length;
@@ -3696,7 +3784,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   };
   const groupedDocuments=adminDocumentGroups.filter(group=>!group.final).map(group=>`<section class="admin-document-group"><header><div><p class="system-line">${adminEditorEscape(group.title)}</p><small>${adminEditorEscape(group.note)}</small></div><strong>${group.ids.filter(id=>selected.has(id)).length} de ${group.ids.length}</strong></header><div class="admin-document-grid">${group.ids.map(documentRow).join('')}</div></section>`).join('');
   const finalDocument=documentRow('FINAL-01');
-  editor.hidden=false;editor.className='admin-user-workspace';
+  editor.hidden=false;editor.className='admin-user-workspace';editor.dataset.adminUserId=profile.id;
   editor.innerHTML=`<header class="admin-user-profile"><div><p class="system-line">DESTINATARIO SELECCIONADO</p><h2>${displayName}</h2><p>${email}</p></div><dl><div><dt>Expediente</dt><dd>KTB-EXP-2026-JP-00184</dd><span class="admin-user-badge ${isActive?'active':'inactive'}">${isActive?'CUENTA ACTIVA':'CUENTA DESACTIVADA'}</span></div><div><dt>Documentos</dt><dd>${reviewed} de ${total}</dd></div><div><dt>Progreso</dt><dd>${integrity} %</dd></div><div><dt>Última actividad</dt><dd id="admin-last-activity">Consultando…</dd></div></dl></header><nav class="admin-editor-tabs" role="tablist"><button type="button" class="active" data-editor-tab="summary">Resumen</button><button type="button" data-editor-tab="documents">Documentos</button><button type="button" data-editor-tab="activity">Actividad</button><button type="button" data-editor-tab="purchases">Productos comprados</button><button type="button" data-editor-tab="settings">Ajustes</button></nav><div class="admin-user-body"><div class="admin-user-main"><section class="admin-editor-panel" data-editor-panel="summary"><p class="system-line">RESUMEN DEL EXPEDIENTE</p><h3>Estado general</h3><div class="admin-overview-grid"><article><strong>${reviewed}</strong><span>Registros confirmados</span></article><article><strong>${total-reviewed}</strong><span>Registros pendientes</span></article><article><strong>${accessLevel}</strong><span>Nivel de acceso</span></article><article><strong>${integrity} %</strong><span>Integridad documental</span></article></div></section><section class="admin-editor-panel" data-editor-panel="documents" hidden><div class="admin-document-toolbar"><div class="admin-document-filters"><button type="button" class="active" data-record-filter="all">Todos</button><button type="button" data-record-filter="read">Leídos</button><button type="button" data-record-filter="pending">Pendientes</button></div><label><span>Buscar documento</span><input id="admin-document-search" type="search" placeholder="Buscar documento"></label></div><form id="admin-progress-form">${groupedDocuments}<section class="admin-final-document"><p class="system-line">FINAL-01 · ARCHIVO LOCALIZADO</p>${finalDocument}<p class="admin-note">FINAL-01 depende de KTB-014: si KTB-014 no está confirmado, este documento se desmarca automáticamente.</p></section><p class="admin-note">Al desmarcar KTB-014 se reabre el expediente, se restablece el cierre final y también se desmarca FINAL-01.</p></form><details class="admin-identity-details"><summary>Identidad y acceso</summary><form id="admin-identity-form"><label>Nombre y apellidos<input name="displayName" required maxlength="80" value="${displayName}"></label><div><span>Estado de la cuenta</span><button type="button" id="admin-toggle-user" class="admin-account-toggle ${isActive?'active':''}" aria-pressed="${isActive}"><i></i>${isActive?'Cuenta activa':'Cuenta desactivada'}</button></div><button>Guardar identidad</button><span id="admin-identity-status" role="status"></span></form></details></section><section class="admin-editor-panel" data-editor-panel="activity" hidden><div id="admin-activity-log"><p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Cargando actividad…</p></div></section><section class="admin-editor-panel" data-editor-panel="purchases" hidden><div id="admin-purchases"><p class="system-line">TIENDA KIZUNA</p><h3>Productos comprados</h3><p>Cargando pedidos simulados…</p></div></section><section class="admin-editor-panel" data-editor-panel="settings" hidden><p class="system-line">AJUSTES DEL DESTINATARIO</p><h3>Acceso y seguridad</h3><p>Gestiona la identidad, el acceso y las acciones permanentes de este expediente.</p><button type="button" class="admin-open-identity">Editar identidad y acceso</button></section></div><aside class="admin-user-side"><section class="admin-progress-card"><p class="system-line">PROGRESO DEL EXPEDIENTE</p><strong>${integrity} %</strong><div><i style="width:${integrity}%"></i></div><dl><div><dt>${reviewed}</dt><dd>Documentos leídos</dd></div><div><dt>${total-reviewed}</dt><dd>Documentos pendientes</dd></div></dl><p>NIVEL DE ACCESO ACTUAL<br><b>${accessLevel}</b></p><button type="button" id="admin-save-progress">Guardar cambios</button><span id="admin-save-status" role="status"></span></section><section class="admin-activity-preview"><p class="system-line">ACTIVIDAD RECIENTE</p><div id="admin-activity-preview"><p>Cargando actividad…</p></div><button type="button" id="admin-view-all-activity">Ver actividad completa →</button></section><section class="admin-danger-zone"><p class="system-line">ZONA DE SEGURIDAD</p><p>Limpiar expediente reinicia documentos, carpetas, p\u00e1ginas del c\u00f3mic, aviso legal, gu\u00eda inicial, cierre final, carta de Alberto y respuesta registrada. La cuenta, el nombre y el correo se conservan.</p><p class="admin-reset-warning">El usuario volver\u00e1 a empezar desde KTB-001 y podr\u00e1 responder otra vez a la carta final.</p><button type="button" id="admin-reset-progress">Limpiar expediente completo</button><button type="button" id="admin-side-toggle-user">${isActive?'Desactivar acceso':'Reactivar acceso'}</button><span id="admin-reset-status" role="status"></span></section></aside></div>`;
 
   const accountBadge=editor.querySelector('.admin-user-badge');
@@ -3704,6 +3792,17 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   if(resetDescription)resetDescription.textContent='Limpiar expediente reinicia documentos, carpetas, páginas del cómic, evidencias leídas del dispositivo, aviso legal, guía inicial, cierre final, carta de Alberto y respuesta registrada. La cuenta, el nombre y el correo se conservan.';
   accountBadge?.insertAdjacentHTML('afterend','<span class="admin-user-notification-state pending" data-admin-notification-state><i aria-hidden="true"></i><span><small>NOTIFICACIONES</small><strong>CONSULTANDO…</strong></span></span>');
   const documentsPanel=editor.querySelector('[data-editor-panel="documents"]'),settingsPanel=editor.querySelector('[data-editor-panel="settings"]');
+  const deviceTab=document.createElement('button');
+  deviceTab.type='button';
+  deviceTab.dataset.editorTab='device';
+  deviceTab.textContent='Dispositivo';
+  editor.querySelector('[data-editor-tab="activity"]').before(deviceTab);
+  const devicePanel=document.createElement('section');
+  devicePanel.className='admin-editor-panel admin-device-panel';
+  devicePanel.dataset.editorPanel='device';
+  devicePanel.hidden=true;
+  editor.querySelector('[data-editor-panel="activity"]').before(devicePanel);
+  renderAdminDevicePanel(profile,devicePanel);
   const simulationsTab=document.createElement('button');
   simulationsTab.type='button';
   simulationsTab.dataset.editorTab='simulations';

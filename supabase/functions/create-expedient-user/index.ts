@@ -9,6 +9,22 @@ const corsHeaders = {
 const response = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: corsHeaders })
 
+const deviceEvidenceIds = [
+  'timeline', 'routes', 'gallery', 'whatsapp', 'search', 'health', 'lost',
+] as const
+
+const normalizeDeviceProgress = (reviewed: unknown, moduleState: unknown) => {
+  const requested = Array.isArray(reviewed) ? reviewed.map(String) : []
+  const normalizedReviewed = deviceEvidenceIds.filter((id) => requested.includes(id))
+  const requestedModuleState = ['locked', 'available', 'consumed'].includes(String(moduleState))
+    ? String(moduleState)
+    : 'locked'
+  return {
+    reviewed: normalizedReviewed,
+    moduleState: normalizedReviewed.length === deviceEvidenceIds.length ? requestedModuleState : 'locked',
+  }
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (request.method !== 'POST') return response({ error: 'Método no permitido.' }, 405)
@@ -131,6 +147,69 @@ Deno.serve(async (request) => {
     if (logError) console.warn('La contraseña cambió, pero no pudo registrarse la actividad:', logError.message)
 
     return response({ id: userId, passwordUpdated: true })
+  }
+
+  if (action === 'get-device-progress') {
+    const userId = String(payload.userId ?? '')
+    if (!userId) return response({ error: 'Destinatario no identificado.' }, 400)
+
+    const { data: deviceProgress, error: deviceProgressError } = await adminClient
+      .from('expedient_device_progress')
+      .select('reviewed,module_state,updated_at')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (deviceProgressError) return response({ error: deviceProgressError.message }, 400)
+
+    const normalized = normalizeDeviceProgress(
+      deviceProgress?.reviewed ?? [],
+      deviceProgress?.module_state ?? 'locked',
+    )
+    return response({
+      id: userId,
+      reviewed: normalized.reviewed,
+      moduleState: normalized.moduleState,
+      updatedAt: deviceProgress?.updated_at ?? null,
+    })
+  }
+
+  if (action === 'update-device-progress') {
+    const userId = String(payload.userId ?? '')
+    if (!userId) return response({ error: 'Destinatario no identificado.' }, 400)
+    if (userId === userData.user.id) return response({ error: 'No puedes modificar tu propia cuenta administrativa.' }, 400)
+
+    const normalized = normalizeDeviceProgress(payload.reviewed, payload.moduleState)
+    const { data: deviceProgress, error: deviceProgressError } = await adminClient
+      .from('expedient_device_progress')
+      .upsert({
+        user_id: userId,
+        reviewed: normalized.reviewed,
+        module_state: normalized.moduleState,
+        updated_at: new Date().toISOString(),
+      })
+      .select('reviewed,module_state,updated_at')
+      .single()
+    if (deviceProgressError) return response({ error: deviceProgressError.message }, 400)
+
+    return response({
+      id: userId,
+      reviewed: deviceProgress.reviewed,
+      moduleState: deviceProgress.module_state,
+      updatedAt: deviceProgress.updated_at,
+    })
+  }
+
+  if (action === 'reset-device-progress') {
+    const userId = String(payload.userId ?? '')
+    if (!userId) return response({ error: 'Destinatario no identificado.' }, 400)
+    if (userId === userData.user.id) return response({ error: 'No puedes modificar tu propia cuenta administrativa.' }, 400)
+
+    const { error: deviceProgressError } = await adminClient
+      .from('expedient_device_progress')
+      .delete()
+      .eq('user_id', userId)
+    if (deviceProgressError) return response({ error: deviceProgressError.message }, 400)
+
+    return response({ id: userId, reviewed: [], moduleState: 'locked', updatedAt: null })
   }
 
   if (action === 'reset-progress') {

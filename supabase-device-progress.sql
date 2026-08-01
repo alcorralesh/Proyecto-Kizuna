@@ -14,6 +14,7 @@ create table if not exists public.expedient_device_progress (
 alter table public.expedient_device_progress enable row level security;
 
 grant select on table public.expedient_device_progress to authenticated;
+grant select, insert, update, delete on table public.expedient_device_progress to service_role;
 
 drop policy if exists "Users can view own device progress"
 on public.expedient_device_progress;
