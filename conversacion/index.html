@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b141a">
   <title>Conversación recuperada · Alberto</title>
   <link rel="icon" href="../assets/kizuna-app-icon-192.png">
-  <link rel="stylesheet" href="conversation.css?v=20260730-chat06">
+  <link rel="stylesheet" href="conversation.css?v=20260801-whatsapp-readonly01">
 </head>
 <body>
   <main class="conversation-stage">
@@ -53,16 +53,16 @@
         <time class="date-chip" id="thread-date"></time>
       </section>
 
-      <form class="composer" id="composer">
-        <button class="composer-icon" type="button" aria-label="Emoji">☺</button>
+      <form class="composer is-readonly" id="composer" aria-label="Copia forense de solo lectura">
+        <button class="composer-icon" type="button" aria-label="Emoji no disponible" disabled>☺</button>
         <label>
           <span class="sr-only">Mensaje</span>
-          <input id="message-input" type="text" placeholder="Mensaje" autocomplete="off">
+          <input id="message-input" type="text" placeholder="Copia forense · solo lectura" readonly aria-readonly="true">
         </label>
-        <button class="composer-icon attach" type="button" aria-label="Adjuntar">
+        <button class="composer-icon attach" type="button" aria-label="Adjuntar no disponible" disabled>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12 6-6a4 4 0 0 1 6 6l-8 8a6 6 0 0 1-8-8l8-8"/></svg>
         </button>
-        <button class="send-button" type="submit" aria-label="Enviar mensaje">
+        <button class="send-button" type="submit" aria-label="Enviar mensaje no disponible" disabled>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8Z"/><path d="M7 12h14"/></svg>
         </button>
       </form>
@@ -100,6 +100,6 @@
     </div>
   </template>
 
-  <script type="module" src="conversation.js?v=20260801-whatsapp-alberto03"></script>
+  <script type="module" src="conversation.js?v=20260801-whatsapp-readonly01"></script>
 </body>
 </html>

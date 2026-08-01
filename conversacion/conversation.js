@@ -303,11 +303,6 @@ $('#playback-speed').addEventListener('change',event=>speed=Number(event.target.
 
 $('#composer').addEventListener('submit',event=>{
   event.preventDefault();
-  const input=$('#message-input');
-  const text=input.value.trim();
-  if(!text)return;
-  addItem(m('outgoing',text,new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})));
-  input.value='';
 });
 
 const clock=()=>$('#device-time').textContent=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});

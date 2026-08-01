@@ -297,6 +297,10 @@ button{color:inherit}
 .composer-icon.attach{transform:rotate(-42deg)}
 .send-button{display:grid;width:40px;height:40px;padding:10px;place-items:center;border:0;border-radius:50%;background:var(--accent);color:#fff;cursor:pointer}
 .send-button svg{fill:none}
+.composer.is-readonly input{color:#7f8c92;cursor:not-allowed}
+.composer.is-readonly input::placeholder{color:#7f8c92;opacity:1}
+.composer.is-readonly button{cursor:not-allowed;opacity:.38}
+.composer.is-readonly .send-button{background:#53636a}
 .demo-panel{
   position:absolute;
   left:calc(50% + 245px);
