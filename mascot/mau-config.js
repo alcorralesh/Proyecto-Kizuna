@@ -32,6 +32,7 @@ const MAU_CONFIG = Object.freeze({
     albertoChance: 0.3,
     residualChance: 0.5,
     contextualChance: 0.7,
+    specialGestureMessage: 'Alberto pidió que vigilara especialmente esta visita.',
     general: Object.freeze([
       'Solo estaba comprobando que esta línea temporal siguiera en su sitio.',
       'Todo parece estar donde debería.',

@@ -1,4 +1,4 @@
-import './mau-config.js?v=20260801-admin-mau02';
+import './mau-config.js?v=20260801-admin-mau05';
 
 const MAU_CONFIG = globalThis.KIZUNA_MAU_CONFIG;
 
@@ -82,7 +82,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260801-admin-mau02', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260801-admin-mau05', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
@@ -454,7 +454,7 @@ class KizunaMau extends HTMLElement {
         MAU_CONFIG.timings.albertoHold,
         index => {
           if (index !== 3) return;
-          this.#setMessage('Alberto pidió que vigilara especialmente esta visita.');
+          this.#setMessage(MAU_CONFIG.dialogue.specialGestureMessage);
           this.#showBubble();
           this.#messageDeadline = Math.max(
             this.#messageDeadline,
