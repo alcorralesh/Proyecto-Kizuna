@@ -1,4 +1,4 @@
-import './mau-config.js?v=20260801-admin-mau06';
+import './mau-config.js?v=20260801-admin-mau07';
 
 const MAU_CONFIG = globalThis.KIZUNA_MAU_CONFIG;
 
@@ -82,7 +82,7 @@ class KizunaMau extends HTMLElement {
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260801-admin-mau06', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260801-admin-mau07', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
