@@ -2591,7 +2591,7 @@ const renderAdminMauEditor=()=>{
 const loadAdminMauConfig=async()=>{
   const target=document.querySelector('#admin-mau-editor');if(!target||adminMauDraft){if(adminMauDraft)renderAdminMauEditor();return}
   target.innerHTML='<p>Cargando configuración de Mau…</p>';
-  try{await import('../mascot/mau-config.js?v=20260801-alberto-close01');adminMauPublishedConfig=cloneAdminMauConfig(globalThis.KIZUNA_MAU_CONFIG);adminMauDraft=cloneAdminMauConfig(globalThis.KIZUNA_MAU_CONFIG);renderAdminMauEditor()}catch(error){console.error(error);target.innerHTML='<p class="admin-mau-error">No se ha podido preparar la configuración de Mau.<small></small></p>';target.querySelector('small').textContent=error?.message||'Error desconocido.'}
+  try{await import('../mascot/mau-config.js?v=20260801-alt00-share01');adminMauPublishedConfig=cloneAdminMauConfig(globalThis.KIZUNA_MAU_CONFIG);adminMauDraft=cloneAdminMauConfig(globalThis.KIZUNA_MAU_CONFIG);renderAdminMauEditor()}catch(error){console.error(error);target.innerHTML='<p class="admin-mau-error">No se ha podido preparar la configuración de Mau.<small></small></p>';target.querySelector('small').textContent=error?.message||'Error desconocido.'}
 };
 
 const adminDirectMessageForm=document.querySelector('#admin-direct-message-form');

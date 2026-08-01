@@ -1,5 +1,5 @@
 import {itinerary} from './itinerary.js?v=20260729-story-map14';
-import '../mascot/mau-config.js?v=20260801-alberto-close01';
+import '../mascot/mau-config.js?v=20260801-alt00-share01';
 
 const MAU_CONFIG=globalThis.KIZUNA_MAU_CONFIG;
 

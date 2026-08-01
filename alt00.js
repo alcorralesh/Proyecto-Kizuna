@@ -103,6 +103,7 @@ window.KizunaFinale=(()=>{
           <output>100 %</output>
           <button type="button" data-alt00-action="in" aria-label="Aumentar zoom">+</button>
           <button type="button" data-alt00-action="fit">Ajustar</button>
+          <button class="alt00-share-trigger" type="button" data-alt00-action="share" aria-label="Compartir página actual"><span aria-hidden="true">↗</span><b>Compartir</b></button>
           <button type="button" data-alt00-action="full" aria-label="Pantalla completa">⛶</button>
         </nav>
         <button class="alt00-reader-close" type="button" aria-label="Cerrar registro">×</button>
@@ -120,7 +121,18 @@ window.KizunaFinale=(()=>{
         <button class="alt00-page-next" type="button">Siguiente →</button>
         <button class="alt00-reader-exit" type="button">${assetBase==='../'?'Volver al expediente':'Cerrar registro'}</button>
       </footer>
-      <p class="alt00-preview-note" ${preview?'':'hidden'}>VISTA DE PRUEBA · NO MODIFICA EL EXPEDIENTE</p>`;
+      <p class="alt00-preview-note" ${preview?'':'hidden'}>VISTA DE PRUEBA · NO MODIFICA EL EXPEDIENTE</p>
+      <section class="alt00-share-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="alt00-share-title">
+        <article>
+          <header><div><p>COPIA DEL REGISTRO</p><h3 id="alt00-share-title">Compartir página</h3></div><button type="button" data-alt00-share="close" aria-label="Cerrar">×</button></header>
+          <p class="alt00-share-file" data-alt00-share-file>Preparando página actual…</p>
+          <div class="alt00-share-actions">
+            <button type="button" data-alt00-share="native" disabled><span aria-hidden="true">↗</span><b>Compartir imagen</b><small>Correo, mensajería y otras aplicaciones</small></button>
+            <button type="button" data-alt00-share="download" disabled><span aria-hidden="true">↓</span><b>Descargar imagen</b><small>Guardar esta página en el dispositivo</small></button>
+          </div>
+          <p class="alt00-share-status" data-alt00-share-status aria-live="polite"></p>
+        </article>
+      </section>`;
     document.body.appendChild(viewer);
     document.body.classList.add('alberto-overlay-open','kizuna-finale-open');
     const image=viewer.querySelector('img');
@@ -133,10 +145,16 @@ window.KizunaFinale=(()=>{
     const zoomOut=viewer.querySelector('[data-alt00-action="out"]');
     const zoomIn=viewer.querySelector('[data-alt00-action="in"]');
     const zoomFit=viewer.querySelector('[data-alt00-action="fit"]');
+    const shareTrigger=viewer.querySelector('[data-alt00-action="share"]');
     const fullscreen=viewer.querySelector('[data-alt00-action="full"]');
     const strip=viewer.querySelector('.alt00-page-strip');
     const closeControl=viewer.querySelector('.alt00-reader-close');
     const exitControl=viewer.querySelector('.alt00-reader-exit');
+    const shareSheet=viewer.querySelector('.alt00-share-sheet');
+    const shareNative=shareSheet.querySelector('[data-alt00-share="native"]');
+    const shareDownload=shareSheet.querySelector('[data-alt00-share="download"]');
+    const shareFileLabel=shareSheet.querySelector('[data-alt00-share-file]');
+    const shareStatus=shareSheet.querySelector('[data-alt00-share-status]');
     let page=Math.min(PAGE_TOTAL,Math.max(1,Number(startPage)||1));
     let scale=1,fitScale=1,pinchStart=null,moved=false;
     const pointers=new Map();
@@ -145,6 +163,7 @@ window.KizunaFinale=(()=>{
     let stateQueue=Promise.resolve();
     const navigationScope=`alt00-reader:${Date.now()}:${Math.random().toString(36).slice(2)}`;
     let comicLayerToken=null,fullscreenLayerToken=null,closing=false;
+    let sharePrepared=null,sharePreparing=null;
 
     strip.innerHTML=Array.from({length:PAGE_TOTAL},(_,index)=>`<button type="button" data-alt00-page="${index+1}" aria-label="Ir a la página ${index+1}"><span>${String(index+1).padStart(2,'0')}</span></button>`).join('');
     const notify=(kind,extra={})=>{
@@ -152,6 +171,53 @@ window.KizunaFinale=(()=>{
       stateQueue=stateQueue
         .then(()=>onSecretState({kind,page,...extra}))
         .catch(error=>console.warn('No se pudo guardar el estado de ALT-00.',error));
+    };
+    const shareFilename=blob=>{
+      const extension={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'}[blob.type]||'png';
+      return `KIZUNA-ALT-00-PAGINA-${String(page).padStart(2,'0')}.${extension}`;
+    };
+    const prepareShare=()=>{
+      const source=image.currentSrc||image.src;
+      if(!source)return Promise.reject(new Error('No hay una página disponible para compartir.'));
+      if(sharePrepared?.source===source)return Promise.resolve(sharePrepared);
+      if(sharePreparing?.source===source)return sharePreparing.promise;
+      const promise=fetch(source,{credentials:'same-origin'}).then(response=>{
+        if(!response.ok)throw new Error(`No se pudo obtener la página (${response.status}).`);
+        return response.blob();
+      }).then(blob=>{
+        const file=new File([blob],shareFilename(blob),{type:blob.type||'image/png',lastModified:Date.now()});
+        sharePrepared={source,file,blob};
+        return sharePrepared;
+      }).finally(()=>{if(sharePreparing?.source===source)sharePreparing=null});
+      sharePreparing={source,promise};
+      return promise;
+    };
+    const closeShare=()=>{
+      shareSheet.classList.remove('is-open');
+      setTimeout(()=>{if(!shareSheet.classList.contains('is-open'))shareSheet.hidden=true},180);
+      shareTrigger.focus({preventScroll:true});
+    };
+    const openShare=()=>{
+      sharePrepared=null;
+      shareNative.disabled=true;
+      shareDownload.disabled=true;
+      shareNative.hidden=false;
+      shareFileLabel.textContent='Preparando página actual…';
+      shareStatus.textContent='';
+      shareSheet.hidden=false;
+      requestAnimationFrame(()=>shareSheet.classList.add('is-open'));
+      prepareShare().then(prepared=>{
+        const canNative=typeof navigator.share==='function'&&(!navigator.canShare||navigator.canShare({files:[prepared.file]}));
+        shareNative.hidden=!canNative;
+        shareNative.disabled=!canNative;
+        shareDownload.disabled=false;
+        shareFileLabel.textContent=prepared.file.name;
+        if(!canNative)shareStatus.textContent='Este navegador permite descargar la página, pero no compartir archivos directamente.';
+      }).catch(error=>{
+        console.error('No se pudo preparar la página de ALT-00.',error);
+        shareFileLabel.textContent='Página no disponible';
+        shareStatus.textContent='No se ha podido preparar esta imagen. Inténtalo de nuevo.';
+      });
     };
     const clampScale=value=>Math.min(3.5,Math.max(fitScale,value));
     const updateZoom=()=>{
@@ -179,14 +245,14 @@ window.KizunaFinale=(()=>{
       if(!image.naturalWidth)return;
       const mobile=matchMedia('(max-width:700px)').matches;
       const widthScale=Math.max(.1,(stage.clientWidth-(mobile?12:36))/image.naturalWidth);
-      const heightScale=Math.max(.1,(stage.clientHeight-(mobile?16:36))/image.naturalHeight);
-      fitScale=mobile?widthScale:Math.min(1,widthScale,heightScale);
+      fitScale=Math.min(3.5,widthScale);
       scale=fitScale;
       updateZoom();
       stage.scrollTo({top:0,left:0});
     };
     const paint=nextPage=>{
       page=Math.min(PAGE_TOTAL,Math.max(1,nextPage));
+      sharePrepared=null;
       viewer.classList.remove('is-page-ready');
       image.src=`${assetBase}assets/documents/ALT-00/${pageName(page)}`;
       image.alt=`ALT-00 · página ${page} de ${PAGE_TOTAL}`;
@@ -232,6 +298,29 @@ window.KizunaFinale=(()=>{
     zoomOut.onclick=()=>setScale(scale/1.25);
     zoomIn.onclick=()=>setScale(scale*1.25);
     zoomFit.onclick=fit;
+    shareTrigger.onclick=openShare;
+    shareSheet.addEventListener('click',event=>{
+      if(event.target===shareSheet||event.target.closest('[data-alt00-share="close"]')){closeShare();return}
+      if(event.target.closest('[data-alt00-share="native"]')&&sharePrepared){
+        shareStatus.textContent='';
+        navigator.share({files:[sharePrepared.file],title:`KIZUNA · ALT-00 · Página ${String(page).padStart(2,'0')}`,text:'Página del Expediente Alternativo 001 de KIZUNA.'}).then(closeShare).catch(error=>{
+          if(error?.name!=='AbortError'){
+            console.warn('No se pudo abrir el menú para compartir ALT-00.',error);
+            shareStatus.textContent='No se ha podido abrir el menú para compartir.';
+          }
+        });
+      }
+      if(event.target.closest('[data-alt00-share="download"]')&&sharePrepared){
+        const url=URL.createObjectURL(sharePrepared.blob),link=document.createElement('a');
+        link.href=url;
+        link.download=sharePrepared.file.name;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),1000);
+        shareStatus.textContent='Descarga iniciada.';
+      }
+    });
     const setImmersive=active=>{
       viewer.classList.toggle('is-immersive',active);
       fullscreen.classList.toggle('active',active);
@@ -327,6 +416,7 @@ window.KizunaFinale=(()=>{
       if(event.key==='ArrowRight'&&page<PAGE_TOTAL)paint(page+1);
       if(event.key==='ArrowLeft'&&page>1)paint(page-1);
       if(event.key==='Escape'){
+        if(!shareSheet.hidden){closeShare();return}
         if(document.fullscreenElement===viewer||viewer.classList.contains('is-immersive'))void leaveDisplayMode();
         else close();
       }
