@@ -113,7 +113,8 @@ const normalizeFinalState=state=>{
   };
 };
 const albertoPublicHandoffPending=state=>{const done=Array.isArray(state?.read)?state.read:[];return Boolean(state?.completed&&done.includes('KTB-014')&&done.includes('FINAL-01')&&state.albertoResponseAccepted!==true)};
-const redirectToAlbertoPublicSite=state=>{if(!albertoPublicHandoffPending(state))return false;location.replace('../index.html#carta-alberto');return true};
+const explicitArchiveConsultation=new URLSearchParams(location.search).get('archive')==='1';
+const redirectToAlbertoPublicSite=state=>{if(explicitArchiveConsultation||!albertoPublicHandoffPending(state))return false;location.replace('../index.html#carta-alberto');return true};
 const getState=()=>normalizeFinalState(currentUser?(remoteState||emptyProgressState()):transientState());
 const read=()=>getState().read||[];
 const finalFileRead=()=>{const done=read();return done.includes('KTB-014')&&done.includes('FINAL-01')};
