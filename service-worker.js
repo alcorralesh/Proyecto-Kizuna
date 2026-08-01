@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260801-folder-no-stamp01';
+const VERSION='20260801-pwa-launch01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -52,7 +52,10 @@ const CORE_ASSETS=[
   './assets/hero/kanazawa-rain.webp',
   './assets/kizuna-app-icon-192.png',
   './assets/kizuna-app-icon-512.png',
-  './assets/kizuna-app-icon-maskable-512.png'
+  './assets/kizuna-app-icon-maskable-512.png',
+  './assets/kizuna-app-icon-192-v2.png',
+  './assets/kizuna-app-icon-512-v2.png',
+  './assets/kizuna-app-icon-maskable-512-v2.png'
 ];
 const PRIVATE_PATHS=[
   'expediente/',
