@@ -129,11 +129,11 @@ let paused=false;
 let speed=1;
 let waitResolver=null;
 const playbackTiming={
-  messagePause:460,
-  recoveredEventPause:680,
-  typingBase:780,
-  typingPerCharacter:11,
-  typingMaximum:1550
+  messagePause:620,
+  recoveredEventPause:850,
+  typingBase:880,
+  typingPerCharacter:12,
+  typingMaximum:1750
 };
 
 const wait=duration=>new Promise(resolve=>{
