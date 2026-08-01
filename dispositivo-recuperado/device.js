@@ -96,6 +96,11 @@ function currentModuleState(){
 function updateProgress({emit=true}={}){
   const reviewCount=$('#review-count');
   if(reviewCount) reviewCount.textContent=reviewed.size;
+  document.querySelectorAll('#app-grid .app-button[data-open-app]').forEach(button=>{
+    const isReviewed=reviewed.has(button.dataset.openApp);
+    button.classList.toggle('is-reviewed',isReviewed);
+    button.querySelector('.app-icon-shell')?.setAttribute('aria-label',isReviewed?'Evidencia consultada':'Evidencia pendiente');
+  });
   const complete=reviewed.size===apps.length;
   if(emit&&progressHydrated&&embedded){
     window.parent.postMessage({
@@ -108,14 +113,6 @@ function updateProgress({emit=true}={}){
     },location.origin);
   }
   return complete;
-}
-
-function showEvidenceProgress({initial=false}={}){
-  const count=reviewed.size;
-  const message=initial
-    ? count?`${count} de ${apps.length} evidencias conservadas. Continúa el análisis.`:'Abre una evidencia para iniciar el análisis.'
-    : `${count} de ${apps.length} evidencias revisadas y guardadas.`;
-  showToast(message,{title:`${apps.length} evidencias localizadas`,icon:String(count||apps.length)});
 }
 
 function clearCallTimers(){
@@ -180,7 +177,6 @@ function launch(id,{fromHistory=false}={}){
   appContent.scrollTop=0;
   if(!fromHistory) syncUrl(id);
   if(isNewEvidence){
-    setTimeout(()=>showEvidenceProgress(),500);
     if(allEvidenceReviewed&&anomalyState==='idle'){
       anomalyState='pending';
       anomalyLater(()=>{
@@ -1043,7 +1039,6 @@ function bootRecoveredDevice(){
   if(initial)launch(initial,{fromHistory:true});
   else{
     playHomeEntrance();
-    setTimeout(()=>showEvidenceProgress({initial:true}),850);
   }
   if(reviewed.size===apps.length&&anomalyState==='idle'){
     anomalyState='pending';
