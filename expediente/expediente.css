@@ -3253,25 +3253,10 @@ body.expedient-training-open{overflow:hidden}
   }
 }
 
-@media (orientation: landscape) and (min-width: 601px) and (max-width: 1000px) and (max-height: 520px) and (pointer: coarse) {
-  #viewer:has(.folder-sequence-index) .paper > .stamp {
-    display: none !important;
-  }
-
-  #viewer:has(.folder-sequence-index) .folder-sequence-index::after {
-    content: "ARCHIVO RECUPERADO";
-    grid-column: 1;
-    grid-row: 3;
-    align-self: end;
-    justify-self: start;
-    width: max-content;
-    margin: 0 0 5px 2px;
-    padding: 6px 8px;
-    border: 2px solid var(--red);
-    color: var(--red);
-    font: 8px/1.15 var(--mono);
-    letter-spacing: .04em;
-    opacity: .88;
-    transform: rotate(-6deg);
-  }
+/* Las carpetas son índices de consulta, no documentos recuperados. El sello
+   documental se reserva para los archivos individuales en todos los tamaños. */
+#viewer .reader-content.is-folder .paper > .stamp,
+#viewer:has(.folder-sequence-index) .folder-sequence-index::after {
+  display: none !important;
+  content: none !important;
 }

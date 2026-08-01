@@ -620,7 +620,18 @@ const showEarlyAccessAuthorizationSimulation=({profile={},state={},mode='anomaly
   scene.querySelector('.early-auth-simulation-close').onclick=close;
   return scene;
 };
-const save=items=>patchState({read:items});
+const save=items=>{
+  const previousRead=read();
+  const newlyConfirmedKtb=items.find(id=>/^KTB-\d{3}$/.test(id)&&!previousRead.includes(id));
+  // Todas las rutas de confirmacion (boton normal y microjuego) terminan aqui.
+  // Conservamos el KTB confirmado antes de escribir en Supabase para que el
+  // regreso al expediente pueda anunciar tanto el siguiente documento como
+  // la siguiente carpeta, aunque la escritura remota provoque renders intermedios.
+  if(newlyConfirmedKtb&&active===newlyConfirmedKtb&&document.querySelector('#viewer')?.open&&newlyConfirmedKtb!=='KTB-014'){
+    rememberPendingConfirmation(newlyConfirmedKtb);
+  }
+  return patchState({read:items});
+};
 const persistReadMarker=async(id,button,options={})=>{
   const pendingLabel=options.pendingLabel||'Guardando en Supabase…';
   const retryLabel=options.retryLabel||'Error al guardar · Reintentar';
@@ -1024,7 +1035,6 @@ setTimeout(()=>{
     const parent=fileFolder(id);
     if(parent){openFolder(parent);return}
     if(id.startsWith('KTB-')){
-      if(id!=='KTB-014')rememberPendingConfirmation(id);
       syncKtb(id,()=>{if(id==='KTB-014')startFinale();else closeViewerAndFocusPending({confirmedId:id})});
       void recordActivity('document_confirmed',id,{source:'recipient_consultation'}).catch(error=>console.warn('No se pudo registrar la actividad.',error));
       if(id==='KTB-014')void recordActivity('final_closure_started',id,{source:'recipient_consultation',closure_stage:'verification'});
@@ -1905,8 +1915,8 @@ function revealComicCard(card,{scroll=true}={}){
 const unlockNoticeMeta=id=>{
   if(id==='AC-01')return{kind:'secondary',eyebrow:'ARCHIVO COMPLEMENTARIO',title:'AC-01 · Registro ilustrado',detail:'El archivo complementario ya forma parte del expediente.',action:'Localizar AC-01'};
   if(id==='AR06-DEVICE')return{kind:'secondary device',eyebrow:'DISPOSITIVO CLONADO',title:'Clon SM-G991B',detail:'La extracción recuperada ya puede consultarse desde AR-06.',action:'Localizar dispositivo'};
-  if(isFolder(id))return{kind:'primary folder',eyebrow:'SECUENCIA PRINCIPAL',title:`${id} · ${name(id)}`,detail:'La siguiente carpeta de la secuencia ya está disponible.',action:'Localizar carpeta'};
-  return{kind:'primary document',eyebrow:'SECUENCIA PRINCIPAL',title:`${id} · ${name(id)}`,detail:'El siguiente documento de la secuencia ya está disponible.',action:'Localizar documento'};
+  if(isFolder(id))return{kind:'primary folder',eyebrow:'SECUENCIA PRINCIPAL',title:name(id),detail:'La siguiente carpeta de la secuencia ya está disponible.',action:'Localizar carpeta'};
+  return{kind:'primary document',eyebrow:'SECUENCIA PRINCIPAL',title:name(id),detail:'El siguiente documento de la secuencia ya está disponible.',action:'Localizar documento'};
 };
 const presentUnlockNotice=(unlockIds,confirmedId='')=>{
   const ids=[...new Set(unlockIds||[])];
@@ -1962,9 +1972,14 @@ function render(options={}){
   if(done.includes('KTB-003'))unlockCandidates.push('AC-01');
   if(ar06DeviceUnlocked(done))unlockCandidates.push('AR06-DEVICE');
   const candidateUnlocks=[...new Set(unlockCandidates)];
+  const confirmedSequenceIndex=sequence.indexOf(confirmedId);
+  const nextConfirmedAccess=confirmedSequenceIndex>=0?sequence[confirmedSequenceIndex+1]:'';
   const confirmationUnlocks={
-    'KTB-003':['KTB-004','AC-01'],
-    'KTB-012':['KTB-013','AR06-DEVICE']
+    [confirmedId]:[
+      nextConfirmedAccess,
+      ...(confirmedId==='KTB-003'?['AC-01']:[]),
+      ...(confirmedId==='KTB-012'?['AR06-DEVICE']:[])
+    ].filter(Boolean)
   };
   const confirmedUnlocks=(confirmationUnlocks[confirmedId]||[]).filter(id=>candidateUnlocks.includes(id));
   // Un desbloqueo solo se consume cuando el expediente vuelve a estar visible.
@@ -2422,7 +2437,7 @@ function resumeFinalFlow(){
   }
 }
 function showFinalLogo(){document.querySelector('#doc-type').textContent='';document.querySelector('#doc-title').textContent='KIZUNA';document.querySelector('#doc-body').innerHTML='<img style="display:block;width:130px;margin:0 auto 18px;border-radius:50%" src="../assets/kizuna-logo-official.png" alt="Kizuna Travel Bureau"><p style="text-align:center;font-size:20px">TRAVEL BUREAU</p><p style="text-align:center;margin-top:70px">Porque los mejores recuerdos nunca pertenecieron a un expediente. Siempre te pertenecieron a ti.</p>'}
-document.querySelector('#gate-consent').onchange=event=>document.querySelector('#gate-continue').disabled=!event.target.checked;document.querySelector('#gate-continue').onclick=()=>{patchState({legalAccepted:true});gate.hidden=true;dash.hidden=false;render()};document.querySelector('#access-form').onsubmit=event=>{event.preventDefault();const username=document.querySelector('#username').value.trim().toLowerCase(),password=document.querySelector('#password').value;if(username!=='jose.cuadrado'||password!=='kizuna2026')message.textContent='No se han podido verificar las credenciales de acceso.';else openDashboard()};document.querySelector('#exit').onclick=()=>{location.href='../index.html'};readerCloseButton.onclick=async()=>{if(viewer.classList.contains('is-reader-fullscreen')||document.fullscreenElement===viewer)await exitReaderFullscreen();else closeViewerAndFocusPending()};mark.onclick=async()=>{if(active==='FINAL-01'){if(finalFileRead())return;mark.disabled=true;mark.textContent='Registrando lectura…';try{await showFinalPublicTransition()}catch(error){console.error('No se pudo registrar la lectura de FINAL-01.',error);mark.disabled=false;mark.textContent='Confirmar lectura'}return}const done=read();if(!done.includes(active)){done.push(active);await(active==='KTB-014'?withKtb14ReadMutation(()=>save(done)):save(done))}if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}const parent=fileFolder(active);if(parent){openFolder(parent);return}if(active.startsWith('KTB-')){const id=active;if(id!=='KTB-014')rememberPendingConfirmation(id);syncKtb(id,()=>{if(id==='KTB-014')startFinale();else closeViewerAndFocusPending({confirmedId:id})});return}closeViewerAndFocusPending()};next.onclick=()=>{const index=sequence.indexOf(active);if(index<sequence.length-1&&allowed(sequence[index+1]))openDoc(sequence[index+1])};
+document.querySelector('#gate-consent').onchange=event=>document.querySelector('#gate-continue').disabled=!event.target.checked;document.querySelector('#gate-continue').onclick=()=>{patchState({legalAccepted:true});gate.hidden=true;dash.hidden=false;render()};document.querySelector('#access-form').onsubmit=event=>{event.preventDefault();const username=document.querySelector('#username').value.trim().toLowerCase(),password=document.querySelector('#password').value;if(username!=='jose.cuadrado'||password!=='kizuna2026')message.textContent='No se han podido verificar las credenciales de acceso.';else openDashboard()};document.querySelector('#exit').onclick=()=>{location.href='../index.html'};readerCloseButton.onclick=async()=>{if(viewer.classList.contains('is-reader-fullscreen')||document.fullscreenElement===viewer)await exitReaderFullscreen();else closeViewerAndFocusPending()};mark.onclick=async()=>{if(active==='FINAL-01'){if(finalFileRead())return;mark.disabled=true;mark.textContent='Registrando lectura…';try{await showFinalPublicTransition()}catch(error){console.error('No se pudo registrar la lectura de FINAL-01.',error);mark.disabled=false;mark.textContent='Confirmar lectura'}return}const done=read();if(!done.includes(active)){const nextRead=[...done,active];await(active==='KTB-014'?withKtb14ReadMutation(()=>save(nextRead)):save(nextRead))}if(active.startsWith('AR03-')){if(ar03Complete())openAr03();else if(active==='AR03-CARTA')openAr03Mosaic('temples');else openAr03Mosaic(active.startsWith('AR03-C-')?'cities':'temples');return}const parent=fileFolder(active);if(parent){openFolder(parent);return}if(active.startsWith('KTB-')){const id=active;syncKtb(id,()=>{if(id==='KTB-014')startFinale();else closeViewerAndFocusPending({confirmedId:id})});return}closeViewerAndFocusPending()};next.onclick=()=>{const index=sequence.indexOf(active);if(index<sequence.length-1&&allowed(sequence[index+1]))openDoc(sequence[index+1])};
 
 document.querySelector('#gate-continue').onclick=async()=>{
   await patchState({legalAccepted:true,legalAcceptedAt:new Date().toISOString(),legalVersion:Number(getState().legalVersion||1)});
