@@ -1925,7 +1925,7 @@ function revealComicCard(card,{scroll=true}={}){
 }
 const unlockNoticeMeta=id=>{
   if(id==='AC-01')return{kind:'secondary',eyebrow:'ARCHIVO COMPLEMENTARIO',title:'AC-01 · Registro ilustrado',detail:'El archivo complementario ya forma parte del expediente.',action:'Localizar AC-01'};
-  if(id==='AR06-DEVICE')return{kind:'secondary device',eyebrow:'DISPOSITIVO CLONADO',title:'Clon SM-G991B',detail:'La extracción recuperada ya puede consultarse desde AR-06.',action:'Localizar dispositivo'};
+  if(id==='AR06-DEVICE')return{kind:'secondary device',eyebrow:'DISPOSITIVO RECUPERADO',title:'DISP-01 · Clon SM-G991B',detail:'La extracción recuperada dispone de su propio registro de investigación.',action:'Localizar dispositivo'};
   if(isFolder(id))return{kind:'primary folder',eyebrow:'SECUENCIA PRINCIPAL',title:name(id),detail:'La siguiente carpeta de la secuencia ya está disponible.',action:'Localizar carpeta'};
   return{kind:'primary document',eyebrow:'SECUENCIA PRINCIPAL',title:name(id),detail:'El siguiente documento de la secuencia ya está disponible.',action:'Localizar documento'};
 };
@@ -1956,7 +1956,7 @@ const presentUnlockNotice=(unlockIds,confirmedId='')=>{
   return true;
 };
 const unlockTargetNode=id=>{
-  if(id==='AR06-DEVICE')return document.querySelector('[data-open-recovered-device]')?.closest('[data-document-id="AR-06"]')||null;
+  if(id==='AR06-DEVICE')return document.querySelector('[data-document-id="AR06-DEVICE"]')||null;
   return document.querySelector(`[data-document-id="${id}"]`);
 };
 const locateUnlockedAccess=(id,{focus=true}={})=>{
@@ -2012,6 +2012,11 @@ function render(options={}){
   const acDiscoveryMarkup=revealingAc01?`<section class="comic-discovery-layer" role="status" aria-live="polite"><div class="comic-discovery-code">HALLAZGO ASOCIADO · AC-01</div><div class="comic-discovery-folder" aria-hidden="true"><i></i><span>ARCHIVO<br>COMPLEMENTARIO</span><b>AC-01</b></div><div class="comic-discovery-scan" aria-hidden="true"></div><p>INCORPORANDO REGISTRO AL EXPEDIENTE</p><button class="comic-discovery-skip" type="button">Mostrar archivo</button></section><span class="comic-reveal-stamp">NUEVO ARCHIVO<br>RECUPERADO</span>`:'';
   const supplementary=done.includes('KTB-003')?`<article class="document complementary comic-card ${revealingAc01?'is-new-unlock is-ac-reveal':''}" data-document-id="AC-01">${revealingAc01?'<span class="new-unlock-badge">NUEVO</span>':''}${acDiscoveryMarkup}<header class="comic-card-header"><span class="doc-no">○ AC-01</span><strong>REGISTRO ILUSTRADO</strong></header><h3>ARCHIVO COMPLEMENTARIO<br>AC-01</h3><dl class="comic-card-metadata"><div><dt>Estado</dt><dd>Recuperado</dd></div><div><dt>Tipo</dt><dd>Registro ilustrado</dd></div><div><dt>Origen</dt><dd>No catalogado</dd></div><div><dt>Relación</dt><dd>Pendiente de clasificación</dd></div></dl><section class="comic-card-progress"><div><span>PÁGINAS RECUPERADAS</span><strong>${comicPages} / 11</strong></div><div class="comic-page-bar" role="img" aria-label="${comicPages} de 11 páginas recuperadas">${comicPageBar}</div></section><button data-id="AC-01">CONSULTAR REGISTRO</button></article>`:'';
   const alternative=alt00Discovered?`<article class="document complementary comic-card alt00-card" data-document-id="ALT-00"><header class="comic-card-header"><span class="doc-no">◇ ALT-00</span><strong>REGISTRO TEMPORAL</strong></header><h3>EXPEDIENTE ALTERNATIVO<br>ALT-00</h3><dl class="comic-card-metadata"><div><dt>Estado</dt><dd>Detectado</dd></div><div><dt>Tipo</dt><dd>Registro ilustrado</dd></div><div><dt>Origen</dt><dd>Protocolo Omega</dd></div><div><dt>Relación</dt><dd>Línea temporal descartada</dd></div></dl><section class="comic-card-progress"><div><span>PÁGINAS DISPONIBLES</span><strong>10 / 10</strong></div><div class="comic-page-bar" role="img" aria-label="10 de 10 páginas disponibles">${alt00PageBar}</div></section><button data-id="ALT-00">CONSULTAR REGISTRO</button></article>`:'';
+  const deviceReviewed=Math.max(0,Math.min(recoveredDeviceProgress.reviewed,recoveredDeviceProgress.total));
+  const deviceComplete=recoveredDeviceProgress.complete;
+  const deviceProgress=Math.round(deviceReviewed/Math.max(1,recoveredDeviceProgress.total)*100);
+  const deviceNew=newUnlocks.includes('AR06-DEVICE');
+  const deviceCard=ar06DeviceUnlocked(done)?`<article class="document recovered-device-card ${deviceComplete?'is-device-complete':''} ${deviceNew?'is-new-unlock':''}" data-document-id="AR06-DEVICE">${deviceNew?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">${deviceComplete?'✓':'○'} DISP-01</span><h3>Dispositivo recuperado<br>SM-G991B</h3><p class="document-card-status">${deviceComplete?'INVESTIGACIÓN COMPLETADA':deviceReviewed?'INVESTIGACIÓN EN CURSO':'DISPONIBLE PARA CONSULTA'}</p><section class="folder-card-progress ${deviceComplete?'is-complete':deviceReviewed?'is-started':''}" aria-label="${deviceReviewed} de ${recoveredDeviceProgress.total} evidencias examinadas"><div><span><b>${deviceReviewed}</b> de ${recoveredDeviceProgress.total} examinadas</span><strong>${deviceComplete?'DISPOSITIVO COMPLETADO':deviceReviewed?'PROGRESO GUARDADO':'INVESTIGACIÓN PARALELA'}</strong></div><i aria-hidden="true"><b style="width:${deviceProgress}%"></b></i></section><div class="document-card-actions"><button type="button" data-open-recovered-device aria-label="${deviceReviewed?'Continuar':'Abrir'} el dispositivo recuperado SM-G991B">${deviceComplete?'Revisar dispositivo':deviceReviewed?'Continuar dispositivo':'Abrir dispositivo'}</button></div></article>`:'';
   document.querySelector('#integrity').textContent=`${integrity} %`;
   document.querySelector('#integrity-fill').style.width=`${integrity}%`;
   document.querySelector('#authorization').textContent=`Nivel ${roman(level)}`;
@@ -2036,10 +2041,8 @@ function render(options={}){
     const label=isClosing?'Continuar cierre':isFolder(id)?'Abrir carpeta':'Abrir documento';
     const status=isClosing?(stageLabels[stage]||stageLabels.verification):seen?'LECTURA CONFIRMADA':ok?'DISPONIBLE PARA CONSULTA':'AUTORIZACIÓN PENDIENTE';
     const folderProgress=isFolder(id)?folderCardProgressMarkup(id,done):'';
-    const deviceAccess=id==='AR-06'&&ar06DeviceUnlocked(done)
-      ?`<button type="button" class="folder-card-device-access ${newUnlocks.includes('AR06-DEVICE')?'is-new-device-unlock':''}" data-open-recovered-device aria-label="Abrir el dispositivo clonado SM-G991B">Abrir dispositivo</button>`
-      :'';
-    return `<article class="document ${isFolder(id)?'folder-document':''} ${deviceAccess?'has-device-access':''} ${ok?'':'locked'} ${isClosing?'final-flow-card':''} ${newlyUnlocked?'is-new-unlock':''}" data-document-id="${id}">${newlyUnlocked?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">${isClosing?'◐ ':seen?'✓ ':ok?'○ ':'⌕ '}${id}</span><h3>${name(id)}</h3><p class="document-card-status">${status}</p>${folderProgress}<div class="document-card-actions"><button type="button" data-id="${id}" ${ok?'':'disabled'} ${isClosing?'data-final-resume':''}>${ok?label:'Acceso restringido'}</button>${deviceAccess}</div></article>`
+    const card=`<article class="document ${isFolder(id)?'folder-document':''} ${ok?'':'locked'} ${isClosing?'final-flow-card':''} ${newlyUnlocked?'is-new-unlock':''}" data-document-id="${id}">${newlyUnlocked?'<span class="new-unlock-badge">NUEVO</span>':''}<span class="doc-no">${isClosing?'◐ ':seen?'✓ ':ok?'○ ':'⌕ '}${id}</span><h3>${name(id)}</h3><p class="document-card-status">${status}</p>${folderProgress}<div class="document-card-actions"><button type="button" data-id="${id}" ${ok?'':'disabled'} ${isClosing?'data-final-resume':''}>${ok?label:'Acceso restringido'}</button></div></article>`;
+    return id==='AR-06'?card+deviceCard:card
   }).join('')+supplementary+alternative;
   if(newUnlocks.length){
     const freshUnlocks=newUnlocks.filter(id=>!seenUnlocks.includes(id));
@@ -3994,7 +3997,8 @@ setTimeout(()=>{
       if(error)throw error;
       if(isAdmin(data.user)){await client.auth.signOut();throw new Error('Las cuentas administrativas deben usar el acceso privado.')}
       currentUser=data.user;
-      const loadedProgress=await loadRemoteProgress(data.user);
+      const [loadedProgress,loadedDeviceProgress]=await Promise.all([loadRemoteProgress(data.user),loadRecoveredDeviceProgress()]);
+      recoveredDeviceProgress=loadedDeviceProgress;
       const loginActivity=await recordActivity('login',null,{source:'credentials'});
       if(!loginActivity)console.warn('La sesión se inició, pero no pudo añadirse al registro de actividad.');
       message.textContent='';
@@ -4009,7 +4013,8 @@ setTimeout(()=>{
       const {data:{session}}=await client.auth.getSession();
       if(!session||isAdmin(session.user)){access.hidden=false;return}
       currentUser=session.user;
-      await loadRemoteProgress(session.user);
+      const [,loadedDeviceProgress]=await Promise.all([loadRemoteProgress(session.user),loadRecoveredDeviceProgress()]);
+      recoveredDeviceProgress=loadedDeviceProgress;
       const restoredActivity=await recordActivity('session_restored',null,{source:'persisted_session'});
       if(!restoredActivity)console.warn('La sesión se restauró, pero no pudo añadirse al registro de actividad.');
       message.textContent='';
