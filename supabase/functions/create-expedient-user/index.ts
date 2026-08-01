@@ -176,12 +176,16 @@ Deno.serve(async (request) => {
 
     // El dispositivo clonado conserva su avance en una tabla independiente.
     // Sólo el reinicio total de Administración debe eliminarlo.
-    const { error: deviceProgressError } = await adminClient
+    const { data: deletedDeviceProgress, error: deviceProgressError } = await adminClient
       .from('expedient_device_progress')
       .delete()
       .eq('user_id', userId)
-    if (deviceProgressError && deviceProgressError.code !== '42P01') {
-      return response({ error: deviceProgressError.message }, 400)
+      .select('user_id')
+    if (deviceProgressError) {
+      const errorMessage = deviceProgressError.code === '42P01'
+        ? 'No se ha podido reiniciar el dispositivo porque su registro de progreso no está disponible.'
+        : deviceProgressError.message
+      return response({ error: errorMessage }, 400)
     }
 
     // El historial anterior se elimina para dejar una única evidencia del reinicio.
@@ -200,7 +204,12 @@ Deno.serve(async (request) => {
       })
     if (logError) return response({ error: logError.message }, 400)
 
-    return response({ id: userId, state: cleanState })
+    return response({
+      id: userId,
+      state: cleanState,
+      deviceProgressReset: true,
+      deviceProgressRowsDeleted: deletedDeviceProgress?.length ?? 0,
+    })
   }
 
   const normalizedEmail = String(payload.email ?? '').trim().toLowerCase()
