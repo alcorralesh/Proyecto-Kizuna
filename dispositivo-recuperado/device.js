@@ -115,6 +115,14 @@ function updateProgress({emit=true}={}){
   return complete;
 }
 
+function showEvidenceProgress(){
+  const count=reviewed.size;
+  showToast(`${count} de ${apps.length} evidencias revisadas y guardadas.`,{
+    title:`${apps.length} evidencias localizadas`,
+    icon:String(count||apps.length)
+  });
+}
+
 function clearCallTimers(){
   callTimers.forEach(timer=>clearTimeout(timer));
   callTimers=[];
@@ -177,6 +185,7 @@ function launch(id,{fromHistory=false}={}){
   appContent.scrollTop=0;
   if(!fromHistory) syncUrl(id);
   if(isNewEvidence){
+    setTimeout(()=>showEvidenceProgress(),500);
     if(allEvidenceReviewed&&anomalyState==='idle'){
       anomalyState='pending';
       anomalyLater(()=>{
