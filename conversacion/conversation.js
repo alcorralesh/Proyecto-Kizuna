@@ -4,6 +4,9 @@ if(new URLSearchParams(location.search).has('embedded')){
 }
 const messages=$('#messages');
 const typingTemplate=$('#typing-template');
+// El material original estaba orientado desde el teléfono de Alberto. Este
+// clon pertenece a José, por lo que se invierte cada lado de la conversación.
+const joseDeviceSide=side=>side==='incoming'?'outgoing':'incoming';
 
 const threads=[
   {
@@ -113,11 +116,11 @@ const threads=[
   }
 ];
 
-function m(side,text,time,extra={}){return {kind:'message',side,text,time,ticks:side==='outgoing'?'read':null,...extra}}
-function gif(side,src,time,caption=''){return {kind:'message',side,gif:src,time,caption,ticks:side==='outgoing'?'read':null,corrupted:caption.includes('parcialmente')}}
+function m(side,text,time,extra={}){const deviceSide=joseDeviceSide(side);return {kind:'message',side:deviceSide,text,time,ticks:deviceSide==='outgoing'?'read':null,...extra}}
+function gif(side,src,time,caption=''){const deviceSide=joseDeviceSide(side);return {kind:'message',side:deviceSide,gif:src,time,caption,ticks:deviceSide==='outgoing'?'read':null,corrupted:caption.includes('parcialmente')}}
 function missing(text,time){return {kind:'missing',text,time}}
 function partial(label,text,word,time){return {kind:'partial',label,text,word,time}}
-function redacted(side,time){return {kind:'message',side,redacted:true,time,ticks:'read'}}
+function redacted(side,time){const deviceSide=joseDeviceSide(side);return {kind:'message',side:deviceSide,redacted:true,time,ticks:deviceSide==='outgoing'?'read':null}}
 function damagedAudio(title,text,time){return {kind:'damagedAudio',title,text,time}}
 
 let activeThread=-1;
@@ -241,6 +244,11 @@ async function play(){
   const thread=threads[activeThread];
   for(const item of thread.items){
     const incoming=item.kind==='message'&&item.side==='incoming';
+    await wait(item.kind==='message'
+      ?playbackTiming.messagePause
+      :playbackTiming.recoveredEventPause
+    );
+    if(run!==generation)return;
     if(incoming){
       const contentLength=(item.text||item.caption||'').length;
       await showTyping(
@@ -251,10 +259,6 @@ async function play(){
         run
       );
     }
-    await wait(item.kind==='message'
-      ?playbackTiming.messagePause
-      :playbackTiming.recoveredEventPause
-    );
     if(run!==generation)return;
     addItem(item);
   }

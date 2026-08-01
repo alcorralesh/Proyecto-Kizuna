@@ -2174,7 +2174,7 @@ const openRecoveredDeviceFromAr06=()=>{
   readerTools.hidden=true;
   document.querySelector('#doc-type').textContent='AR-06 · DISPOSITIVO RECUPERADO';
   document.querySelector('#doc-title').textContent='Clon SM-G991B';
-  document.querySelector('#doc-body').innerHTML=`<section class="recovered-device-embed" aria-label="Dispositivo clonado SM-G991B"><iframe src="../dispositivo-recuperado/index.html?embedded=1&v=20260801-device-ticks03" title="Dispositivo clonado SM-G991B" loading="eager" allow="autoplay; fullscreen"></iframe></section>`;
+  document.querySelector('#doc-body').innerHTML=`<section class="recovered-device-embed" aria-label="Dispositivo clonado SM-G991B"><iframe src="../dispositivo-recuperado/index.html?embedded=1&v=20260801-whatsapp-alberto02" title="Dispositivo clonado SM-G991B" loading="eager" allow="autoplay; fullscreen"></iframe></section>`;
   if(!viewer.open)viewer.showModal();
   syncReaderChrome();
 };
