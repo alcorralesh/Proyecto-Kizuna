@@ -3,7 +3,7 @@ export const MAU_CONFIG = Object.freeze({
   triggerProgress: 0.3,
   minimumPageAge: 8000,
   maxAwakeAppearances: 2,
-  specialGestureChance: 0.3,
+  specialGestureChance: 0.5,
   repeatCooldown: 40000,
   scrollSettle: 1400,
   testParameter: 'mau',
@@ -29,8 +29,8 @@ export const MAU_CONFIG = Object.freeze({
     albertoHold: 700
   }),
   dialogue: Object.freeze({
-    albertoChance: 0.2,
-    residualChance: 0.45,
+    albertoChance: 0.3,
+    residualChance: 0.5,
     general: Object.freeze([
       'Solo estaba comprobando que esta línea temporal siguiera en su sitio.',
       'Todo parece estar donde debería.',
@@ -91,7 +91,7 @@ export const MAU_CONFIG = Object.freeze({
       'Alberto dejó este itinerario revisado dos veces. Yo lo revisé una tercera.',
       'Hay una nota de Alberto en este archivo. Todavía no deberías verla.',
       'Alberto sabía que acabarías llegando hasta aquí.',
-      'No todos estos recuerdos pertenecen a José. Algunos empezaron con Alberto.',
+      'No todos estos recuerdos pertenecen a Jose. Algunos empezaron con Alberto.',
       'Alberto insistió en conservar esta versión de los acontecimientos.',
       'Si encuentras una página fuera de lugar, dile a Alberto que yo no fui.',
       'Hay algo que Alberto decidió no incluir en la versión oficial.',

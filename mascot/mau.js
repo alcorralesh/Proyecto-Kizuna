@@ -1,4 +1,4 @@
-import { MAU_CONFIG } from './mau-config.js?v=20260727-mau24';
+import { MAU_CONFIG } from './mau-config.js?v=20260801-mau-alberto-flow06';
 
 const ASSETS = Object.freeze({
   peek: new URL('./assets/sprites/mau-peek.webp', import.meta.url).href,
@@ -73,13 +73,14 @@ class KizunaMau extends HTMLElement {
   #reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   #abortController = new AbortController();
   #layoutObserver;
+  #storyRequest = 0;
 
   constructor() {
     super();
     const shadow = this.attachShadow({ mode: 'open' });
     const stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./mau.css?v=20260727-mau24', import.meta.url).href;
+    stylesheet.href = new URL('./mau.css?v=20260801-mau-alberto-flow05', import.meta.url).href;
 
     this.#scene = document.createElement('section');
     this.#scene.className = 'scene';
@@ -149,6 +150,50 @@ class KizunaMau extends HTMLElement {
   disconnectedCallback() {
     this.#abortController.abort();
     this.#layoutObserver?.disconnect();
+  }
+
+  async speak(text, { duration = MAU_CONFIG.timings.message, context = 'alberto' } = {}) {
+    if (!MAU_CONFIG.enabled || !text) return;
+    const request = ++this.#storyRequest;
+    this.setAttribute('data-story-mode', '');
+    this.setAttribute('data-story-context', context);
+
+    if (!this.hidden) {
+      if (!this.#closing) await this.close();
+      while (!this.hidden && request === this.#storyRequest) await wait(50);
+    }
+    if (request !== this.#storyRequest || !this.isConnected) return;
+
+    this.#activeScene = 'story';
+    this.#closing = false;
+    this.#currentSection = 'alberto';
+    this.#messageStartedAt = performance.now();
+    this.#setMessage(text);
+    this.hidden = false;
+
+    this.#setPose(
+      'guide',
+      this.#reducedMotion ? 'is-guiding' : 'is-guiding is-story-arriving'
+    );
+    this.#showBubble();
+    if (!this.#reducedMotion) this.#scheduleAmbientBlink();
+
+    this.#messageDeadline = performance.now() + duration;
+    await this.#waitForSceneDeadline('story');
+    if (request === this.#storyRequest && !this.#closing) await this.close();
+    if (request === this.#storyRequest && context === 'farewell') {
+      this.removeAttribute('data-story-mode');
+      this.removeAttribute('data-story-context');
+    }
+  }
+
+  async silence({ endStory = false } = {}) {
+    this.#storyRequest += 1;
+    if (!this.hidden && !this.#closing) await this.close();
+    if (endStory) {
+      this.removeAttribute('data-story-mode');
+      this.removeAttribute('data-story-context');
+    }
   }
 
   async show() {
@@ -421,7 +466,7 @@ class KizunaMau extends HTMLElement {
   #scheduleAmbientBlink() {
     if (
       this.#reducedMotion ||
-      this.#activeScene !== 'message' ||
+      !['message', 'story'].includes(this.#activeScene) ||
       this.hidden ||
       this.#closing
     ) return;
@@ -459,10 +504,31 @@ if (!customElements.get('kizuna-mau')) {
   customElements.define('kizuna-mau', KizunaMau);
 }
 
+window.KizunaMau = Object.freeze({
+  say(message, options = {}) {
+    const element = document.querySelector('kizuna-mau');
+    if (!element) {
+      window.KizunaPendingMauCue = { message, options };
+      return false;
+    }
+    void element.speak(message, options);
+    return true;
+  },
+  silence(options = {}) {
+    delete window.KizunaPendingMauCue;
+    const element = document.querySelector('kizuna-mau');
+    if (!element) return false;
+    void element.silence(options);
+    return true;
+  }
+});
+
 const pageIsBusy = () => Boolean(document.querySelector(
   'dialog[open], .recipient-message-notice.visible, .kizuna-pwa-sheet, ' +
   '.kizuna-pwa-update, .kizuna-pwa-install.is-expanded, ' +
-  '.kizuna-push-consent.is-visible, #alt00-viewer'
+  '.kizuna-push-consent.is-visible, #alt00-viewer, #alberto-message-prompt, ' +
+  '#alberto-physical-prompt, #alberto-response-reminder, #alberto-letter, ' +
+  '#alberto-decision, #alberto-finale'
 ));
 
 const scrollProgress = () => {
@@ -471,6 +537,7 @@ const scrollProgress = () => {
 };
 
 const startMau = (element, scene = 'message') => {
+  if (element.hasAttribute('data-story-mode')) return true;
   if (pageIsBusy()) return false;
   if (scene === 'sleep') {
     void element.showSleep();
@@ -619,6 +686,11 @@ const mountMau = () => {
   const mascot = document.createElement('kizuna-mau');
   document.body.appendChild(mascot);
   coordinateScenes(mascot);
+  const pendingCue = window.KizunaPendingMauCue;
+  if (pendingCue) {
+    delete window.KizunaPendingMauCue;
+    window.setTimeout(() => window.KizunaMau.say(pendingCue.message, pendingCue.options), 0);
+  }
 
   const testMode = LOCAL_TEST_HOSTS.includes(location.hostname)
     ? new URLSearchParams(location.search).get(MAU_CONFIG.testParameter)
