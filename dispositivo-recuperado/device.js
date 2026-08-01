@@ -117,7 +117,7 @@ function updateProgress({emit=true}={}){
 
 function showEvidenceProgress(){
   const count=reviewed.size;
-  showToast(`${count} de ${apps.length} evidencias revisadas y guardadas.`,{
+  showToast(`${count} de ${apps.length} aplicaciones revisadas.`,{
     title:`${apps.length} evidencias localizadas`,
     icon:String(count||apps.length)
   });
@@ -1048,6 +1048,7 @@ function bootRecoveredDevice(){
   if(initial)launch(initial,{fromHistory:true});
   else{
     playHomeEntrance();
+    setTimeout(()=>showEvidenceProgress(),850);
   }
   if(reviewed.size===apps.length&&anomalyState==='idle'){
     anomalyState='pending';
