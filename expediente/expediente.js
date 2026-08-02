@@ -113,6 +113,7 @@ const normalizeFinalState=state=>{
   };
 };
 const albertoPublicHandoffPending=state=>{const done=Array.isArray(state?.read)?state.read:[];return Boolean(state?.completed&&done.includes('KTB-014')&&done.includes('FINAL-01')&&state.albertoResponseAccepted!==true)};
+const archiveDocumentsCompleted=state=>{const done=Array.isArray(state?.read)?state.read:[];return Boolean(state?.completed&&done.includes('KTB-014')&&done.includes('FINAL-01'))};
 const explicitArchiveConsultation=new URLSearchParams(location.search).get('archive')==='1';
 const redirectToAlbertoPublicSite=state=>{if(explicitArchiveConsultation||!albertoPublicHandoffPending(state))return false;location.replace('../index.html#carta-alberto');return true};
 const archiveEntryNavigationType=performance.getEntriesByType?.('navigation')?.[0]?.type||'navigate';
@@ -121,7 +122,7 @@ let archiveReturnNoticePrepared=false,archiveReturnNoticeEligible=false,archiveR
 const prepareArchiveReturnNotice=state=>{
   if(archiveReturnNoticePrepared)return;
   archiveReturnNoticePrepared=true;
-  archiveReturnNoticeEligible=archiveReturnVisit&&albertoPublicHandoffPending(state);
+  archiveReturnNoticeEligible=archiveReturnVisit&&archiveDocumentsCompleted(state);
 };
 const dismissArchiveReturnNotice=()=>{
   const notice=document.querySelector('#archive-return-notice');
@@ -137,13 +138,17 @@ const showArchiveReturnNotice=()=>{
   if(archiveReturnNoticeShown||!archiveReturnNoticeEligible||dash.hidden||viewer.open)return false;
   archiveReturnNoticeShown=true;
   archiveReturnNoticeEligible=false;
+  const albertoFlowCompleted=getState().albertoResponseAccepted===true;
+  const personalTransition=albertoFlowCompleted
+    ?'<div><p>Pero hay cosas que ningún expediente puede guardar.</p><p>Palabras que debían entregarse de otra manera.</p></div><strong>Lo que ocurrió después ya no pertenecía al archivo.<br>Era una historia que te estaba esperando.</strong>'
+    :'<div><p>Pero hay cosas que ningún expediente puede guardar.</p><p>Palabras que deben entregarse de otra manera.</p></div><strong>Lo que viene ahora ya no pertenece al archivo.<br>Te estaba esperando a ti.</strong>';
   const notice=document.createElement('section');
   notice.id='archive-return-notice';
   notice.className='archive-return-notice';
   notice.setAttribute('role','dialog');
   notice.setAttribute('aria-modal','true');
   notice.setAttribute('aria-labelledby','archive-return-title');
-  notice.innerHTML=`<article class="archive-return-card"><button class="archive-return-close" type="button" aria-label="Recorrer el archivo de nuevo">×</button><header><p>ARCHIVO CENTRAL · ÚLTIMO REGISTRO CONSULTADO</p><h2 id="archive-return-title">El archivo guarda silencio.<br><em>Ya te ha contado todo lo que sabía.</em></h2></header><div class="archive-return-copy"><p>Has abierto cada documento, seguido cada rastro y devuelto la voz a recuerdos que permanecieron demasiado tiempo en silencio.</p><p>Aquí ya no queda nada pendiente. Aun así, el Archivo Central conservará esta historia para ti. Sus puertas seguirán abiertas siempre que necesites regresar.</p><div><p>Pero hay cosas que ningún expediente puede guardar.</p><p>Palabras que deben entregarse de otra manera.</p></div><strong>Lo que viene ahora ya no pertenece al archivo.<br>Te estaba esperando a ti.</strong></div><footer><button class="archive-return-public" type="button">Volver a KIZUNA <span>→</span></button><button class="archive-return-review" type="button">Recorrer el archivo de nuevo</button></footer></article>`;
+  notice.innerHTML=`<article class="archive-return-card"><button class="archive-return-close" type="button" aria-label="Recorrer el archivo de nuevo">×</button><header><p>ARCHIVO CENTRAL · ÚLTIMO REGISTRO CONSULTADO</p><h2 id="archive-return-title">El archivo guarda silencio.<br><em>Ya te ha contado todo lo que sabía.</em></h2></header><div class="archive-return-copy"><p>Has abierto cada documento, seguido cada rastro y devuelto la voz a recuerdos que permanecieron demasiado tiempo en silencio.</p><p>Aquí ya no queda nada pendiente. Aun así, el Archivo Central conservará esta historia para ti. Sus puertas seguirán abiertas siempre que necesites regresar.</p>${personalTransition}</div><footer><button class="archive-return-public" type="button">Volver a KIZUNA <span>→</span></button><button class="archive-return-review" type="button">Recorrer el archivo de nuevo</button></footer></article>`;
   document.body.appendChild(notice);
   document.body.classList.add('archive-return-open');
   const close=()=>dismissArchiveReturnNotice();
