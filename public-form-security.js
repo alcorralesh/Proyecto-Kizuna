@@ -45,8 +45,8 @@
     const container=document.createElement('div');
     container.className='public-form-turnstile';
     container.style.margin='0 0 14px';
-    const submit=form.querySelector('[type="submit"],button:not([type])');
-    submit?.before(container);
+    const submit=form.querySelector('[type="submit"],button');
+    if(submit)submit.before(container);else form.appendChild(container);
     const state={id:null,token:'',resolve:null,pending:null,invalid:false,container};
     state.id=window.turnstile.render(container,{
       sitekey:TURNSTILE_SITE_KEY,
