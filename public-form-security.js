@@ -70,7 +70,7 @@
     state.pending=new Promise((resolve,reject)=>{
       const timeout=setTimeout(()=>{state.resolve=null;state.invalid=true;reject(new Error('La verificación ha tardado demasiado. Inténtalo de nuevo.'))},45000);
       state.resolve=token=>{clearTimeout(timeout);token?resolve(token):reject(new Error('No se ha podido completar la verificación antispam.'))};
-      window.turnstile.execute(state.id);
+      try{window.turnstile.execute(state.container)}catch(error){clearTimeout(timeout);state.resolve=null;state.invalid=true;reject(error)}
     }).finally(()=>{state.pending=null});
     return state.pending;
   };

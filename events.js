@@ -5,7 +5,7 @@
   const getPublicFormSecurity=()=>{
     if(window.KizunaPublicFormSecurity)return Promise.resolve(window.KizunaPublicFormSecurity);
     if(window.KizunaPublicFormSecurityLoader)return window.KizunaPublicFormSecurityLoader;
-    window.KizunaPublicFormSecurityLoader=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`${securityScriptUrl}?v=20260802-public-forms03`;script.onload=()=>resolve(window.KizunaPublicFormSecurity);script.onerror=()=>{window.KizunaPublicFormSecurityLoader=null;reject(new Error('No se pudo cargar la protección del formulario.'))};document.head.appendChild(script)});
+    window.KizunaPublicFormSecurityLoader=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`${securityScriptUrl}?v=20260802-public-forms04`;script.onload=()=>resolve(window.KizunaPublicFormSecurity);script.onerror=()=>{window.KizunaPublicFormSecurityLoader=null;reject(new Error('No se pudo cargar la protección del formulario.'))};document.head.appendChild(script)});
     return window.KizunaPublicFormSecurityLoader;
   };
   const publicFunctionError=async error=>{try{const detail=await error?.context?.json?.();const wrapped=new Error(detail?.error||error?.message||'No se pudo completar la inscripción.');wrapped.code=detail?.code||'';return wrapped}catch{return error instanceof Error?error:new Error('No se pudo completar la inscripción.')}};
