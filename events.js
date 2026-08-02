@@ -3,7 +3,7 @@
   if(!root)return;
   const eventsScript=document.querySelector('script[src*="events.js"]'),securityScriptUrl=new URL('public-form-security.js',eventsScript?.src||location.href).href;
   let publicFormSecurityPromise=null;
-  const getPublicFormSecurity=()=>window.KizunaPublicFormSecurity?Promise.resolve(window.KizunaPublicFormSecurity):(publicFormSecurityPromise||(publicFormSecurityPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`${securityScriptUrl}?v=20260802-public-forms01`;script.onload=()=>resolve(window.KizunaPublicFormSecurity);script.onerror=()=>reject(new Error('No se pudo cargar la protección del formulario.'));document.head.appendChild(script)})));
+  const getPublicFormSecurity=()=>window.KizunaPublicFormSecurity?Promise.resolve(window.KizunaPublicFormSecurity):(publicFormSecurityPromise||(publicFormSecurityPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`${securityScriptUrl}?v=20260802-public-forms02`;script.onload=()=>resolve(window.KizunaPublicFormSecurity);script.onerror=()=>reject(new Error('No se pudo cargar la protección del formulario.'));document.head.appendChild(script)})));
   const publicFunctionError=async error=>{try{const detail=await error?.context?.json?.();const wrapped=new Error(detail?.error||error?.message||'No se pudo completar la inscripción.');wrapped.code=detail?.code||'';return wrapped}catch{return error instanceof Error?error:new Error('No se pudo completar la inscripción.')}};
   const section=root.closest('[data-events-mode]'),mode=section?.dataset.eventsMode||'home';
   const allEventsLink=document.querySelector('[data-events-all-link]');
