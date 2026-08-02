@@ -3,6 +3,7 @@
    El secreto TURNSTILE_SECRET se configura exclusivamente en Supabase. */
 (()=>{
   'use strict';
+  if(window.KizunaPublicFormSecurity)return;
   const TURNSTILE_SITE_KEY='0x4AAAAAAEEd9I8KknCIsfOB';
   const widgets=new WeakMap();
   let turnstileLoader=null;
@@ -20,6 +21,7 @@
   const loadTurnstile=()=>{
     if(!TURNSTILE_SITE_KEY)return Promise.resolve(false);
     if(window.turnstile)return Promise.resolve(true);
+    if(window.KizunaTurnstileLoader)return window.KizunaTurnstileLoader;
     if(!turnstileLoader)turnstileLoader=new Promise((resolve,reject)=>{
       const script=document.createElement('script');
       script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
@@ -28,6 +30,7 @@
       script.onerror=()=>reject(new Error('No se pudo cargar la verificación antispam.'));
       document.head.appendChild(script);
     });
+    window.KizunaTurnstileLoader=turnstileLoader;
     return turnstileLoader;
   };
 
