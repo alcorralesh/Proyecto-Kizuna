@@ -179,7 +179,7 @@ function renderChatList(){
     button.className=`chat-list-item${viewedThreads.has(index)?' is-viewed':''}`;
     button.dataset.index=index;
     button.innerHTML=`
-      <img src="../assets/hero/hakone-fuji-dawn.webp" alt="">
+      <img src="../assets/contacts/alberto-whatsapp.png" alt="Foto de Alberto">
       <span class="chat-list-copy">
         <span><strong>Alberto</strong><time>${lastItem.time||''}</time></span>
         <b>${thread.short}</b>
