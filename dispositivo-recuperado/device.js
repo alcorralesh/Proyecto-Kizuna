@@ -14,7 +14,7 @@ const appContent=$('#app-content');
 const reviewed=new Set();
 const recent=[];
 const systemApps=[
-  {id:'mail',code:'SISTEMA · MENSAJES',title:'Correo',subtitle:'Enviados',icon:'✉',color:'#315b84',state:'RECUPERADO'},
+  {id:'mail',code:'SISTEMA · MENSAJES',title:'Correo',subtitle:'1 mensaje recuperado',icon:'✉',color:'#315b84',state:'RECUPERADO'},
   {id:'music',code:'SISTEMA · AUDIO',title:'Música',subtitle:'Playlist',icon:'♪',color:'#923f54',state:'ENLACE'},
   {id:'phone',code:'SISTEMA · TELEFONÍA',title:'Teléfono',subtitle:'Alberto',icon:'☎',color:'#31785b',state:'SIN SEÑAL'},
   {id:'settings',code:'SISTEMA · ANDROID 12',title:'Ajustes',subtitle:'SM-G991B',icon:'⚙',color:'#56636b',state:'SISTEMA'}
@@ -238,12 +238,31 @@ function renderApp(id){
 
 function renderMail(){
   return `<article class="system-page mail-app">
-    <header class="system-hero"><p>CARPETA LOCAL · 1 ELEMENTO</p><h2>Enviados</h2><span>Mensajes recuperados parcialmente</span></header>
-    <button class="mail-row" data-open-mail type="button">
-      <span>JC</span><div><strong>Comité KIZUNA</strong><b>Sobre la expedición</b><small>24 sep · 22:14</small></div><i>›</i>
-    </button>
-    <section class="mail-corrupt" id="mail-corrupt" hidden>
-      <header><button data-close-mail type="button">‹</button><div><p>DE: José</p><strong>Sobre la expedición</strong><span>PARA: COMITÉ KIZUNA</span></div></header>
+    <section class="mail-screen mail-home" data-mail-screen="home">
+      <header class="system-hero"><p>CUENTA LOCAL · JOSÉ</p><h2>Correo</h2><span>1 mensaje recuperado de la memoria del dispositivo</span></header>
+      <button class="mail-compose" type="button" disabled title="Función no disponible en la copia forense"><span>＋</span><b>Redactar</b><small>NO DISPONIBLE</small></button>
+      <nav class="mail-folder-list" aria-label="Carpetas de correo">
+        <button data-mail-folder="inbox" type="button"><span aria-hidden="true">▣</span><div><strong>Recibidos</strong><small>Índice de entrada dañado</small></div><b>!</b><i>›</i></button>
+        <button type="button" disabled><span aria-hidden="true">☆</span><div><strong>Destacados</strong><small>No recuperados</small></div><b>—</b></button>
+        <button data-mail-folder="sent" type="button"><span aria-hidden="true">↗</span><div><strong>Enviados</strong><small>1 mensaje recuperado</small></div><b>1</b><i>›</i></button>
+        <button type="button" disabled><span aria-hidden="true">◇</span><div><strong>Borradores</strong><small>No recuperados</small></div><b>—</b></button>
+        <button type="button" disabled><span aria-hidden="true">!</span><div><strong>Spam</strong><small>No recuperado</small></div><b>—</b></button>
+        <button type="button" disabled><span aria-hidden="true">♲</span><div><strong>Papelera</strong><small>No recuperada</small></div><b>—</b></button>
+      </nav>
+      <p class="mail-forensic-note">COPIA FORENSE · Las funciones de escritura, envío y eliminación permanecen bloqueadas.</p>
+    </section>
+    <section class="mail-screen mail-folder" data-mail-screen="inbox" hidden>
+      <header class="mail-view-header"><button data-mail-back="home" type="button" aria-label="Volver a las carpetas">‹</button><div><p>BANDEJA LOCAL</p><strong>Recibidos</strong><span>0 mensajes recuperados</span></div></header>
+      <div class="mail-empty"><i>!</i><h3>No se pudieron reconstruir los mensajes recibidos.</h3><p>El índice de entrada y sus contenidos fueron sobrescritos antes de la extracción.</p><code>ERR_INBOX_INDEX · DATOS NO RECUPERABLES</code></div>
+    </section>
+    <section class="mail-screen mail-folder" data-mail-screen="sent" hidden>
+      <header class="mail-view-header"><button data-mail-back="home" type="button" aria-label="Volver a las carpetas">‹</button><div><p>CARPETA LOCAL · 1 ELEMENTO</p><strong>Enviados</strong><span>Mensajes recuperados parcialmente</span></div></header>
+      <button class="mail-row" data-open-mail type="button">
+        <span>KT</span><div><strong>KIZUNA Travel Bureau</strong><b>Solicitud de intervención – Expediente personal (confidencial)</b><small>Para: contacto@kizunatravel.jp · 7 ene 2027 · 22:11</small></div><i>›</i>
+      </button>
+    </section>
+    <section class="mail-screen mail-message" data-mail-screen="message" hidden>
+      <header class="mail-view-header mail-message-header"><button data-mail-back="sent" type="button" aria-label="Volver a enviados">‹</button><div><p>DE: José</p><strong>Solicitud de intervención – Expediente personal (confidencial)</strong><span>PARA: contacto@kizunatravel.jp · 7 de enero de 2027, 22:11</span></div></header>
       <div class="corrupt-body"><i>!</i><h3>Contenido no recuperable.</h3><p>La cabecera del mensaje se conserva, pero el cuerpo fue sobrescrito antes de la extracción.</p><code>ERR_BODY_FRAGMENT · 0x06A1</code></div>
     </section>
   </article>`;
@@ -266,8 +285,32 @@ function renderMusic(){
 
 function renderPhone(){
   return `<article class="system-page phone-app">
-    <header class="system-hero"><p>REGISTRO DE CONTACTOS</p><h2>Teléfono</h2><span>Red móvil no disponible</span></header>
-    <section class="contact-card" id="contact-card">
+    <header class="system-hero"><p>COPIA FORENSE · TELEFONÍA</p><h2>Teléfono</h2><span>Red móvil no disponible</span></header>
+    <nav class="phone-tabs" aria-label="Secciones del teléfono">
+      <button class="active" data-phone-tab="calls" type="button"><span>↗</span>Llamadas</button>
+      <button data-phone-tab="contacts" type="button"><span>♙</span>Contactos</button>
+    </nav>
+    <section class="phone-panel calls-panel" data-phone-panel="calls">
+      <header><div><p>HISTORIAL PARCIAL</p><h3>Llamadas recientes</h3></div><span>Identidades dañadas</span></header>
+      <div class="call-log" aria-label="Registro de llamadas no recuperable">
+        <button type="button" disabled><i class="missed">↙</i><div><strong>Llamada perdida</strong><small>Identidad no recuperable</small></div><span>REGISTRO PARCIAL</span></button>
+        <button type="button" disabled><i class="outgoing">↗</i><div><strong>Llamada saliente</strong><small>Destinatario no recuperable</small></div><span>REGISTRO PARCIAL</span></button>
+        <button type="button" disabled><i class="missed">↙</i><div><strong>Llamada perdida</strong><small>Identidad no recuperable</small></div><span>REGISTRO PARCIAL</span></button>
+        <button type="button" disabled><i class="outgoing">↗</i><div><strong>Llamada saliente</strong><small>Destinatario no recuperable</small></div><span>REGISTRO PARCIAL</span></button>
+      </div>
+      <p class="phone-forensic-note">Los números, nombres y marcas temporales asociados no pudieron reconstruirse.</p>
+    </section>
+    <section class="phone-panel contacts-panel" data-phone-panel="contacts" hidden>
+      <header><div><p>AGENDA LOCAL</p><h3>Contactos</h3></div><span>1 disponible</span></header>
+      <div class="contact-list">
+        <button data-open-contact type="button"><span class="recovered-contact-avatar">A</span><div><strong>Alberto</strong><small>Contacto recuperado · Móvil</small></div><b>☎</b><i>›</i></button>
+        <button type="button" disabled><span class="hidden-contact-avatar">••</span><div><strong>Contacto oculto</strong><small>Datos no recuperables</small></div><b>—</b></button>
+        <button type="button" disabled><span class="hidden-contact-avatar">••</span><div><strong>Contacto oculto</strong><small>Datos no recuperables</small></div><b>—</b></button>
+        <button type="button" disabled><span class="hidden-contact-avatar">••</span><div><strong>Contacto oculto</strong><small>Datos no recuperables</small></div><b>—</b></button>
+      </div>
+    </section>
+    <section class="contact-card" id="contact-card" hidden>
+      <button class="contact-card-back" data-close-contact type="button" aria-label="Volver a contactos">‹</button>
       <div class="contact-avatar">A</div><p>CONTACTO RECUPERADO</p><h3>Alberto</h3><span>Móvil · Favorito</span>
       <button data-start-call type="button"><i>☎</i><b>LLAMAR</b></button>
     </section>
@@ -839,9 +882,10 @@ function showToast(message,{title='Sistema del dispositivo',icon='i'}={}){
 
 function bindAppInteractions(id){
   if(id==='mail'){
-    const message=$('#mail-corrupt');
-    $('[data-open-mail]')?.addEventListener('click',()=>{message.hidden=false});
-    $('[data-close-mail]')?.addEventListener('click',()=>{message.hidden=true});
+    const showMailScreen=name=>document.querySelectorAll('[data-mail-screen]').forEach(section=>{section.hidden=section.dataset.mailScreen!==name});
+    document.querySelectorAll('[data-mail-folder]').forEach(button=>button.addEventListener('click',()=>showMailScreen(button.dataset.mailFolder)));
+    document.querySelectorAll('[data-mail-back]').forEach(button=>button.addEventListener('click',()=>showMailScreen(button.dataset.mailBack)));
+    $('[data-open-mail]')?.addEventListener('click',()=>showMailScreen('message'));
   }
   if(id==='music'){
     $('[data-music-toggle]')?.addEventListener('click',event=>{
@@ -863,6 +907,14 @@ function bindAppInteractions(id){
     });
   }
   if(id==='phone'){
+    const showPhonePanel=name=>{
+      document.querySelectorAll('[data-phone-panel]').forEach(panel=>{panel.hidden=panel.dataset.phonePanel!==name});
+      document.querySelectorAll('[data-phone-tab]').forEach(button=>button.classList.toggle('active',button.dataset.phoneTab===name));
+      $('#contact-card').hidden=true;
+    };
+    document.querySelectorAll('[data-phone-tab]').forEach(button=>button.addEventListener('click',()=>showPhonePanel(button.dataset.phoneTab)));
+    $('[data-open-contact]')?.addEventListener('click',()=>{document.querySelectorAll('[data-phone-panel]').forEach(panel=>{panel.hidden=true});$('#contact-card').hidden=false});
+    $('[data-close-contact]')?.addEventListener('click',()=>showPhonePanel('contacts'));
     const finishCall=(message='LLAMADA FINALIZADA')=>{
       clearCallTimers();
       $('#call-status').textContent=message;
