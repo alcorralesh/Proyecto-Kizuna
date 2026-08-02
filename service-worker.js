@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260802-public-forms06';
+const VERSION='20260802-web-analytics01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -11,7 +11,7 @@ const CORE_ASSETS=[
   './index.html',
   './offline.html',
   './manifest.webmanifest',
-  './pwa.js?v=20260726-activity-audit01',
+  './pwa.js?v=20260802-web-analytics01',
   './pwa.css',
   './styles.css',
   './recipient-messages.css',

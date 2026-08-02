@@ -6,6 +6,14 @@
   const script=document.currentScript;
   if(!script)return;
   const baseUrl=new URL('./',script.src);
+  const analyticsExcluded=['/expediente/','/conversacion/','/dispositivo-recuperado/','/mapa-viaje/','/offline.html'].some(path=>location.pathname.includes(path));
+  if(location.hostname==='alcorralesh.github.io'&&!analyticsExcluded&&!document.querySelector('script[data-cf-beacon]')){
+    const beacon=document.createElement('script');
+    beacon.type='module';
+    beacon.src='https://static.cloudflareinsights.com/beacon.min.js';
+    beacon.setAttribute('data-cf-beacon',JSON.stringify({token:'e4762af1fb8843e981cc1cd0e9792ddd'}));
+    document.head.appendChild(beacon);
+  }
   const privateArea=location.pathname.includes('/expediente/');
   const publicHome=location.pathname.replace(/index\.html$/,'').replace(/\/+$/,'/')===baseUrl.pathname.replace(/\/+$/,'/');
   const standalone=()=>window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true;
