@@ -117,7 +117,7 @@ const archiveDocumentsCompleted=state=>{const done=Array.isArray(state?.read)?st
 const explicitArchiveConsultation=new URLSearchParams(location.search).get('archive')==='1';
 const redirectToAlbertoPublicSite=state=>{if(explicitArchiveConsultation||!albertoPublicHandoffPending(state))return false;location.replace('../index.html#carta-alberto');return true};
 const archiveEntryNavigationType=performance.getEntriesByType?.('navigation')?.[0]?.type||'navigate';
-const archiveReturnVisit=explicitArchiveConsultation&&archiveEntryNavigationType==='navigate';
+const archiveReturnVisit=archiveEntryNavigationType==='navigate';
 let archiveReturnNoticePrepared=false,archiveReturnNoticeEligible=false,archiveReturnNoticeShown=false;
 const prepareArchiveReturnNotice=state=>{
   if(archiveReturnNoticePrepared)return;
