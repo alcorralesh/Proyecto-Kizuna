@@ -86,12 +86,14 @@ declare
   v_event public.events%rowtype;
   v_registration_id uuid;
 begin
+  perform pg_advisory_xact_lock(hashtextextended(p_event_id::text||':'||lower(trim(p_first_name))||':'||lower(trim(p_last_name))||':'||coalesce(p_birth_date::text,''),0));
   select * into v_event from public.events where id=p_event_id for update;
   if not found or not v_event.is_published then raise exception 'Evento no disponible'; end if;
   if v_event.starts_at <= now() then raise exception 'La inscripción está cerrada'; end if;
   if v_event.registered_count >= v_event.capacity then raise exception 'No quedan plazas'; end if;
   if char_length(trim(p_first_name)) not between 1 and 80 or char_length(trim(p_last_name)) not between 1 and 120 then raise exception 'Datos personales incompletos'; end if;
   if p_birth_date is null or p_birth_date > current_date then raise exception 'Fecha de nacimiento no válida'; end if;
+  if exists(select 1 from public.event_registrations where event_id=p_event_id and lower(trim(first_name))=lower(trim(p_first_name)) and lower(trim(last_name))=lower(trim(p_last_name)) and birth_date=p_birth_date) then raise exception 'EVENT_DUPLICATE'; end if;
   insert into public.event_registrations(event_id,first_name,last_name,birth_date)
   values(p_event_id,trim(p_first_name),trim(p_last_name),p_birth_date)
   returning id into v_registration_id;
@@ -99,8 +101,8 @@ begin
 end;
 $$;
 
-revoke all on function public.register_for_event(uuid,text,text,date) from public;
-grant execute on function public.register_for_event(uuid,text,text,date) to anon, authenticated;
+revoke all on function public.register_for_event(uuid,text,text,date) from public,anon,authenticated;
+grant execute on function public.register_for_event(uuid,text,text,date) to service_role;
 
 insert into public.events(title,description,location,starts_at,capacity,sort_order) values
 ('Festival de fuegos artificiales de Sumida','Una noche junto al río para contemplar uno de los hanabi más emblemáticos de Tokio.','Parque Sumida · Tokio','2026-09-12 19:00:00+09',40,10),

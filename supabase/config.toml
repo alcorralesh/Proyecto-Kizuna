@@ -1,2 +1,5 @@
 [functions.send-expedient-push]
 verify_jwt = false
+
+[functions.submit-public-form]
+verify_jwt = false

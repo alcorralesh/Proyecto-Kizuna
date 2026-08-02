@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260802-alberto-letter01';
+const VERSION='20260802-public-forms01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -16,7 +16,9 @@ const CORE_ASSETS=[
   './styles.css',
   './recipient-messages.css',
   './recipient-messages.js',
-  './script.js?v=20260801-alt00-share01',
+  './script.js?v=20260802-public-forms01',
+  './events.js?v=20260802-public-forms01',
+  './public-form-security.js?v=20260802-public-forms01',
   './hero-carousel.js',
   './mascot/mau.js?v=20260801-alt00-share01',
   './mascot/mau-config.js?v=20260801-alt00-share01',

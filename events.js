@@ -1,6 +1,10 @@
 (()=>{
   const root=document.querySelector('[data-events-list]');
   if(!root)return;
+  const eventsScript=document.querySelector('script[src*="events.js"]'),securityScriptUrl=new URL('public-form-security.js',eventsScript?.src||location.href).href;
+  let publicFormSecurityPromise=null;
+  const getPublicFormSecurity=()=>window.KizunaPublicFormSecurity?Promise.resolve(window.KizunaPublicFormSecurity):(publicFormSecurityPromise||(publicFormSecurityPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`${securityScriptUrl}?v=20260802-public-forms01`;script.onload=()=>resolve(window.KizunaPublicFormSecurity);script.onerror=()=>reject(new Error('No se pudo cargar la protección del formulario.'));document.head.appendChild(script)})));
+  const publicFunctionError=async error=>{try{const detail=await error?.context?.json?.();const wrapped=new Error(detail?.error||error?.message||'No se pudo completar la inscripción.');wrapped.code=detail?.code||'';return wrapped}catch{return error instanceof Error?error:new Error('No se pudo completar la inscripción.')}};
   const section=root.closest('[data-events-mode]'),mode=section?.dataset.eventsMode||'home';
   const allEventsLink=document.querySelector('[data-events-all-link]');
   const fallbackEvents=[
@@ -53,12 +57,14 @@
   dialog.className='event-signup';
   dialog.innerHTML='<article><button type="button" class="event-signup-close" aria-label="Cerrar inscripción">×</button><p class="event-signup-label">INSCRIPCIÓN</p><h2></h2><p class="event-signup-help">Solo necesitamos tres datos. No tendrás que crear una cuenta.</p><form><div><label>Nombre<input name="firstName" required maxlength="80" autocomplete="given-name"></label><label>Apellidos<input name="lastName" required maxlength="120" autocomplete="family-name"></label></div><label>Fecha de nacimiento<input name="birthDate" type="date" required autocomplete="bday"></label><label class="event-consent"><input name="consent" type="checkbox" required> Acepto el uso de estos datos únicamente para gestionar mi participación en el evento.</label><button type="submit">Confirmar inscripción</button><p class="event-signup-status" role="status"></p></form></article>';
   document.body.appendChild(dialog);
+  void getPublicFormSecurity().then(security=>security.prepare(dialog.querySelector('form'),'event_registration')).catch(error=>console.warn(error));
   dialog.querySelector('.event-signup-close').onclick=()=>dialog.close();
   dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});
   let selectedEvent=null;
   const openSignup=async event=>{
     selectedEvent=event;const form=dialog.querySelector('form');
     dialog.querySelector('h2').textContent=event.title;form.reset();dialog.querySelector('.event-signup-status').textContent='';
+    const security=await getPublicFormSecurity().catch(()=>null);security?.reset(form);
     const attendee=activeAttendee||await loadEventSession();
     if(attendee){form.elements.firstName.value=attendee.firstName;form.elements.lastName.value=attendee.lastName}
     dialog.showModal();
@@ -67,13 +73,16 @@
     submitEvent.preventDefault();
     const form=submitEvent.currentTarget,button=form.querySelector('button[type="submit"]'),status=form.querySelector('.event-signup-status'),values=Object.fromEntries(new FormData(form));
     status.textContent='Confirmando tu plaza…';button.disabled=true;
+    let security=null;
     try{
-      const supabase=await getClient();
-      const {error}=await supabase.rpc('register_for_event',{p_event_id:selectedEvent.id,p_first_name:values.firstName.trim(),p_last_name:values.lastName.trim(),p_birth_date:values.birthDate});
-      if(error)throw error;
+      security=await getPublicFormSecurity();
+      const supabase=await getClient(),payload=await security.payloadFor(form,{action:'event',eventId:selectedEvent.id,firstName:values.firstName.trim(),lastName:values.lastName.trim(),birthDate:values.birthDate});
+      const {data,error}=await supabase.functions.invoke('submit-public-form',{body:payload});
+      if(error)throw await publicFunctionError(error);
+      if(!data?.ok){const failure=new Error(data?.error||'No se pudo completar la inscripción.');failure.code=data?.code||'';throw failure}
       status.textContent='Inscripción confirmada. Tu plaza está reservada.';setTimeout(()=>{dialog.close();loadEvents()},1500);
-    }catch(error){console.error(error);status.textContent=error.message?.includes('No quedan plazas')?'No quedan plazas disponibles para este evento.':'No se ha podido completar la inscripción. Inténtalo de nuevo.'}
-    finally{button.disabled=false}
+    }catch(error){console.error(error);status.textContent=error.code==='full'?'No quedan plazas disponibles para este evento.':error.code==='duplicate'?'Ya existe una inscripción con estos datos para este evento.':error.code==='rate_limited'?'Has realizado varios intentos. Espera unos minutos antes de volver a intentarlo.':error.code==='antispam_failed'?'No hemos podido verificar la inscripción. Recarga la página e inténtalo de nuevo.':'No se ha podido completar la inscripción. Inténtalo de nuevo.'}
+    finally{security?.reset(form);button.disabled=false}
   };
   const createCard=event=>{
     const date=dateParts(event.starts_at),available=Math.max(0,event.capacity-event.registered_count);
