@@ -45,6 +45,17 @@
 #access>.access-card .access-actions{gap:10px}
 #access>.access-card .access-actions button{padding:13px 15px}
 #access>.access-card .security-level{margin-top:20px!important;padding-top:14px}
+.credential-help{margin:8px 0 2px;border-top:1px solid rgba(139,136,125,.45);border-bottom:1px solid rgba(139,136,125,.45)}
+.credential-help summary{position:relative;padding:10px 25px 9px 0;color:var(--red);font:9px/1.45 var(--mono);letter-spacing:.04em;cursor:pointer;list-style:none}
+.credential-help summary::-webkit-details-marker{display:none}
+.credential-help summary::after{content:'+';position:absolute;right:3px;top:50%;transform:translateY(-50%);font:16px/1 var(--serif)}
+.credential-help[open] summary::after{content:'−'}
+.credential-help summary:focus-visible{outline:2px solid var(--red);outline-offset:3px}
+.credential-help-copy{display:grid;grid-template-columns:28px 1fr;gap:11px;padding:0 0 12px;color:#515852}
+.credential-help-copy>span{display:grid;place-items:center;width:28px;height:28px;border:1px solid #aa9d88;border-radius:50%;color:var(--red);font:14px var(--serif)}
+#access>.access-card .credential-help-copy p{height:auto;margin:0 0 6px;font:9px/1.55 var(--mono)}
+#access>.access-card .credential-help-copy p:last-child{margin-bottom:0}
+#access>.access-card .credential-help-copy strong{color:var(--ink);font-weight:500}
 @media(max-width:750px){#access.access-screen{padding:12px 5vw;gap:7px}#access>.division-brand{font-size:14px}#access>.division-brand img{width:44px;height:44px}#access>.access-card{margin-top:9px;padding:27px 27px}#access>.access-card h1{font-size:48px}#access>.access-card .access-subtitle{margin:14px 0 18px}#access>.access-card .security-level{margin-top:15px!important;padding-top:11px}}
 @media(max-width:420px){#access.access-screen{padding:8px 4vw;gap:5px}#access>.division-brand{gap:8px;font-size:12px}#access>.division-brand img{width:38px;height:38px}#access>.division-brand small{font-size:6px}#access>.access-card{margin-top:5px;padding:21px 20px}#access>.access-card .system-line{margin-bottom:11px;font-size:7px}#access>.access-card h1{font-size:41px}#access>.access-card .access-subtitle{margin:12px 0 15px;font-size:10px}#access>.access-card form label+label{margin-top:9px}#access>.access-card .security-level{margin-top:12px!important;padding-top:9px}}
 @media(max-height:700px){#access.access-screen{padding-top:8px;padding-bottom:8px;gap:5px}#access>.division-brand img{width:40px;height:40px}#access>.access-card{margin-top:4px;padding-top:21px;padding-bottom:21px}#access>.access-card h1{font-size:44px}#access>.access-card .access-subtitle{margin:11px 0 14px}#access>.access-card form label+label{margin-top:8px}#access>.access-card .security-level{margin-top:11px!important;padding-top:8px}}
