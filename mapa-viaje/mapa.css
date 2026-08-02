@@ -557,3 +557,13 @@ button{color:inherit}
   .map-stop,.route-segment,.stop-panel,.journey-status b{transition:none}
   .map-stop.is-current .map-pin{animation:none}
 }
+
+/* Controles táctiles suficientemente separados sin aumentar la iconografía. */
+@media(pointer:coarse){
+  .stop-panel-close{min-width:44px;width:44px;min-height:44px;height:44px}
+  .journey-timeline button{min-height:44px}
+  .journey-controls button,
+  .journey-controls .is-primary{min-width:44px;width:auto;min-height:44px;height:44px}
+  .journey-controls .is-primary{min-width:88px}
+  .route-intro-card button{min-height:48px}
+}

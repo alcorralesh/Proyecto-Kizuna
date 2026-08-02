@@ -177,7 +177,7 @@ function launch(id,{fromHistory=false}={}){
   $('#app-title').textContent=app.title;
   $('#app-integrity').textContent=Number.isFinite(app.integrity)?`${app.integrity} %`:app.state;
   if(id==='whatsapp'){
-    appContent.innerHTML='<iframe class="whatsapp-frame" title="Conversación recuperada con Alberto" src="../conversacion/index.html?embedded=1&v=20260801-whatsapp-readonly01"></iframe>';
+    appContent.innerHTML='<iframe class="whatsapp-frame" title="Conversación recuperada con Alberto" src="../conversacion/index.html?embedded=1&v=20260802-android-touch01"></iframe>';
   }else{
     appContent.innerHTML=renderApp(id);
     bindAppInteractions(id);

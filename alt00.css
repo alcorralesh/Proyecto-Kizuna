@@ -336,3 +336,18 @@ body.kizuna-finale-open{overflow:hidden}
 
 @media(min-width:701px){.alt00-share-sheet{align-items:center}.alt00-share-sheet>article{box-shadow:14px 16px 45px #0009}}
 @media(max-width:700px){.alt00-reader-tools .alt00-share-trigger{min-width:40px;width:40px;padding:0}.alt00-share-trigger b{display:none}.alt00-share-sheet{padding:0}.alt00-share-sheet>article{width:100%;padding:20px max(18px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));border-width:1px 0 0}.alt00-share-sheet h3{font-size:26px}}
+
+/* Los controles conservan su escala visual, pero ofrecen un blanco táctil
+   seguro en teléfonos y tabletas, también con el visor en horizontal. */
+@media(pointer:coarse){
+  .alt00-response-close,
+  .alt00-reader-close,
+  .alt00-share-sheet header button{min-width:44px;width:44px;min-height:44px;height:44px}
+  .alt00-reader-tools button,
+  #alt00-viewer:fullscreen .alt00-reader-tools button,
+  #alt00-viewer.is-immersive .alt00-reader-tools button{min-width:44px;width:44px;min-height:44px;height:44px}
+  .alt00-reader-tools .alt00-share-trigger{min-width:44px;width:auto}
+  .alt00-page-strip button{flex-basis:44px;min-width:44px;min-height:44px;height:44px}
+  .alt00-reader-foot>button,
+  .alt00-finale-exit{min-height:44px}
+}

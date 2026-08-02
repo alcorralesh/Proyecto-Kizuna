@@ -359,3 +359,13 @@ button{color:inherit}
   .typing-bubble i{animation-duration:2s}
   .messages{scroll-behavior:auto}
 }
+
+/* Área táctil Android: el dibujo de los iconos no cambia, pero cada acción
+   dispone de al menos 44 px y queda separada de la contigua. */
+@media(pointer:coarse){
+  .icon-button{min-width:44px;width:44px;min-height:44px;height:44px;padding:10px}
+  .contact-data,.thread-tab{min-height:44px}
+}
+@media(max-width:480px) and (pointer:coarse){
+  .chat-header{grid-template-columns:44px 38px minmax(64px,1fr) 44px 44px 44px;padding-left:0;padding-right:2px}
+}
