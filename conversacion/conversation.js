@@ -4,13 +4,17 @@ if(new URLSearchParams(location.search).has('embedded')){
 }
 const messages=$('#messages');
 const typingTemplate=$('#typing-template');
+const phone=$('.phone');
+const chatListView=$('.chat-list-view');
+const chatHeader=$('.chat-header');
+const composer=$('#composer');
 // El material original estaba orientado desde el teléfono de Alberto. Este
 // clon pertenece a José, por lo que se invierte cada lado de la conversación.
 const joseDeviceSide=side=>side==='incoming'?'outgoing':'incoming';
 
 const threads=[
   {
-    id:'cumpleanos',short:'Cumpleaños',title:'Hilo 01 · Cumpleaños',date:'29 de agosto de 2026',
+    id:'cumpleanos',short:'Cumpleaños',title:'Conversación 01 · Cumpleaños',date:'29 de agosto de 2026',
     items:[
       m('incoming','¡Feliz cumpleaños, crack! 🎉🎂','19:42'),
       m('outgoing','Gracias tío! 😂','19:43'),
@@ -38,7 +42,7 @@ const threads=[
     ]
   },
   {
-    id:'preparativos',short:'Preparativos',title:'Hilo 02 · Preparativos',date:'2 de septiembre de 2026',
+    id:'preparativos',short:'Preparativos',title:'Conversación 02 · Preparativos',date:'2 de septiembre de 2026',
     items:[
       m('incoming','Ya me estoy empezando a hacer a la idea 😅','21:15'),
       m('outgoing','Ahora ya sí, no hay marcha atrás 😂','21:16'),
@@ -58,7 +62,7 @@ const threads=[
     ]
   },
   {
-    id:'planes',short:'Qué hacer',title:'Hilo 03 · Qué queremos hacer',date:'7 de septiembre de 2026',
+    id:'planes',short:'Qué hacer',title:'Conversación 03 · Qué queremos hacer',date:'7 de septiembre de 2026',
     items:[
       m('incoming','Yo solo tengo una prioridad.','18:47'),
       m('outgoing','Dime 😂','18:48'),
@@ -77,7 +81,7 @@ const threads=[
     ]
   },
   {
-    id:'itinerario',short:'Itinerario',title:'Hilo 04 · Itinerario',date:'14 de septiembre de 2026',
+    id:'itinerario',short:'Itinerario',title:'Conversación 04 · Itinerario',date:'14 de septiembre de 2026',
     items:[
       m('incoming','¿Cómo queda al final la ruta?','20:32'),
       m('outgoing','Te cuento lo que tengo pensado 🤭','20:33'),
@@ -96,7 +100,7 @@ const threads=[
     ]
   },
   {
-    id:'cuenta-atras',short:'Cuenta atrás',title:'Hilo 05 · Cuenta atrás',date:'24 de septiembre de 2026',
+    id:'cuenta-atras',short:'Cuenta atrás',title:'Conversación 05 · Cuenta atrás',date:'24 de septiembre de 2026',
     items:[
       m('incoming','Quedan 4 días... 😳','22:08'),
       m('incoming','Todavía no me lo creo.','22:08'),
@@ -124,6 +128,7 @@ function redacted(side,time){const deviceSide=joseDeviceSide(side);return {kind:
 function damagedAudio(title,text,time){return {kind:'damagedAudio',title,text,time}}
 
 let activeThread=-1;
+const viewedThreads=new Set();
 let generation=0;
 let paused=false;
 let speed=1;
@@ -155,20 +160,48 @@ const wait=duration=>new Promise(resolve=>{
   requestAnimationFrame(step);
 });
 
-function renderTabs(){
-  const tabs=$('#thread-tabs');
-  tabs.innerHTML='';
+function previewFor(thread){
+  const item=thread.items.at(-1);
+  if(item.kind==='message')return item.text?.split('\n')[0]||item.caption||'GIF recuperado';
+  if(item.kind==='missing')return item.text;
+  if(item.kind==='partial')return 'Registro parcialmente recuperado';
+  if(item.kind==='damagedAudio')return item.title;
+  return 'Conversación recuperada';
+}
+
+function renderChatList(){
+  const list=$('#chat-list');
+  list.innerHTML='';
   threads.forEach((thread,index)=>{
+    const lastItem=thread.items.at(-1);
     const button=document.createElement('button');
     button.type='button';
-    button.className='thread-tab';
+    button.className=`chat-list-item${viewedThreads.has(index)?' is-viewed':''}`;
     button.dataset.index=index;
-    button.setAttribute('aria-current',String(index===activeThread));
-    button.innerHTML=`<b>HILO ${String(index+1).padStart(2,'0')}</b><small>${thread.short}</small>`;
+    button.innerHTML=`
+      <img src="../assets/hero/hakone-fuji-dawn.webp" alt="">
+      <span class="chat-list-copy">
+        <span><strong>Alberto</strong><time>${lastItem.time||''}</time></span>
+        <b>${thread.short}</b>
+        <small>${previewFor(thread)}</small>
+      </span>
+      <i aria-label="${viewedThreads.has(index)?'Conversación consultada':'Conversación pendiente'}">${viewedThreads.has(index)?'✓':'›'}</i>`;
     button.addEventListener('click',()=>selectThread(index));
-    tabs.append(button);
+    list.append(button);
   });
-  requestAnimationFrame(()=>tabs.querySelector('[aria-current=true]')?.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'}));
+}
+
+function showChatList(){
+  clearThread();
+  activeThread=-1;
+  phone.classList.remove('is-chat-view');
+  phone.classList.add('is-list-view');
+  chatListView.hidden=false;
+  chatHeader.hidden=true;
+  messages.hidden=true;
+  composer.hidden=true;
+  $('#demo-title').textContent='Selecciona una conversación';
+  renderChatList();
 }
 
 function meta(message){
@@ -238,6 +271,7 @@ async function showTyping(duration,run){
 }
 
 async function play(){
+  if(activeThread<0)return;
   const run=++generation;
   paused=false;
   $('#toggle-playback').textContent='PAUSAR';
@@ -276,10 +310,16 @@ function clearThread(){
 }
 
 function selectThread(index){
-  if(index===activeThread&&$('#toggle-playback').textContent!=='REPRODUCIR')return;
+  if(index<0||index>=threads.length)return;
   activeThread=index;
+  viewedThreads.add(index);
   clearThread();
-  renderTabs();
+  phone.classList.remove('is-list-view');
+  phone.classList.add('is-chat-view');
+  chatListView.hidden=true;
+  chatHeader.hidden=false;
+  messages.hidden=false;
+  composer.hidden=false;
   const thread=threads[activeThread];
   $('#thread-date').textContent=thread.date.toUpperCase();
   $('#thread-date').dateTime=`2026-${['08-29','09-02','09-07','09-14','09-24'][activeThread]}`;
@@ -288,6 +328,7 @@ function selectThread(index){
 }
 
 function restart(){
+  if(activeThread<0)return;
   clearThread();
   play();
 }
@@ -300,6 +341,11 @@ $('#toggle-playback').addEventListener('click',()=>{
 });
 $('#restart-chat').addEventListener('click',restart);
 $('#playback-speed').addEventListener('change',event=>speed=Number(event.target.value)||1);
+$('.back-button').addEventListener('click',showChatList);
+$('.list-back-button').addEventListener('click',()=>{
+  if(history.length>1)history.back();
+  else location.href='../dispositivo-recuperado/index.html';
+});
 
 $('#composer').addEventListener('submit',event=>{
   event.preventDefault();
@@ -308,5 +354,4 @@ $('#composer').addEventListener('submit',event=>{
 const clock=()=>$('#device-time').textContent=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
 clock();
 setInterval(clock,30000);
-renderTabs();
-selectThread(0);
+showChatList();

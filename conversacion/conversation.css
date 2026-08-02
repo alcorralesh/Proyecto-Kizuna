@@ -54,6 +54,10 @@ button{color:inherit}
   box-shadow:0 30px 90px #000b,0 0 0 8px #111b20
 }
 .phone>*{min-width:0}
+.phone [hidden]{display:none!important}
+.phone.is-list-view{grid-template-rows:auto auto minmax(0,1fr)}
+.phone.is-chat-view{grid-template-rows:auto auto minmax(0,1fr) auto}
+.phone.is-chat-view .chat-list-header{display:none}
 .device-status{
   position:relative;
   z-index:6;
@@ -69,6 +73,21 @@ button{color:inherit}
 .device-island{position:absolute;left:50%;top:5px;width:92px;height:24px;border-radius:18px;background:#050708;transform:translateX(-50%)}
 .device-signals{display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:-1px}
 .device-signals b{padding:1px 4px;border-radius:5px;background:#d9e0e2;color:#182126;font-size:9px}
+.chat-list-header{
+  position:relative;
+  z-index:5;
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto;
+  align-items:center;
+  min-height:58px;
+  padding:7px 10px 7px 4px;
+  background:#0d6b5a;
+  box-shadow:0 1px #0008
+}
+.chat-list-title{min-width:0;padding-left:5px}
+.chat-list-title strong,.chat-list-title small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-list-title strong{font-size:17px}.chat-list-title small{margin-top:2px;color:#d4e8e3;font-size:10px}
+.chat-list-integrity{padding:6px 8px;border:1px solid #9bc2b9;color:#e3f2ef;font:8px ui-monospace,monospace;letter-spacing:.08em}
 .chat-header{
   position:relative;
   z-index:5;
@@ -90,47 +109,34 @@ button{color:inherit}
 .contact-data strong,.contact-data small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .contact-data strong{font-size:15px;font-weight:600}
 .contact-data small{margin-top:2px;color:#d4dade;font-size:11px}
-.archive-strip{
+.chat-list-view{min-height:0;overflow:hidden;background:#111b21}
+.chat-list{height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#536168 transparent}
+.chat-list-item{
   position:relative;
-  z-index:4;
-  border-bottom:1px solid #334148;
+  display:grid;
+  grid-template-columns:52px minmax(0,1fr) 24px;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  min-height:76px;
+  padding:9px 12px;
+  border:0;
+  border-bottom:1px solid #2b3940;
   background:#111b21;
-  box-shadow:0 3px 8px #0007
-}
-.archive-summary{
-  display:flex;
-  justify-content:space-between;
-  gap:12px;
-  padding:7px 12px 6px;
-  color:#9dadb4;
-  font:8px ui-monospace,SFMono-Regular,Consolas,monospace;
-  letter-spacing:.08em
-}
-.archive-summary b{color:#efc66c;font-weight:700}
-.archive-summary i{display:inline-block;width:6px;height:6px;margin-right:3px;border-radius:50%;background:#78ae7b;box-shadow:0 0 7px #78ae7b}
-.thread-tabs{
-  display:flex;
-  gap:5px;
-  padding:0 8px 8px;
-  overflow-x:auto;
-  scrollbar-width:none
-}
-.thread-tabs::-webkit-scrollbar{display:none}
-.thread-tab{
-  flex:0 0 auto;
-  min-width:85px;
-  padding:6px 8px;
-  border:1px solid #405058;
-  border-radius:5px;
-  background:#172329;
-  color:#aebbc1;
+  color:var(--text);
   text-align:left;
   cursor:pointer
 }
-.thread-tab b,.thread-tab small{display:block}
-.thread-tab b{font:8px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.07em}
-.thread-tab small{max-width:94px;margin-top:3px;overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
-.thread-tab[aria-current=true]{border-color:#00a884;background:#08483c;color:#fff;box-shadow:inset 0 -2px #00a884}
+.chat-list-item:hover,.chat-list-item:focus-visible{background:#17242a;outline:0}
+.chat-list-item>img{width:48px;height:48px;border-radius:50%;object-fit:cover}
+.chat-list-copy{display:block;min-width:0}
+.chat-list-copy>span{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.chat-list-copy strong{overflow:hidden;font-size:15px;text-overflow:ellipsis;white-space:nowrap}
+.chat-list-copy time{flex:0 0 auto;color:#83939a;font-size:9px}
+.chat-list-copy>b{display:block;margin-top:2px;color:#b8c5ca;font-size:11px;font-weight:500}
+.chat-list-copy>small{display:block;overflow:hidden;margin-top:3px;color:#86969d;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.chat-list-item>i{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#72848b;font-size:19px;font-style:normal}
+.chat-list-item.is-viewed>i{border:1px solid #00a884;color:#00c99e;font-size:12px}
 .messages{
   position:relative;
   display:flex;
@@ -335,22 +341,28 @@ button{color:inherit}
   .phone{width:100%;height:100dvh;border:0;border-radius:0;box-shadow:none}
   .demo-panel{display:none}
 }
+.is-embedded .phone.is-list-view{grid-template-rows:minmax(0,1fr)}
+.is-embedded .phone.is-chat-view{grid-template-rows:auto minmax(0,1fr) auto}
+.is-embedded .chat-list-header{display:none}
 @media(max-width:480px){
   .device-status{height:calc(34px + env(safe-area-inset-top));padding-top:max(5px,env(safe-area-inset-top))}
   .chat-header{grid-template-columns:34px 38px minmax(0,1fr) 34px 34px 27px;padding-left:0;padding-right:3px}
   .icon-button{width:34px;height:34px}
   .contact-data{padding:0 5px}
   .contact-data strong{font-size:14px}
-  .archive-summary{padding-inline:10px}
   .messages{padding-left:10px;padding-right:10px}
   .bubble{max-width:88%}
 }
 @media(max-height:600px) and (orientation:landscape){
   .device-status{display:none}
+  .phone.is-list-view{grid-template-rows:auto minmax(0,1fr)}
+  .phone.is-chat-view{grid-template-rows:auto minmax(0,1fr) auto}
+  .chat-list-header{min-height:48px;padding-block:3px}
   .chat-header{min-height:48px;padding-block:4px}
-  .archive-summary{display:none}
-  .thread-tabs{padding-block:5px}
-  .thread-tab{min-width:98px;padding:4px 7px}
+  .chat-list-item{grid-template-columns:44px minmax(0,1fr) 24px;min-height:58px;padding:5px 11px}
+  .chat-list-item>img{width:40px;height:40px}
+  .chat-list-copy>b{display:inline;margin-right:7px;font-size:10px}
+  .chat-list-copy>small{display:inline;font-size:10px}
   .messages{padding-top:8px}
   .composer{min-height:48px}
 }
@@ -364,7 +376,7 @@ button{color:inherit}
    dispone de al menos 44 px y queda separada de la contigua. */
 @media(pointer:coarse){
   .icon-button{min-width:44px;width:44px;min-height:44px;height:44px;padding:10px}
-  .contact-data,.thread-tab{min-height:44px}
+  .contact-data,.chat-list-item{min-height:44px}
 }
 @media(max-width:480px) and (pointer:coarse){
   .chat-header{grid-template-columns:44px 38px minmax(64px,1fr) 44px 44px 44px;padding-left:0;padding-right:2px}

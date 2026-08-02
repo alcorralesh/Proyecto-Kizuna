@@ -6,19 +6,30 @@
   <meta name="theme-color" content="#0b141a">
   <title>Conversación recuperada · Alberto</title>
   <link rel="icon" href="../assets/kizuna-app-icon-192.png">
-  <link rel="stylesheet" href="conversation.css?v=20260802-android-touch01">
+  <link rel="stylesheet" href="conversation.css?v=20260802-whatsapp-chat-list01">
 </head>
 <body>
   <main class="conversation-stage">
-    <section class="phone" aria-label="Conversación recuperada con Alberto">
+    <section class="phone is-list-view" aria-label="Conversaciones recuperadas con Alberto">
       <div class="device-status" aria-hidden="true">
         <span id="device-time">19:42</span>
         <span class="device-island"></span>
         <span class="device-signals">▮▮▮ ◉ <b>86</b></span>
       </div>
 
-      <header class="chat-header">
-        <button class="icon-button back-button" type="button" aria-label="Volver">
+      <header class="chat-list-header">
+        <button class="icon-button list-back-button" type="button" aria-label="Volver al dispositivo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="chat-list-title">
+          <strong>WhatsApp</strong>
+          <small>5 conversaciones recuperadas</small>
+        </div>
+        <span class="chat-list-integrity">74 %</span>
+      </header>
+
+      <header class="chat-header" hidden>
+        <button class="icon-button back-button" type="button" aria-label="Volver a las conversaciones">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
         </button>
         <img class="contact-avatar" src="../assets/hero/hakone-fuji-dawn.webp" alt="">
@@ -37,15 +48,11 @@
         </button>
       </header>
 
-      <nav class="archive-strip" aria-label="Fragmentos recuperados">
-        <div class="archive-summary">
-          <span><b>AR-06-04</b> · CONVERSACIÓN RECUPERADA</span>
-          <span><i></i> INTEGRIDAD 74 %</span>
-        </div>
-        <div class="thread-tabs" id="thread-tabs"></div>
-      </nav>
+      <section class="chat-list-view" aria-label="Conversaciones recuperadas">
+        <div class="chat-list" id="chat-list"></div>
+      </section>
 
-      <section class="messages" id="messages" aria-live="polite" aria-label="Mensajes">
+      <section class="messages" id="messages" aria-live="polite" aria-label="Mensajes" hidden>
         <p class="encryption-note">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3m-9 0h8v8H8Z"/></svg>
           Esta conversación fue reconstruida a partir de datos parciales. Algunos mensajes o archivos presentan daños.
@@ -53,7 +60,7 @@
         <time class="date-chip" id="thread-date"></time>
       </section>
 
-      <form class="composer is-readonly" id="composer" aria-label="Copia forense de solo lectura">
+      <form class="composer is-readonly" id="composer" aria-label="Copia forense de solo lectura" hidden>
         <button class="composer-icon" type="button" aria-label="Emoji no disponible" disabled>☺</button>
         <label>
           <span class="sr-only">Mensaje</span>
@@ -70,16 +77,16 @@
 
     <aside class="demo-panel" aria-label="Controles de recuperación">
       <p>ARCHIVO RECUPERADO 06</p>
-      <strong id="demo-title">Hilo 01 · Cumpleaños</strong>
+      <strong id="demo-title">Selecciona una conversación</strong>
       <dl>
         <div><dt>Contacto</dt><dd>Alberto</dd></div>
         <div><dt>Periodo</dt><dd>29/08 – 24/09/2026</dd></div>
-        <div><dt>Fragmentos</dt><dd>5 hilos</dd></div>
+        <div><dt>Conversaciones</dt><dd>5 chats</dd></div>
         <div><dt>Integridad</dt><dd>74 %</dd></div>
       </dl>
       <div class="demo-actions">
         <button id="toggle-playback" type="button">PAUSAR</button>
-        <button id="restart-chat" type="button">REINICIAR HILO</button>
+        <button id="restart-chat" type="button">REINICIAR CHAT</button>
         <label>VELOCIDAD
           <select id="playback-speed">
             <option value="1">1×</option>
@@ -100,6 +107,6 @@
     </div>
   </template>
 
-  <script type="module" src="conversation.js?v=20260801-whatsapp-readonly01"></script>
+  <script type="module" src="conversation.js?v=20260802-whatsapp-chat-list01"></script>
 </body>
 </html>
