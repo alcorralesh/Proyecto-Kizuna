@@ -115,6 +115,56 @@ const normalizeFinalState=state=>{
 const albertoPublicHandoffPending=state=>{const done=Array.isArray(state?.read)?state.read:[];return Boolean(state?.completed&&done.includes('KTB-014')&&done.includes('FINAL-01')&&state.albertoResponseAccepted!==true)};
 const explicitArchiveConsultation=new URLSearchParams(location.search).get('archive')==='1';
 const redirectToAlbertoPublicSite=state=>{if(explicitArchiveConsultation||!albertoPublicHandoffPending(state))return false;location.replace('../index.html#carta-alberto');return true};
+const archiveEntryNavigationType=performance.getEntriesByType?.('navigation')?.[0]?.type||'navigate';
+const archiveReturnVisit=explicitArchiveConsultation&&archiveEntryNavigationType==='navigate';
+let archiveReturnNoticePrepared=false,archiveReturnNoticeEligible=false,archiveReturnNoticeShown=false;
+const prepareArchiveReturnNotice=state=>{
+  if(archiveReturnNoticePrepared)return;
+  archiveReturnNoticePrepared=true;
+  archiveReturnNoticeEligible=archiveReturnVisit&&albertoPublicHandoffPending(state);
+};
+const dismissArchiveReturnNotice=()=>{
+  const notice=document.querySelector('#archive-return-notice');
+  if(!notice)return;
+  notice.classList.remove('is-visible');
+  document.body.classList.remove('archive-return-open');
+  setTimeout(()=>{
+    notice.remove();
+    dash.querySelector('.access-brand')?.focus({preventScroll:true});
+  },260);
+};
+const showArchiveReturnNotice=()=>{
+  if(archiveReturnNoticeShown||!archiveReturnNoticeEligible||dash.hidden||viewer.open)return false;
+  archiveReturnNoticeShown=true;
+  archiveReturnNoticeEligible=false;
+  const notice=document.createElement('section');
+  notice.id='archive-return-notice';
+  notice.className='archive-return-notice';
+  notice.setAttribute('role','dialog');
+  notice.setAttribute('aria-modal','true');
+  notice.setAttribute('aria-labelledby','archive-return-title');
+  notice.innerHTML=`<article class="archive-return-card"><button class="archive-return-close" type="button" aria-label="Recorrer el archivo de nuevo">×</button><header><p>ARCHIVO CENTRAL · ÚLTIMO REGISTRO CONSULTADO</p><h2 id="archive-return-title">El archivo guarda silencio.<br><em>Ya te ha contado todo lo que sabía.</em></h2></header><div class="archive-return-copy"><p>Has abierto cada documento, seguido cada rastro y devuelto la voz a recuerdos que permanecieron demasiado tiempo en silencio.</p><p>Aquí ya no queda nada pendiente. Aun así, el Archivo Central conservará esta historia para ti. Sus puertas seguirán abiertas siempre que necesites regresar.</p><div><p>Pero hay cosas que ningún expediente puede guardar.</p><p>Palabras que deben entregarse de otra manera.</p></div><strong>Lo que viene ahora ya no pertenece al archivo.<br>Te estaba esperando a ti.</strong></div><footer><button class="archive-return-public" type="button">Volver a KIZUNA <span>→</span></button><button class="archive-return-review" type="button">Recorrer el archivo de nuevo</button></footer></article>`;
+  document.body.appendChild(notice);
+  document.body.classList.add('archive-return-open');
+  const close=()=>dismissArchiveReturnNotice();
+  notice.querySelector('.archive-return-close').onclick=close;
+  notice.querySelector('.archive-return-review').onclick=close;
+  notice.querySelector('.archive-return-public').onclick=()=>{location.href='../index.html#carta-alberto'};
+  notice.addEventListener('click',event=>{if(event.target===notice)close()});
+  notice.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){event.preventDefault();close();return}
+    if(event.key!=='Tab')return;
+    const controls=[...notice.querySelectorAll('button:not([disabled])')];
+    const first=controls[0],last=controls.at(-1);
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+  });
+  requestAnimationFrame(()=>{
+    notice.classList.add('is-visible');
+    notice.querySelector('.archive-return-public').focus({preventScroll:true});
+  });
+  return true;
+};
 const getState=()=>normalizeFinalState(currentUser?(remoteState||emptyProgressState()):transientState());
 const read=()=>getState().read||[];
 const finalFileRead=()=>{const done=read();return done.includes('KTB-014')&&done.includes('FINAL-01')};
@@ -723,6 +773,7 @@ const loadRemoteProgress=async user=>{
   updateRecipientName();
   remoteState=rememberAuthoritativeRead(normalizeFinalState({...emptyProgressState(),...(progressRow.state||{})}));
   progressHydrated=true;
+  prepareArchiveReturnNotice(remoteState);
   clearStaleFinalFlowDom();
   const databaseRead=Array.isArray(progressRow.state?.read)?progressRow.state.read:[];
   if(databaseRead.some(id=>!remoteState.read.includes(id))){
@@ -2140,6 +2191,7 @@ function render(options={}){
   // cierre al iniciar sesión o al consultar cualquier otro documento.
   clearTimeout(pendingFinalAlertTimer);
   pendingFinalAlertTimer=0;
+  requestAnimationFrame(()=>requestAnimationFrame(showArchiveReturnNotice));
 }
 // Las tarjetas se reconstruyen al sincronizar progreso, permisos y microeventos.
 // Un único manejador delegado evita que un botón recién renderizado quede sin
