@@ -57,6 +57,8 @@
       callback:token=>{state.token=token;state.invalid=false;state.resolve?.(token);state.resolve=null},
       'expired-callback':()=>{state.token=''},
       'error-callback':()=>{state.invalid=true;state.resolve?.('');state.resolve=null},
+      'before-interactive-callback':()=>form.dispatchEvent(new CustomEvent('kizuna:turnstile-interactive')),
+      'after-interactive-callback':()=>form.dispatchEvent(new CustomEvent('kizuna:turnstile-resumed')),
     });
     widgets.set(form,state);
   };
@@ -68,7 +70,7 @@
     if(state?.token)return state.token;
     if(state?.pending)return state.pending;
     state.pending=new Promise((resolve,reject)=>{
-      const timeout=setTimeout(()=>{state.resolve=null;state.invalid=true;reject(new Error('La verificación ha tardado demasiado. Inténtalo de nuevo.'))},45000);
+      const timeout=setTimeout(()=>{state.resolve=null;state.invalid=true;reject(new Error('La verificación ha tardado demasiado. Inténtalo de nuevo.'))},300000);
       state.resolve=token=>{clearTimeout(timeout);token?resolve(token):reject(new Error('No se ha podido completar la verificación antispam.'))};
       try{window.turnstile.execute(state.container)}catch(error){clearTimeout(timeout);state.resolve=null;state.invalid=true;reject(error)}
     }).finally(()=>{state.pending=null});
@@ -82,13 +84,19 @@
     turnstileToken:await tokenFor(form),
   });
 
+  const discard=(form,state)=>{
+    try{window.turnstile?.remove(state.id)}catch(_error){}
+    state.container.remove();
+    widgets.delete(form);
+  };
+
   const reset=form=>{
     form.dataset.publicFormStartedAt=String(Date.now());
     const state=widgets.get(form);
     if(!state)return;
     state.token='';state.resolve=null;state.pending=null;
-    if(state.invalid){state.container.remove();widgets.delete(form);void prepare(form,form.dataset.publicFormAction||'public_form');return}
-    try{window.turnstile?.reset(state.id)}catch{state.container.remove();widgets.delete(form);void prepare(form,form.dataset.publicFormAction||'public_form')}
+    if(state.invalid){discard(form,state);void prepare(form,form.dataset.publicFormAction||'public_form');return}
+    try{window.turnstile?.reset(state.id)}catch{discard(form,state);void prepare(form,form.dataset.publicFormAction||'public_form')}
   };
 
   window.KizunaPublicFormSecurity={prepare,payloadFor,reset,turnstileConfigured:Boolean(TURNSTILE_SITE_KEY)};
