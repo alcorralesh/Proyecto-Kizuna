@@ -3330,3 +3330,14 @@ body.archive-return-open{overflow:hidden}
 @media(max-width:600px){.archive-return-notice{padding:9px}.archive-return-card{max-height:calc(100dvh - 18px);padding:34px 23px 24px;box-shadow:7px 7px 0 #05090880}.archive-return-close{right:13px;top:12px}.archive-return-card header{padding-right:38px}.archive-return-card header>p{margin-bottom:13px;font-size:7px}.archive-return-card h2{margin-bottom:20px;font-size:37px}.archive-return-copy{padding:17px 0 19px;font-size:10px;line-height:1.62}.archive-return-copy>p{margin-bottom:12px}.archive-return-copy>div{margin:16px 0 14px}.archive-return-copy>strong{font-size:17px}.archive-return-card footer{grid-template-columns:1fr;margin-top:19px}.archive-return-card footer button{min-height:48px}}
 @media(max-height:560px) and (min-width:601px){.archive-return-notice{padding:8px}.archive-return-card{width:min(840px,100%);max-height:calc(100dvh - 16px);padding:24px 34px 20px}.archive-return-close{right:13px;top:11px;width:42px;height:42px}.archive-return-card header{padding-right:42px}.archive-return-card header>p{margin-bottom:8px;font-size:7px}.archive-return-card h2{margin-bottom:13px;font-size:34px;line-height:.94}.archive-return-card h2 br{display:none}.archive-return-card h2 em{margin:0 0 0 7px;font-size:.74em}.archive-return-copy{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px;padding:13px 0;font-size:9px;line-height:1.5}.archive-return-copy>p{margin:0}.archive-return-copy>div{grid-column:1;margin:0;padding-left:12px}.archive-return-copy>strong{grid-column:2;grid-row:2;align-self:center;font-size:17px}.archive-return-card footer{grid-template-columns:1fr 1fr;margin-top:13px}.archive-return-card footer button{min-height:44px}}
 @media(prefers-reduced-motion:reduce){.archive-return-notice{opacity:1;transition:none}}
+
+html.is-restoring-archive-session #access{display:none!important}
+.session-restore-screen{background:radial-gradient(circle at 70% 20%,#43504a,#1f2824 55%)}
+.session-restore-card>p:not(.system-line){margin-bottom:22px}
+.session-restore-card>small{display:block;margin-top:14px;color:#70695f;font:8px/1.5 var(--mono);letter-spacing:.08em}
+.session-restore-progress{height:4px;overflow:hidden;background:#d2c5ae}
+.session-restore-progress i{display:block;width:42%;height:100%;background:#921f1c;animation:session-restore-scan 1.15s ease-in-out infinite}
+@keyframes session-restore-scan{0%{transform:translateX(-110%)}100%{transform:translateX(260%)}}
+@media(max-width:600px){.session-restore-card{margin-top:14vh}.session-restore-card h1{font-size:48px}}
+@media(max-height:520px) and (min-width:601px){.session-restore-card{margin:5vh auto;padding:34px 42px}.session-restore-card h1{font-size:46px}.session-restore-card>p:not(.system-line){margin:18px 0}}
+@media(prefers-reduced-motion:reduce){.session-restore-progress i{width:100%;animation:none}}

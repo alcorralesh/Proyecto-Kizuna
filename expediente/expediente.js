@@ -1148,7 +1148,7 @@ const folderCardProgressMarkup=(id,done)=>{
   const progress=folderCardProgress(id,done);
   return `<div class="folder-card-progress ${progress.updateRead?'is-complete':progress.readCount?'is-started':''}" aria-label="${progress.readCount} de ${progress.total} documentos leídos. ${progress.detail.toLowerCase()}"><div><span><b>${progress.readCount}</b> de ${progress.total} leídos</span><strong>${progress.detail}</strong></div><i aria-hidden="true"><b style="width:${progress.percent}%"></b></i></div>`;
 };
-const gate=document.querySelector('#gate'),access=document.querySelector('#access'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='',pendingConfirmedUnlockId='',pendingUnlockPresentationTimer=0,lastUnlockPresentationKey='';
+const gate=document.querySelector('#gate'),access=document.querySelector('#access'),sessionRestore=document.querySelector('#session-restore'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='',pendingConfirmedUnlockId='',pendingUnlockPresentationTimer=0,lastUnlockPresentationKey='';
 const rememberPendingConfirmation=id=>{
   if(!id)return;
   // Una confirmacion nueva debe poder volver a mostrar el aviso aunque el
@@ -4225,24 +4225,29 @@ setTimeout(()=>{
   };
 
   const restoreRecipientSession=async()=>{
-    if(adminAccessMode)return;
+    const finishSessionRestore=()=>{
+      document.documentElement.classList.remove('is-restoring-archive-session');
+      sessionRestore.hidden=true;
+    };
+    if(adminAccessMode){finishSessionRestore();return}
     try{
       const client=await getSupabase();
       const {data:{session}}=await client.auth.getSession();
-      if(!session||isAdmin(session.user)){access.hidden=false;return}
+      if(!session||isAdmin(session.user)){finishSessionRestore();access.hidden=false;return}
       currentUser=session.user;
       const [,loadedDeviceProgress]=await Promise.all([loadRemoteProgress(session.user),loadRecoveredDeviceProgress()]);
       recoveredDeviceProgress=loadedDeviceProgress;
       const restoredActivity=await recordActivity('session_restored',null,{source:'persisted_session'});
       if(!restoredActivity)console.warn('La sesión se restauró, pero no pudo añadirse al registro de actividad.');
       message.textContent='';
-      if(redirectToAlbertoPublicSite(getState()))return;
+      if(redirectToAlbertoPublicSite(getState())){finishSessionRestore();return}
+      finishSessionRestore();
       access.hidden=true;
       adminAccess.hidden=true;
       loading.hidden=true;
       if(getState().legalAccepted){gate.hidden=true;dash.hidden=false;render({focusNext:true});void startExpedientOnboarding()}
       else{gate.hidden=false;dash.hidden=true}
-    }catch(error){console.warn('No se pudo restaurar la sesión del expediente.',error);message.textContent='';access.hidden=false}
+    }catch(error){finishSessionRestore();console.warn('No se pudo restaurar la sesión del expediente.',error);message.textContent='';access.hidden=false}
   };
   void restoreRecipientSession();
 
