@@ -98,6 +98,88 @@ const remindPendingAlbertoResponse=()=>{
   },9000);
   tellMau(albertoMauMessage('alberto-letter-closed'),'alberto');
 };
+const enableAlbertoLetterSharing=panel=>{
+  if(panel.dataset.shareReady==='true')return;
+  const image=panel.querySelector('.alberto-image-inspector img');
+  const tools=panel.querySelector('nav[aria-label="Controles de la carta"]');
+  const fullscreen=tools?.querySelector('[data-letter-action="full"]');
+  if(!image||!tools||!fullscreen)return;
+  panel.dataset.shareReady='true';
+  const trigger=document.createElement('button');
+  trigger.type='button';
+  trigger.className='alberto-share-trigger';
+  trigger.dataset.letterAction='share';
+  trigger.setAttribute('aria-label','Compartir carta');
+  trigger.innerHTML='<span aria-hidden="true">↗</span><b>Compartir</b>';
+  tools.insertBefore(trigger,fullscreen);
+  const sheet=document.createElement('section');
+  sheet.className='alt00-share-sheet alberto-share-sheet';
+  sheet.hidden=true;
+  sheet.setAttribute('role','dialog');
+  sheet.setAttribute('aria-modal','true');
+  sheet.setAttribute('aria-labelledby','alberto-share-title');
+  sheet.innerHTML=`<article><header><div><p>COPIA DE LA CARTA</p><h3 id="alberto-share-title">Compartir carta</h3></div><button type="button" data-alberto-share="close" aria-label="Cerrar">×</button></header><p class="alt00-share-file" data-alberto-share-file>Preparando carta…</p><div class="alt00-share-actions"><button type="button" data-alberto-share="native" disabled><span aria-hidden="true">↗</span><b>Compartir imagen</b><small>Correo, mensajería y otras aplicaciones</small></button><button type="button" data-alberto-share="download" disabled><span aria-hidden="true">↓</span><b>Descargar imagen</b><small>Guardar la carta en el dispositivo</small></button></div><p class="alt00-share-status" data-alberto-share-status aria-live="polite"></p></article>`;
+  panel.appendChild(sheet);
+  const nativeButton=sheet.querySelector('[data-alberto-share="native"]');
+  const downloadButton=sheet.querySelector('[data-alberto-share="download"]');
+  const fileLabel=sheet.querySelector('[data-alberto-share-file]');
+  const status=sheet.querySelector('[data-alberto-share-status]');
+  let prepared=null;
+  const prepare=async()=>{
+    if(prepared)return prepared;
+    const response=await fetch(image.currentSrc||image.src,{cache:'force-cache'});
+    if(!response.ok)throw new Error(`No se pudo recuperar la carta (${response.status}).`);
+    const blob=await response.blob();
+    const type=blob.type||'image/png';
+    const extension=type.includes('webp')?'webp':type.includes('jpeg')?'jpg':'png';
+    const file=new File([blob],`carta-de-alberto.${extension}`,{type});
+    prepared={blob,file};
+    const canNative=typeof navigator.share==='function'&&(!navigator.canShare||navigator.canShare({files:[file]}));
+    nativeButton.hidden=!canNative;
+    nativeButton.disabled=!canNative;
+    downloadButton.disabled=false;
+    fileLabel.textContent=file.name;
+    if(!canNative)status.textContent='Este navegador permite descargar la carta, pero no compartir archivos directamente.';
+    return prepared;
+  };
+  const closeShare=()=>{
+    sheet.classList.remove('is-open');
+    setTimeout(()=>{if(!sheet.classList.contains('is-open'))sheet.hidden=true},180);
+    trigger.focus({preventScroll:true});
+  };
+  const openShare=()=>{
+    status.textContent='';
+    sheet.hidden=false;
+    requestAnimationFrame(()=>sheet.classList.add('is-open'));
+    prepare().catch(error=>{
+      console.error('No se pudo preparar la carta de Alberto.',error);
+      fileLabel.textContent='Carta no disponible';
+      status.textContent='No se ha podido preparar la imagen. Inténtalo de nuevo.';
+    });
+  };
+  void prepare().catch(()=>{});
+  trigger.onclick=openShare;
+  sheet.addEventListener('click',event=>{
+    if(event.target===sheet||event.target.closest('[data-alberto-share="close"]')){closeShare();return}
+    if(event.target.closest('[data-alberto-share="native"]')&&prepared){
+      status.textContent='';
+      navigator.share({files:[prepared.file],title:'KIZUNA · Carta de Alberto',text:'Una carta personal del Archivo de KIZUNA.'}).then(closeShare).catch(error=>{
+        if(error?.name!=='AbortError')status.textContent='No se ha podido abrir el menú para compartir.';
+      });
+      return;
+    }
+    if(event.target.closest('[data-alberto-share="download"]')&&prepared){
+      const url=URL.createObjectURL(prepared.blob),link=document.createElement('a');
+      link.href=url;
+      link.download=prepared.file.name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      status.textContent='Descarga iniciada.';
+    }
+  });
+};
 const cueAlbertoMau=root=>{
   if(root.nodeType!==1)return;
   const candidates=[root,...root.querySelectorAll?.('#alberto-message-prompt,#alberto-physical-prompt,#alberto-response-reminder,#alberto-decision,#alberto-deferred-notice,#alberto-letter,#alberto-finale')||[]];
@@ -106,6 +188,7 @@ const cueAlbertoMau=root=>{
     panel.dataset.mauCue='true';
     if(panel.id==='alberto-letter'){
       void silenceMau(false);
+      enableAlbertoLetterSharing(panel);
       const closeButton=panel.querySelector('#alberto-letter-close');
       closeButton?.addEventListener('click',()=>setTimeout(remindPendingAlbertoResponse,420),{once:true});
       return
