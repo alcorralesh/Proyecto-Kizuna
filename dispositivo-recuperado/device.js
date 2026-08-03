@@ -2,10 +2,57 @@ import {apps,locations,routes,galleryItems,searches,lostFiles} from './evidence-
 
 const $=selector=>document.querySelector(selector);
 const query=new URLSearchParams(location.search);
-const embedded=query.has('embedded');
-if(embedded){
-  document.body.classList.add('is-embedded');
+const embedded=query.has('embedded')&&window.parent!==window;
+const adminPreview=query.get('admin')==='1';
+const supabaseUrl='https://vcwqkideizdrhzpbghkj.supabase.co';
+const supabaseKey='sb_publishable_h3pjxT8UPZkYqRhLskVdlA_m-ulI4EF';
+
+function renderDeviceAccessGate({denied=false}={}){
+  if(denied){
+    document.body.className='device-access-denied';
+    document.body.innerHTML=`<main class="device-access-gate is-denied" role="main">
+      <img src="../assets/kizuna-logo-official.png" alt="KIZUNA">
+      <p>DIVISIÓN DE ARCHIVOS TEMPORALES · CONTROL DE ACCESO</p>
+      <h1>Acceso no autorizado.</h1>
+      <span>Este dispositivo debe consultarse desde el expediente AR-06.</span>
+      <a href="../expediente/index.html">Volver al Archivo Central <b>→</b></a>
+    </main>`;
+    return;
+  }
+  document.body.insertAdjacentHTML('beforeend',`<aside class="device-access-gate is-checking" id="device-access-gate" role="status" aria-live="polite">
+    <img src="../assets/kizuna-logo-official.png" alt="">
+    <p>AR-06 · DISPOSITIVO RECUPERADO</p>
+    <h1>Validando autorización…</h1>
+    <span>Esperando confirmación del Archivo Central.</span>
+  </aside>`);
 }
+
+async function verifyAdminPreview(){
+  try{
+    if(!window.supabase)await new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      script.onload=resolve;
+      script.onerror=reject;
+      document.head.appendChild(script);
+    });
+    const client=window.supabase.createClient(supabaseUrl,supabaseKey);
+    const {data:{session}}=await client.auth.getSession();
+    return session?.user?.app_metadata?.role==='admin';
+  }catch(error){
+    console.warn('No se pudo validar el acceso administrativo al dispositivo.',error);
+    return false;
+  }
+}
+
+const accessGranted=embedded||(adminPreview&&await verifyAdminPreview());
+if(!accessGranted){
+  renderDeviceAccessGate({denied:true});
+}else{
+  if(embedded){
+    document.body.classList.add('is-embedded');
+    renderDeviceAccessGate();
+  }else document.body.classList.remove('device-access-pending');
 const screen=$('#device-screen');
 const home=$('#home-screen');
 const appView=$('#app-view');
@@ -1127,6 +1174,8 @@ function applyRecoveredDeviceState(payload={}){
   residualButton.hidden=!residualRevealed;
   residualButton.classList.toggle('is-revealed',residualRevealed);
   progressHydrated=true;
+  document.body.classList.remove('device-access-pending');
+  $('#device-access-gate')?.remove();
   updateProgress({emit:false});
   bootRecoveredDevice();
   if(initialBooted&&reviewed.size===apps.length&&anomalyState==='idle'){
@@ -1146,7 +1195,13 @@ window.addEventListener('message',event=>{
 
 if(embedded){
   window.parent.postMessage({type:'kizuna:recovered-device-ready'},location.origin);
-  progressFallbackTimer=setTimeout(()=>applyRecoveredDeviceState(),6000);
+  progressFallbackTimer=setTimeout(()=>{
+    const gate=$('#device-access-gate');
+    if(!gate)return;
+    gate.classList.add('is-delayed');
+    gate.querySelector('h1').textContent='Autorización pendiente.';
+    gate.querySelector('span').textContent='Abre el dispositivo desde la tarjeta AR-06 del expediente.';
+  },6000);
 }else{
   bootRecoveredDevice();
   updateProgress({emit:false});
@@ -1154,3 +1209,4 @@ if(embedded){
 syncDeviceViewport();
 window.addEventListener('resize',syncDeviceViewport,{passive:true});
 window.visualViewport?.addEventListener('resize',syncDeviceViewport,{passive:true});
+}

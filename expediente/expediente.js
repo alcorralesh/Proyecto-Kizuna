@@ -2236,7 +2236,7 @@ const openRecoveredDeviceFromAr06=()=>{
   readerTools.hidden=true;
   document.querySelector('#doc-type').textContent='AR-06 · DISPOSITIVO RECUPERADO';
   document.querySelector('#doc-title').textContent='Clon SM-G991B';
-  document.querySelector('#doc-body').innerHTML=`<section class="recovered-device-embed" aria-label="Dispositivo clonado SM-G991B"><iframe src="../dispositivo-recuperado/index.html?embedded=1&v=20260802-whatsapp-chat-list02" title="Dispositivo clonado SM-G991B" loading="eager" allow="autoplay; fullscreen"></iframe></section>`;
+  document.querySelector('#doc-body').innerHTML=`<section class="recovered-device-embed" aria-label="Dispositivo clonado SM-G991B"><iframe src="../dispositivo-recuperado/index.html?embedded=1&v=20260803-device-access01" title="Dispositivo clonado SM-G991B" loading="eager" allow="autoplay; fullscreen"></iframe></section>`;
   if(!viewer.open)viewer.showModal();
   syncReaderChrome();
 };
@@ -4007,6 +4007,13 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
     const status=editor.querySelector('#admin-save-status'),button=editor.querySelector('#admin-save-progress'),progressForm=editor.querySelector('#admin-progress-form');
     if(!progressForm||!button)return;
     let records=[...progressForm.querySelectorAll('input[name="records"]:checked')].map(input=>input.value);
+    const ktb12Removed=selected.has('KTB-012')&&!records.includes('KTB-012');
+    if(ktb12Removed&&!await adminConfirm({
+      eyebrow:'AR-06 · PROGRESO INDEPENDIENTE',
+      title:'El dispositivo dejará de mostrarse',
+      message:'Al desmarcar KTB-012, el dispositivo se ocultará en el expediente, pero las aplicaciones revisadas no se borrarán. Después de guardar, reinicia el dispositivo desde la pestaña «Dispositivo» si también quieres eliminar ese progreso.',
+      confirmLabel:'Guardar y revisar dispositivo'
+    }))return;
     const closing=records.includes('KTB-014'),wasCompleted=Boolean(current.completed);
     let nextState;
     if(!closing){
@@ -4029,7 +4036,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
     button.disabled=true;
     try{
       const savedState=await saveAdminProgressState(profile.id,nextState);
-      renderAdminEditor(profile,savedState,requestedTab);
+      renderAdminEditor(profile,savedState,ktb12Removed?'device':requestedTab);
     }catch(error){
       status.textContent='No se pudieron guardar los cambios.';
       console.error(error);
@@ -4079,7 +4086,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   document.querySelector('#admin-preview-normal-access').onclick=()=>showEarlyAccessAuthorizationSimulation({profile,state:current,mode:'normal'});
   document.querySelector('#admin-play-finale').onclick=()=>{if(!window.KizunaFinale){alert('No se ha podido cargar la vista previa del final.');return}window.KizunaFinale.play({assetBase:'../',preview:true,lastPage:1})};
   document.querySelector('#admin-preview-alt00-response').onclick=()=>{if(!window.KizunaFinale?.play){alert('No se ha podido cargar la nueva vista previa.');return}window.KizunaFinale.play({assetBase:'../',preview:true,lastPage:1,responseOutcome:true,displayName:profile.display_name||profile.email})};
-  document.querySelector('#admin-open-recovered-device').onclick=()=>window.open('../dispositivo-recuperado/index.html?admin=1','_blank','noopener,noreferrer');
+  document.querySelector('#admin-open-recovered-device').onclick=()=>window.open('../dispositivo-recuperado/index.html?admin=1&v=20260803-device-access01','_blank','noopener,noreferrer');
   document.querySelector('#admin-reopen-alberto-response').onclick=async()=>{const button=document.querySelector('#admin-reopen-alberto-response'),status=document.querySelector('#admin-alberto-status');if(!await adminConfirm({title:'Reabrir la respuesta final',message:`La carta seguirá constando como leída, pero ${profile.display_name||profile.email} volverá a recibir el recordatorio de respuesta pendiente.`,confirmLabel:'Reabrir respuesta'}))return;button.disabled=true;status.textContent='Reabriendo respuesta…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoMessageRead:true,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};try{const savedState=await saveAdminProgressState(profile.id,nextState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent='No se ha podido reabrir la respuesta.';button.disabled=false}};
   document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!await adminConfirm({title:'Reiniciar la experiencia de la carta',message:`Se borrarán la autorización del sobre, la confirmación de lectura y la respuesta de ${profile.display_name||profile.email}. La experiencia volverá a comenzar desde el aviso inicial.`,confirmLabel:'Reiniciar carta',danger:true}))return;button.disabled=true;status.textContent='Reiniciando experiencia…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoEnvelopeAuthorized:false,albertoEnvelopeAuthorizedAt:null,albertoPhysicalLetterRead:false,albertoPhysicalLetterReadAt:null,albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};try{const savedState=await saveAdminProgressState(profile.id,nextState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent='No se ha podido reiniciar la experiencia.';button.disabled=false}};
   document.querySelector('#admin-renew-legal').onclick=async()=>{
