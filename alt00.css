@@ -20,9 +20,9 @@ body.kizuna-finale-open{overflow:hidden}
 #alberto-last-phrase{white-space:pre-wrap;font:500 clamp(31px,5vw,53px)/1.2 var(--serif,"EB Garamond",serif)}
 #alberto-finale-logo{width:132px;height:132px;margin-top:34px;object-fit:contain;border-radius:50%;opacity:0;transition:opacity 1.5s,transform 1.5s;transform:scale(.92)}
 #alberto-finale-logo.is-visible{opacity:1;transform:scale(1)}
-#alberto-system-note{max-width:520px;min-height:110px;margin:30px auto 0;color:#8b918d;white-space:pre-wrap;font:11px/1.85 var(--mono,"DM Mono",monospace);letter-spacing:.015em;transition:opacity .45s}
+#alberto-system-note{max-width:560px;min-height:110px;margin:28px auto 0;color:#aab0ac;white-space:pre-wrap;font:12px/1.75 var(--mono,"DM Mono",monospace);letter-spacing:.025em;transition:opacity .45s}
 #alberto-system-note.is-changing{opacity:0}
-#alberto-system-note.is-farewell{color:#c3beb6;font-size:12px;letter-spacing:.12em}
+#alberto-system-note.is-farewell{color:#d2cdc5;font-size:13px;line-height:1.7;letter-spacing:.08em}
 
 /* Vista previa posterior a la respuesta personal. */
 #alt00-response-preview{padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
@@ -229,8 +229,8 @@ body.kizuna-finale-open{overflow:hidden}
   #alberto-confirmed-stamp{padding:8px 15px;border-width:2px;font-size:clamp(20px,3.5vw,31px)}
   #alberto-last-phrase{font-size:clamp(26px,4vw,39px);line-height:1.05}
   #alberto-finale-logo{width:88px;height:88px;margin-top:14px}
-  #alberto-system-note{max-width:580px;min-height:54px;margin:11px auto 0;font-size:8px;line-height:1.5}
-  #alberto-system-note.is-farewell{font-size:9px;line-height:1.5}
+  #alberto-system-note{max-width:580px;min-height:54px;margin:13px auto 0;font-size:10px;line-height:1.55}
+  #alberto-system-note.is-farewell{font-size:12px;line-height:1.55;letter-spacing:.06em}
   .alt00-credits{grid-template-rows:42px minmax(0,1fr) 50px;width:min(900px,calc(100vw - 20px));height:calc(100dvh - 20px)}
   .alt00-credits>header{gap:12px;padding:8px 16px}
   .alt00-credits>header strong{font-size:15px}
