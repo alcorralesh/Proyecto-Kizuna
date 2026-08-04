@@ -71,3 +71,28 @@ html.kizuna-push-modal-open{overflow:hidden;overscroll-behavior:none}
 @media(prefers-reduced-motion:reduce){
   .kizuna-push-consent,.kizuna-push-consent-card{transition:none}
 }
+
+/* Buzón privado dentro de la PWA: respeta las dos zonas seguras del iPhone. */
+@media(max-width:600px), (orientation:landscape) and (max-height:520px) and (pointer:coarse){
+  #mailbox{
+    left:max(8px,env(safe-area-inset-left))!important;
+    right:max(8px,env(safe-area-inset-right))!important;
+    top:calc(env(safe-area-inset-top) + 58px)!important;
+    bottom:max(8px,env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    max-height:none!important;
+    padding:16px!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  #mailbox>div:first-child{
+    position:sticky;
+    z-index:2;
+    top:-16px;
+    margin:-16px -16px 0;
+    padding:16px 16px 14px!important;
+    background:#f6f0e2;
+  }
+}

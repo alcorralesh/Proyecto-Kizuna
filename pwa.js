@@ -30,7 +30,7 @@
 
   const stylesheet=document.createElement('link');
   stylesheet.rel='stylesheet';
-  stylesheet.href=new URL('pwa.css?v=20260725-early-access05',baseUrl).href;
+  stylesheet.href=new URL('pwa.css?v=20260804-mailbox-safe01',baseUrl).href;
   document.head.appendChild(stylesheet);
 
   let installEvent=null;
