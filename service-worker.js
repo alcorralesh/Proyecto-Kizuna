@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260804-decision-letter01';
+const VERSION='20260804-decision-tablet01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -16,7 +16,7 @@ const CORE_ASSETS=[
   './styles.css',
   './recipient-messages.css',
   './recipient-messages.js',
-  './script.js?v=20260804-public-header01',
+  './script.js?v=20260804-decision-tablet01',
   './events.js?v=20260804-lore-copy01',
   './public-form-security.js?v=20260802-public-forms06',
   './hero-carousel.js',
