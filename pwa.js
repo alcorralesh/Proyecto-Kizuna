@@ -30,7 +30,7 @@
 
   const stylesheet=document.createElement('link');
   stylesheet.rel='stylesheet';
-  stylesheet.href=new URL('pwa.css?v=20260804-header-icons07',baseUrl).href;
+  stylesheet.href=new URL('pwa.css?v=20260804-public-header01',baseUrl).href;
   document.head.appendChild(stylesheet);
 
   let installEvent=null;
