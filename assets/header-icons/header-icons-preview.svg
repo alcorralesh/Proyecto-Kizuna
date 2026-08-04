@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1420 430">
+  <defs>
+    <style>
+      .bg{fill:#eee5d2}.panel{fill:#f6f0e2;stroke:#b7aa95}.label{fill:#7e1b19;font:12px 'Courier New',monospace;letter-spacing:2px}.name{fill:#202726;font:15px 'Courier New',monospace;letter-spacing:1px}.note{fill:#746c60;font:11px 'Courier New',monospace}.icon{fill:none;stroke:#7e1b19;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.ring{fill:none;stroke:#7e1b19}.unread{fill:#7e1b19}.unread-icon{fill:none;stroke:#fff;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.desktop-unread .icon,.desktop-unread .ring{stroke:#fff}.desktop-unread .name{fill:#fff}.active{fill:#e7d8bd;stroke:#7e1b19}.exit-state{fill:#f2dfd4;stroke:#9b2b27}.badge{fill:#202726;stroke:#f6f0e2;stroke-width:2}.badge-text{fill:#fff;font:bold 9px Arial,sans-serif;text-anchor:middle}
+    </style>
+    <g id="mail" class="icon"><rect x="3.75" y="5.75" width="16.5" height="12.5" rx="1.5"/><path d="m5 7 7 5.75L19 7"/></g>
+    <g id="music" class="icon"><path d="M10.25 17.25V6.5l7-1.75V15.5"/><path d="M10.25 15.2c-1.85-.55-4.25.45-4.25 2.15 0 1.25 1.3 1.95 2.7 1.55 1.1-.3 1.55-1.05 1.55-2.15V15.2Zm7-1.75c-1.85-.55-4.25.45-4.25 2.15 0 1.25 1.3 1.95 2.7 1.55 1.1-.3 1.55-1.05 1.55-2.15v-1.55Z"/><path d="m10.25 8.35 7-1.75"/></g>
+    <g id="home" class="icon"><path d="m4.25 11.25 7.75-6.5 7.75 6.5"/><path d="M6.25 10v9.25h11.5V10M9.75 19.25v-5.5h4.5v5.5"/></g>
+    <g id="leave" class="icon"><path d="M10.25 4.25H5.5v15.5h4.75"/><path d="M8 12h10.5m-3.75-4 4 4-4 4"/></g>
+    <g id="archive" class="icon"><path d="M4.25 8.25h5l1.65 2h8.85v8.5H4.25v-10.5Z"/><path d="M12.25 14.5h-6.5m2.5-2.5-2.5 2.5 2.5 2.5"/></g>
+  </defs>
+  <rect width="1180" height="430" class="bg"/>
+  <text x="60" y="48" class="label">CABECERA KIZUNA · SISTEMA DE ICONOS</text>
+  <text x="60" y="75" class="note">Mismo dibujo en escritorio, iOS y Android · sin caracteres Unicode ni emojis del sistema</text>
+
+  <text x="60" y="125" class="label">ESCRITORIO · ICONO + TEXTO</text>
+  <g transform="translate(60 145)" class="desktop-unread">
+    <rect width="230" height="72" class="unread"/><circle cx="38" cy="36" r="20" class="ring"/><g transform="translate(26 24)" class="unread-icon"><rect x="3.75" y="5.75" width="16.5" height="12.5" rx="1.5"/><path d="m5 7 7 5.75L19 7"/></g><text x="72" y="41" class="name">Buzón</text><circle cx="225" cy="5" r="10" class="badge"/><text x="225" y="8" class="badge-text">2</text>
+  </g>
+  <g transform="translate(305 145)">
+    <rect width="230" height="72" class="active"/><circle cx="38" cy="36" r="20" class="ring"/><g transform="translate(26 24)"><use href="#music"/></g><text x="72" y="41" class="name">Sonido</text>
+  </g>
+  <g transform="translate(550 145)">
+    <rect width="230" height="72" class="panel"/><circle cx="38" cy="36" r="20" class="ring"/><g transform="translate(26 24)"><use href="#home"/></g><text x="72" y="41" class="name">Web</text>
+  </g>
+  <g transform="translate(795 145)">
+    <rect width="230" height="72" class="exit-state"/><circle cx="38" cy="36" r="20" class="ring"/><g transform="translate(26 24)"><use href="#leave"/></g><text x="72" y="41" class="name">Salir</text>
+  </g>
+  <g transform="translate(1040 145)">
+    <rect width="230" height="72" class="panel"/><circle cx="38" cy="36" r="20" class="ring"/><g transform="translate(26 24)"><use href="#archive"/></g><text x="72" y="41" class="name">Expediente</text>
+  </g>
+
+  <text x="60" y="275" class="label">MÓVIL Y TABLET · MISMO ICONO, SIN TEXTO</text>
+  <g transform="translate(60 298)">
+    <g><rect width="52" height="52" rx="0" class="unread"/><g transform="translate(14 14)" class="unread-icon"><rect x="3.75" y="5.75" width="16.5" height="12.5" rx="1.5"/><path d="m5 7 7 5.75L19 7"/></g><circle cx="50" cy="2" r="9" class="badge"/><text x="50" y="5" class="badge-text">2</text></g>
+    <g transform="translate(62)"><rect width="52" height="52" class="active"/><g transform="translate(14 14)"><use href="#music"/></g></g>
+    <g transform="translate(124)"><rect width="52" height="52" class="panel"/><g transform="translate(14 14)"><use href="#home"/></g></g>
+    <g transform="translate(186)"><rect width="52" height="52" class="exit-state"/><g transform="translate(14 14)"><use href="#leave"/></g></g>
+    <g transform="translate(248)"><rect width="52" height="52" class="panel"/><g transform="translate(14 14)"><use href="#archive"/></g></g>
+  </g>
+  <text x="390" y="320" class="name">Buzón nuevo</text><text x="390" y="342" class="note">Fondo rojo y contador</text>
+  <text x="590" y="320" class="name">Sonido activo</text><text x="590" y="342" class="note">Fondo crema intenso</text>
+  <text x="790" y="320" class="name">Web</text><text x="790" y="342" class="note">Estado neutro</text>
+  <text x="930" y="320" class="name">Salir</text><text x="930" y="342" class="note">Matiz rojo suave</text>
+  <text x="1080" y="320" class="name">Expediente</text><text x="1080" y="342" class="note">Retorno al archivo</text>
+  <line x1="60" x2="1360" y1="390" y2="390" stroke="#b7aa95"/>
+  <text x="60" y="412" class="note">Trazo uniforme 1,5 px · esquinas rectas · color institucional #7E1B19</text>
+</svg>

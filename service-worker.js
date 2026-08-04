@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260804-mailbox-safe01';
+const VERSION='20260804-header-icons01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -11,7 +11,7 @@ const CORE_ASSETS=[
   './index.html',
   './offline.html',
   './manifest.webmanifest',
-  './pwa.js?v=20260804-mailbox-safe01',
+  './pwa.js?v=20260804-header-icons01',
   './pwa.css',
   './styles.css',
   './recipient-messages.css',
@@ -57,7 +57,12 @@ const CORE_ASSETS=[
   './assets/kizuna-app-icon-maskable-512.png',
   './assets/kizuna-app-icon-192-v2.png',
   './assets/kizuna-app-icon-512-v2.png',
-  './assets/kizuna-app-icon-maskable-512-v2.png'
+  './assets/kizuna-app-icon-maskable-512-v2.png',
+  './assets/header-icons/mailbox.svg',
+  './assets/header-icons/sound.svg',
+  './assets/header-icons/web.svg',
+  './assets/header-icons/exit.svg',
+  './assets/header-icons/expedient.svg'
 ];
 const PRIVATE_PATHS=[
   'expediente/',

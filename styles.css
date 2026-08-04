@@ -150,6 +150,15 @@
 @media(max-width:1050px) and (min-width:851px){.public-session-user{display:none}.public-session-action{grid-template-columns:1fr;width:36px;min-width:36px;height:36px;min-height:36px;padding:0}.public-session-action>b{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.site-header nav{gap:11px}.site-header nav>a{font-size:9px}}
 @media(max-width:850px){#public-session{margin-right:7px;gap:4px}.public-session-user{max-width:105px}.public-session-user small{display:none}.public-session-action{grid-template-columns:1fr;width:40px;min-width:40px;height:40px;min-height:40px;padding:0;background:#f6f0e2;box-shadow:2px 2px 0 #86181612}.public-session-action>span{font-size:18px}.public-session-action>b{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}.site-header .wordmark span{display:none}.site-header .wordmark img{width:48px;height:48px}}@media(max-width:390px){.site-header{padding-left:8px;padding-right:8px}.site-header .wordmark img{width:42px;height:42px}#public-session{gap:3px;margin-right:4px}.public-session-user{max-width:78px}.public-session-user strong{font-size:10px}.public-session-action{width:35px;min-width:35px;height:35px;min-height:35px}.public-session-action>span{font-size:16px}.menu-toggle{padding:6px}}
 
+/* Iconografía común de sesión: círculo en escritorio, símbolo limpio en móvil. */
+.public-session-action>.kizuna-header-symbol{display:grid;place-items:center;width:24px;height:24px;border:1px solid currentColor;border-radius:50%}
+.public-session-action .kizuna-header-icon{width:14px;height:14px}
+#public-sign-out{border-color:#a45d52;background:#f3e6da;color:#7e1b19}
+@media(max-width:1050px){
+  .public-session-action>.kizuna-header-symbol{width:100%;height:100%;border:0;border-radius:0}
+  .public-session-action .kizuna-header-icon{width:18px;height:18px}
+}
+
 /* Aviso, carta de Alberto y decisión final. */
 body:has(#alberto-message-prompt),body:has(#alberto-physical-prompt),body:has(#alberto-response-reminder){overflow:hidden}
 #alberto-message-prompt,#alberto-physical-prompt,#alberto-response-reminder{position:fixed;inset:0;z-index:1900;display:grid;place-items:center;overflow:auto;padding:24px;background:rgba(17,27,23,.62);backdrop-filter:blur(7px) saturate(.78);animation:alberto-prompt-backdrop .35s ease both}
