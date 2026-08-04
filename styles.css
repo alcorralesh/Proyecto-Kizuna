@@ -735,10 +735,10 @@ body.kizuna-launching{overflow:hidden}
 #alberto-decision{background:linear-gradient(rgba(14,31,26,.94),rgba(14,31,26,.94)),radial-gradient(circle at 50% 0,#53615a,#13231e);color:#202726}
 #alberto-decision>article{width:min(820px,100%);padding:38px 62px 48px;border-color:#a99b84;background-color:#f5eddd;background-image:repeating-linear-gradient(90deg,transparent 0,transparent 86px,rgba(134,24,22,.026) 87px,transparent 88px);box-shadow:14px 16px 0 rgba(4,13,10,.3),0 24px 60px rgba(4,13,10,.26)}
 #alberto-decision>article::before{content:'';position:absolute;inset:11px;pointer-events:none;border:1px solid rgba(145,121,91,.25)}
-#alberto-decision>article>img{position:relative;width:58px;height:58px;margin-bottom:12px}
-#alberto-decision .alberto-decision-label{position:relative;display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 22px;padding:0 0 14px;text-align:left;border-bottom:1px solid #c8baa3}
-#alberto-decision .alberto-decision-label::before{content:'';width:7px;height:7px;margin-right:-7px;border-radius:50%;background:#991f1c;box-shadow:0 0 0 5px rgba(153,31,28,.1)}
-#alberto-decision .alberto-decision-label::after{content:'RESPUESTA PENDIENTE';padding:7px 9px;border:1px solid #991f1c;font:7px var(--mono);letter-spacing:.12em;transform:rotate(2deg)}
+#alberto-decision>article>img{position:relative;width:58px;height:58px;margin-bottom:12px;clip-path:circle(47% at 50% 50%);filter:brightness(1.1) saturate(.92) contrast(.98)}
+#alberto-decision .alberto-decision-label{position:relative;display:block;min-height:28px;margin:0 0 22px;padding:0 54px 14px;text-align:center;border-bottom:1px solid #c8baa3;line-height:28px}
+#alberto-decision .alberto-decision-label::before{content:'';position:absolute;left:0;top:10px;width:7px;height:7px;border-radius:50%;background:#991f1c;box-shadow:0 0 0 5px rgba(153,31,28,.1)}
+#alberto-decision .alberto-decision-label::after{content:'RESPUESTA PENDIENTE';position:absolute;right:0;top:0;padding:7px 9px;border:1px solid #991f1c;font:7px var(--mono);line-height:1;letter-spacing:.12em;transform:rotate(2deg)}
 #alberto-decision h2{font-size:clamp(43px,5vw,59px)}
 #alberto-decision .alberto-decision-copy{max-width:630px;margin:27px auto;padding:22px 0}
 #alberto-decision h3{font-size:30px}
@@ -769,7 +769,7 @@ body.kizuna-launching{overflow:hidden}
   #alberto-decision{display:grid;place-items:center;padding:8px;overflow:hidden}
   #alberto-decision>article{box-sizing:border-box;display:grid;grid-template-columns:minmax(210px,.88fr) minmax(280px,1.12fr);grid-template-rows:42px auto minmax(0,1fr) auto;gap:8px 24px;width:min(860px,100%);height:calc(100dvh - 16px);min-height:0;margin:0;padding:18px 24px;overflow:hidden}
   #alberto-decision>article>img{position:absolute;left:24px;top:18px;width:42px;height:42px;margin:0}
-  #alberto-decision .alberto-decision-label{grid-column:1;grid-row:1;align-self:center;display:flex;margin:0;padding-left:58px;padding-bottom:8px;text-align:left;font-size:8px}
+  #alberto-decision .alberto-decision-label{grid-column:1;grid-row:1;align-self:center;display:block;margin:0;padding:0 58px 8px;text-align:center;font-size:8px}
   #alberto-decision .alberto-decision-label::before{display:none}
   #alberto-decision .alberto-decision-label::after{padding:5px 7px;font-size:6px}
   #alberto-decision h2{grid-column:1;grid-row:2;margin:0;text-align:left;font-size:clamp(29px,3.8vw,36px);line-height:.84}
@@ -788,20 +788,19 @@ body.kizuna-launching{overflow:hidden}
 #alberto-decision .alberto-decision-close:hover,#alberto-decision .alberto-decision-close:focus-visible{border-color:#8c1e1b;background:rgba(140,30,27,.055);color:#8c1e1b;outline:1px solid rgba(140,30,27,.25);outline-offset:3px}
 
 @media(min-width:701px) and (max-width:1100px) and (orientation:portrait){
-  #alberto-decision{display:grid;place-items:center;padding:24px;overflow:hidden}
-  #alberto-decision>article{box-sizing:border-box;width:min(920px,100%);min-height:calc(100dvh - 48px);margin:0;padding:48px 56px;overflow:hidden}
-  #alberto-decision .alberto-decision-close{margin-top:22px}
-}
-
-@media(min-width:900px) and (max-width:1100px) and (orientation:portrait){
-  #alberto-decision>article{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);grid-template-rows:auto auto auto auto auto;align-content:center;gap:12px 42px}
-  #alberto-decision>article>img{grid-column:1/-1;grid-row:1;margin:0 auto 8px}
-  #alberto-decision .alberto-decision-label{grid-column:1/-1;grid-row:2;margin-bottom:20px}
-  #alberto-decision h2{grid-column:1;grid-row:3;align-self:start;margin:0;text-align:left;font-size:clamp(39px,5vw,52px)}
-  #alberto-decision .alberto-decision-copy{grid-column:1;grid-row:4/6;align-self:start;margin:18px 0 0;padding:19px 0}
-  #alberto-decision h3{grid-column:2;grid-row:3;align-self:end;margin:0 0 16px;text-align:left;font-size:29px}
-  #alberto-decision .alberto-choices{grid-column:2;grid-row:4;align-self:start}
-  #alberto-decision .alberto-decision-close{grid-column:2;grid-row:5;margin:18px auto 0}
+  #alberto-decision{display:grid;place-items:center;padding:clamp(24px,4vw,48px);overflow:auto}
+  #alberto-decision>article{box-sizing:border-box;display:block;width:min(700px,100%);min-height:0;margin:auto;padding:34px clamp(38px,6vw,52px) 36px;overflow:visible}
+  #alberto-decision>article>img{display:block;width:46px;height:46px;margin:0 auto 8px}
+  #alberto-decision .alberto-decision-label{min-height:25px;margin-bottom:15px;padding-bottom:10px;line-height:25px}
+  #alberto-decision .alberto-decision-label::before{top:8px}
+  #alberto-decision .alberto-decision-label::after{padding:6px 8px;font-size:6px}
+  #alberto-decision h2{margin:0;text-align:center;font-size:clamp(40px,5.3vw,49px)}
+  #alberto-decision .alberto-decision-copy{max-width:590px;margin:18px auto;padding:16px 0}
+  #alberto-decision .alberto-decision-copy p{margin-bottom:8px;font-size:10px;line-height:1.5}
+  #alberto-decision h3{margin:0 0 15px;text-align:center;font-size:26px}
+  #alberto-decision .alberto-choices{display:grid;gap:9px}
+  #alberto-decision .alberto-choices button{min-height:50px;padding-top:11px;padding-bottom:11px}
+  #alberto-decision .alberto-decision-close{margin:16px auto 0}
 }
 
 @media(max-width:700px) and (orientation:portrait){
