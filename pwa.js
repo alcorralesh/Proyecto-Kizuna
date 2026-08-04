@@ -114,21 +114,27 @@
       <button type="button" class="kizuna-pwa-install-collapse" aria-label="Reducir aviso de instalación">×</button>`;
     notice.querySelector('[data-pwa-install]').addEventListener('click',install);
     const collapseButton=notice.querySelector('.kizuna-pwa-install-collapse');
-    collapseButton.hidden=!publicHome;
-    collapseButton.addEventListener('click',()=>{
-      clearTimeout(installCollapseTimer);
+    const collapseInstallNotice=()=>{
       notice.classList.remove('is-expanded');
       notice.classList.add('is-compact');
-      collapseButton.hidden=true;
+      collapseButton.setAttribute('aria-label','Cerrar aviso de instalación');
+    };
+    collapseButton.hidden=false;
+    collapseButton.setAttribute('aria-label',publicHome?'Reducir aviso de instalación':'Cerrar aviso de instalación');
+    collapseButton.addEventListener('click',()=>{
+      clearTimeout(installCollapseTimer);
+      if(notice.classList.contains('is-compact')){
+        notice.remove();
+        return;
+      }
+      collapseInstallNotice();
     });
     document.body.appendChild(notice);
     if(!publicHome)return;
     const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
     installCollapseTimer=setTimeout(()=>{
       if(!notice.isConnected)return;
-      notice.classList.remove('is-expanded');
-      notice.classList.add('is-compact');
-      collapseButton.hidden=true;
+      collapseInstallNotice();
     },reduced?9000:7000);
   };
 

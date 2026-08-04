@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260804-loggedout-expedient01';
+const VERSION='20260804-install-close01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -11,7 +11,7 @@ const CORE_ASSETS=[
   './index.html',
   './offline.html',
   './manifest.webmanifest',
-  './pwa.js?v=20260804-public-header01',
+  './pwa.js?v=20260804-install-close01',
   './pwa.css',
   './styles.css',
   './recipient-messages.css',
