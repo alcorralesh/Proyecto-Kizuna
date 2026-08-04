@@ -1153,7 +1153,7 @@ const folderCardProgressMarkup=(id,done)=>{
   const progress=folderCardProgress(id,done);
   return `<div class="folder-card-progress ${progress.updateRead?'is-complete':progress.readCount?'is-started':''}" aria-label="${progress.readCount} de ${progress.total} documentos leídos. ${progress.detail.toLowerCase()}"><div><span><b>${progress.readCount}</b> de ${progress.total} leídos</span><strong>${progress.detail}</strong></div><i aria-hidden="true"><b style="width:${progress.percent}%"></b></i></div>`;
 };
-const gate=document.querySelector('#gate'),access=document.querySelector('#access'),sessionRestore=document.querySelector('#session-restore'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='',pendingConfirmedUnlockId='',pendingUnlockPresentationTimer=0,lastUnlockPresentationKey='';
+const gate=document.querySelector('#gate'),access=document.querySelector('#access'),sessionRestore=document.querySelector('#session-restore'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,recoveredDeviceReturnsToFolder=false,readerCanConfirm=false,readerChromeActive='',pendingConfirmedUnlockId='',pendingUnlockPresentationTimer=0,lastUnlockPresentationKey='';
 const gatePhrase=document.querySelector('.gate-phrase');
 if(gatePhrase)gatePhrase.innerHTML='No todos los recuerdos están destinados a conservarse.<br><strong>Los que estás a punto de consultar, sí.</strong>';
 const sequenceIntroduction=document.querySelector('.list-title>p:last-child');
@@ -1585,7 +1585,7 @@ const syncReaderChrome=()=>{
     readerChromeActive=active;
   }
   const recoveredDeviceView=active==='AR06-DEVICE';
-  readerReturnToFolder=recoveredDeviceView?'AR-06':ar01Tickets.some(ticket=>ticket.id===active)?'tickets':active==='AR01-BILLETES'?'AR-01':active==='AR03-CARTA'||active.startsWith('AR03-T-')?'temples':active.startsWith('AR03-C-')?'cities':active==='AR03-cities'||active==='AR03-temples'?'AR-03':folders[active]?null:fileFolder(active)||null;
+  readerReturnToFolder=recoveredDeviceView?(recoveredDeviceReturnsToFolder?'AR-06':null):ar01Tickets.some(ticket=>ticket.id===active)?'tickets':active==='AR01-BILLETES'?'AR-01':active==='AR03-CARTA'||active.startsWith('AR03-T-')?'temples':active.startsWith('AR03-C-')?'cities':active==='AR03-cities'||active==='AR03-temples'?'AR-03':folders[active]?null:fileFolder(active)||null;
   const folderView=Boolean(folders[active]||active==='AR-03'||active==='AR01-BILLETES'||active==='AR03-cities'||active==='AR03-temples');
   readerContent.classList.toggle('has-image',hasImage);
   readerContent.classList.toggle('is-folder',folderView||recoveredDeviceView);
@@ -2216,7 +2216,7 @@ document.querySelector('#documents').addEventListener('click',event=>{
   const deviceButton=event.target.closest('[data-open-recovered-device]');
   if(deviceButton){
     event.preventDefault();
-    openRecoveredDeviceFromAr06();
+    openRecoveredDeviceFromAr06({returnToFolder:false});
     return;
   }
   const button=event.target.closest('.document button[data-id]');
@@ -2230,11 +2230,12 @@ function openFolder(folderId){active=folderId;readerReturnToFolder=null;readerCa
 function openFolderFile(folderId,fileId){const file=folders[folderId].files.find(item=>item.id===fileId);active=fileId;readerReturnToFolder=folderId;readerCanConfirm=true;next.style.display='none';mark.style.display='inline-block';document.querySelector('#doc-type').textContent=`${folderId} / DOCUMENTO INTERNO`;document.querySelector('#doc-title').textContent=file.title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="../assets/documents/${folderId}/${file.src}" alt="${file.title}">`}
 function openFolderFile(folderId,fileId){const file=folders[folderId].files.find(item=>item.id===fileId);if(file.mosaic==='tickets'){openTicketMosaic();return}active=fileId;readerReturnToFolder=folderId;readerCanConfirm=true;next.style.display='none';mark.style.display='inline-block';document.querySelector('#doc-type').textContent=`${folderId} / DOCUMENTO INTERNO`;document.querySelector('#doc-title').textContent=file.title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="../assets/documents/${folderId}/${file.src}" alt="${file.title}">`}
 const ar06DeviceUnlocked=(progress=read())=>folders['AR-06'].files.every(file=>progress.includes(file.id))&&progress.includes('KTB-012');
-const openRecoveredDeviceFromAr06=()=>{
+const openRecoveredDeviceFromAr06=({returnToFolder=true}={})=>{
   recoveredDeviceProgress=emptyRecoveredDeviceProgress();
   closeRecoveredDeviceExitPrompt();
   active='AR06-DEVICE';
-  readerReturnToFolder='AR-06';
+  recoveredDeviceReturnsToFolder=returnToFolder;
+  readerReturnToFolder=returnToFolder?'AR-06':null;
   readerCanConfirm=false;
   next.style.display='none';
   mark.style.display='none';
