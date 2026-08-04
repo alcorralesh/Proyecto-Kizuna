@@ -632,7 +632,6 @@ body.public-menu-open{overflow:hidden}
   .public-session-trigger .kizuna-header-icon{width:19px;height:19px}
   .site-header.open>nav{position:fixed;top:92px;left:0;right:0;bottom:0;z-index:1250;display:grid!important;align-content:start;gap:0;margin:0;padding:22px 5vw max(28px,env(safe-area-inset-bottom));overflow:auto;background:#f5f0e7;border-top:1px solid var(--line);box-shadow:0 14px 28px rgba(19,38,32,.16)}
   .site-header.open>nav>a{display:flex;align-items:center;min-height:50px;padding:0 6px;border-bottom:1px solid #d4c9b8;font:500 11px var(--mono);letter-spacing:.05em}
-  .site-header.open>nav>.expedient-link{display:none}
 }
 @media(max-width:600px){
   .site-header{height:68px;padding:6px 16px}
