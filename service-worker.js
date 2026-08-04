@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260802-session-restore01';
+const VERSION='20260804-lore-copy01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -11,13 +11,13 @@ const CORE_ASSETS=[
   './index.html',
   './offline.html',
   './manifest.webmanifest',
-  './pwa.js?v=20260802-web-analytics01',
+  './pwa.js?v=20260804-lore-copy01',
   './pwa.css',
   './styles.css',
   './recipient-messages.css',
   './recipient-messages.js',
-  './script.js?v=20260802-public-forms06',
-  './events.js?v=20260802-public-forms06',
+  './script.js?v=20260804-lore-copy01',
+  './events.js?v=20260804-lore-copy01',
   './public-form-security.js?v=20260802-public-forms06',
   './hero-carousel.js',
   './mascot/mau.js?v=20260801-alt00-share01',

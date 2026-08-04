@@ -108,7 +108,7 @@
     events=items;const visible=mode==='home'?items.slice(0,3):items;
     root.replaceChildren(...visible.map(createCard));
     if(allEventsLink)allEventsLink.hidden=mode!=='home';
-    if(!visible.length){const empty=document.createElement('p');empty.className='events-empty';empty.textContent='No hay próximos eventos publicados.';root.appendChild(empty)}
+    if(!visible.length){const empty=document.createElement('p');empty.className='events-empty';empty.textContent='La agenda de KIZUNA no tiene nuevos encuentros por ahora.';root.appendChild(empty)}
   };
   const loadEvents=async()=>{
     render(fallbackEvents);

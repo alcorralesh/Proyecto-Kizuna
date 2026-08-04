@@ -95,7 +95,7 @@ window.KizunaFinale=(()=>{
       <header class="alt00-reader-head">
         <div class="alt00-reader-identity">
           <span>PROTOCOLO OMEGA · ACCESO RESTRINGIDO</span>
-          <h2 id="alt00-title">Expediente Alternativo 001</h2>
+          <h2 id="alt00-title">Expediente Alternativo ALT-00</h2>
         </div>
         <div class="alt00-reader-counter"><span>PÁGINA</span><strong>01 / ${PAGE_TOTAL}</strong></div>
         <nav class="alt00-reader-tools" aria-label="Controles de visualización">
@@ -303,7 +303,7 @@ window.KizunaFinale=(()=>{
       if(event.target===shareSheet||event.target.closest('[data-alt00-share="close"]')){closeShare();return}
       if(event.target.closest('[data-alt00-share="native"]')&&sharePrepared){
         shareStatus.textContent='';
-        navigator.share({files:[sharePrepared.file],title:`KIZUNA · ALT-00 · Página ${String(page).padStart(2,'0')}`,text:'Página del Expediente Alternativo 001 de KIZUNA.'}).then(closeShare).catch(error=>{
+        navigator.share({files:[sharePrepared.file],title:`KIZUNA · ALT-00 · Página ${String(page).padStart(2,'0')}`,text:'Página del Expediente Alternativo ALT-00 de KIZUNA.'}).then(closeShare).catch(error=>{
           if(error?.name!=='AbortError'){
             console.warn('No se pudo abrir el menú para compartir ALT-00.',error);
             shareStatus.textContent='No se ha podido abrir el menú para compartir.';
@@ -615,7 +615,7 @@ window.KizunaFinale=(()=>{
       <main>
         <div id="alberto-terminal"></div>
         <section id="alberto-expedient-state" hidden>
-          <p>EXPEDIENTE JP-2026-001</p>
+          <p>EXPEDIENTE KTB-EXP-2026-JP-00184</p>
           <div><span>Estado anterior:</span><strong id="alberto-old-state">PLANIFICADO</strong></div>
           <div><span>Estado actual:</span><strong id="alberto-new-state"></strong></div>
         </section>

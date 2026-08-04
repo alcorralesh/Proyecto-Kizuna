@@ -73,7 +73,7 @@
           <li>Selecciona <strong>Añadir a pantalla de inicio</strong>.</li>
           <li>Confirma con <strong>Añadir</strong>.</li>
         </ol>
-        <p>Se abrirá como una aplicación independiente. El progreso seguirá guardándose únicamente en Supabase.</p>
+        <p>Se abrirá como una aplicación independiente. Tu progreso permanecerá vinculado de forma segura al Archivo Central.</p>
         <button type="button" class="kizuna-pwa-sheet-close">Entendido</button>
       </div>`;
     sheet.addEventListener('click',event=>{
@@ -106,8 +106,8 @@
         <span class="kizuna-pwa-install-mark" aria-hidden="true">K</span>
         <span class="kizuna-pwa-install-copy">
           <small>ACCESO DIRECTO · KIZUNA</small>
-          <strong>Guarda el Archivo Central en tu pantalla</strong>
-          <em>Acceso rápido, pantalla completa y siempre la última versión.</em>
+          <strong>Guarda KIZUNA en tu pantalla</strong>
+          <em>Un acceso directo a los destinos, historias y recuerdos que has reunido.</em>
         </span>
         <span class="kizuna-pwa-install-action">Instalar <b>→</b></span>
       </button>
@@ -350,7 +350,7 @@
     notice.innerHTML=`
       <div>
         <strong>ACTUALIZACIÓN DEL SISTEMA</strong>
-        <span>Hay una nueva versión de la interfaz de KIZUNA disponible.</span>
+        <span>El Archivo Central ha recibido una actualización. Aplícala para continuar con la versión más reciente de KIZUNA.</span>
       </div>
       <button type="button" data-pwa-later>Ahora no</button>
       <button type="button" data-pwa-update>Actualizar</button>`;

@@ -164,8 +164,8 @@ function updateProgress({emit=true}={}){
 
 function showEvidenceProgress(){
   const count=reviewed.size;
-  showToast(`${count} de ${apps.length} aplicaciones revisadas.`,{
-    title:`${apps.length} evidencias localizadas`,
+  showToast(`${count} de ${apps.length} evidencias consultadas.`,{
+    title:'EXTRACCIÓN EN CURSO',
     icon:String(count||apps.length)
   });
 }
@@ -379,7 +379,7 @@ function renderSettings(){
       <button type="button"><span>◐</span><div><b>Batería y cuidado</b><small>Estado previo a la pérdida del dispositivo</small></div><i>›</i></button>
       <button type="button"><span>i</span><div><b>Acerca del teléfono</b><small>Galaxy S21 · SM-G991B · Android 12</small></div><i>›</i></button>
     </div>
-    <p class="settings-footnote">Los cambios realizados en esta simulación no se conservan.</p>
+    <p class="settings-footnote">Esta es una copia forense de solo lectura. Ningún cambio realizado aquí alterará el dispositivo recuperado.</p>
   </article>`;
 }
 
@@ -398,7 +398,7 @@ function renderResidual(){
     <section class="memory-finished" id="memory-finished" hidden>
       <span class="memory-signal is-closed"></span>
       <p>Canal cerrado.</p>
-      <small>El módulo recuperado ha finalizado su ejecución.</small>
+      <small>No quedan más fragmentos recuperables en este recuerdo.</small>
       <button data-memory-close type="button">Cerrar</button>
     </section>
   </article>`;
@@ -742,17 +742,17 @@ function openKtb(fromHistory=false){
   if(reviewed.size<apps.length){
     appContent.innerHTML=`<section class="acta-lock"><div class="lock-card"><span>⌁</span><h2>Acta protegida.</h2><p>La reanudación sólo puede consultarse cuando todas las evidencias extraídas hayan sido examinadas.</p><div class="review-checklist">${apps.map(app=>`<div><span>${app.code} · ${app.title}</span><b>${reviewed.has(app.id)?'REVISADA':'PENDIENTE'}</b></div>`).join('')}</div><p>${reviewed.size} DE ${apps.length} EVIDENCIAS REVISADAS</p></div></section>`;
   }else{
-    appContent.innerHTML=`<article class="acta"><span class="code">KTB-012</span><span class="seal">ARCHIVO<br>TEMPORAL</span><h2>Acta de reanudación del expediente</h2><h3>ARCHIVO KIZUNA // DIVISIÓN DE ARCHIVOS TEMPORALES</h3><p>Estimado Jose:</p><p>La consulta de la totalidad de los <b>ARCHIVOS RECUPERADOS</b> ha concluido correctamente. La información contenida en dichos archivos ha sido incorporada al contexto operativo y validada por los sistemas de KIZUNA.</p><p>El nivel de comprensión requerido para continuar con el expediente ha sido alcanzado.</p><div class="acta-grid"><div><small>ESTADO ANTERIOR</small><b>INTERRUMPIDO</b><small>durante la revisión</small></div><div><small>ESTADO ACTUAL</small><b>REANUDADO</b><small>acceso autorizado</small></div></div><p>Se autoriza la reanudación del expediente PROJECT JAPAN. El destinatario queda habilitado para continuar a partir del siguiente documento:</p><h3>KTB-013 · ANÁLISIS DE RIESGO TEMPORAL</h3><blockquote>«El camino no se ve, se recuerda.»</blockquote><button id="close-acta" type="button">VOLVER AL DISPOSITIVO</button></article>`;
+    appContent.innerHTML=`<article class="acta"><span class="code">KTB-012</span><span class="seal">ARCHIVO<br>TEMPORAL</span><h2>Acta de reanudación del expediente</h2><h3>ARCHIVO KIZUNA // DIVISIÓN DE ARCHIVOS TEMPORALES</h3><p>Estimado Jose:</p><p>La consulta de la totalidad de los <b>ARCHIVOS RECUPERADOS</b> ha concluido correctamente. La información contenida en dichos archivos ha sido incorporada a la reconstrucción del expediente y validada por los sistemas de KIZUNA.</p><p>El nivel de comprensión requerido para continuar con el expediente ha sido alcanzado.</p><div class="acta-grid"><div><small>ESTADO ANTERIOR</small><b>INTERRUMPIDO</b><small>durante la revisión</small></div><div><small>ESTADO ACTUAL</small><b>REANUDADO</b><small>acceso autorizado</small></div></div><p>Se autoriza la reanudación del expediente PROJECT JAPAN. El destinatario queda habilitado para continuar a partir del siguiente documento:</p><h3>KTB-013 · ANÁLISIS DE RIESGO TEMPORAL</h3><blockquote>«El camino no se ve, se recuerda.»</blockquote><button id="close-acta" type="button">VOLVER AL DISPOSITIVO</button></article>`;
   }
   if(!fromHistory)syncUrl('ktb');
   $('#close-acta')?.addEventListener('click',showHome);
 }
 
 function recoveryDialogMarkup(stage,progress=12){
-  if(stage==='scan')return `<p class="recovery-kicker">KIZUNA Recovery System</p>
+  if(stage==='scan')return `<p class="recovery-kicker">SISTEMA DE RECUPERACIÓN KIZUNA</p>
     <h2>Analizando integridad del dispositivo...</h2>
     <div class="recovery-progress"><i><b style="width:${progress}%"></b></i><strong>${progress} %</strong></div>`;
-  if(stage==='detected')return `<p class="recovery-kicker">KIZUNA Recovery System</p>
+  if(stage==='detected')return `<p class="recovery-kicker">SISTEMA DE RECUPERACIÓN KIZUNA</p>
     <span class="recovery-warning">!</span><h2>Anomalía detectada.</h2>
     <p>Se ha localizado un módulo que no figura en el índice del dispositivo recuperado.</p>
     <button data-anomaly-action="analyze" type="button">Analizar</button>`;

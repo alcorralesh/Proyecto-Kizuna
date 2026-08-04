@@ -43,7 +43,7 @@
   const render=articles=>{
     const visible=mode==='home'?articles.slice(0,3):articles;
     list.replaceChildren(...visible.map(createCard));
-    if(!visible.length){const empty=document.createElement('p');empty.className='blog-empty';empty.textContent='Todavía no hay artículos publicados.';list.appendChild(empty)}
+    if(!visible.length){const empty=document.createElement('p');empty.className='blog-empty';empty.textContent='El Cuaderno de Viaje todavía no contiene nuevas historias.';list.appendChild(empty)}
   };
   const load=async()=>{
     render(fallbackArticles);

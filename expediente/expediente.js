@@ -1154,6 +1154,12 @@ const folderCardProgressMarkup=(id,done)=>{
   return `<div class="folder-card-progress ${progress.updateRead?'is-complete':progress.readCount?'is-started':''}" aria-label="${progress.readCount} de ${progress.total} documentos leídos. ${progress.detail.toLowerCase()}"><div><span><b>${progress.readCount}</b> de ${progress.total} leídos</span><strong>${progress.detail}</strong></div><i aria-hidden="true"><b style="width:${progress.percent}%"></b></i></div>`;
 };
 const gate=document.querySelector('#gate'),access=document.querySelector('#access'),sessionRestore=document.querySelector('#session-restore'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,readerCanConfirm=false,readerChromeActive='',pendingConfirmedUnlockId='',pendingUnlockPresentationTimer=0,lastUnlockPresentationKey='';
+const gatePhrase=document.querySelector('.gate-phrase');
+if(gatePhrase)gatePhrase.innerHTML='No todos los recuerdos están destinados a conservarse.<br><strong>Los que estás a punto de consultar, sí.</strong>';
+const sequenceIntroduction=document.querySelector('.list-title>p:last-child');
+if(sequenceIntroduction)sequenceIntroduction.innerHTML='Secuencia preparada por el Archivo Central.<br>Consulta cada registro siguiendo el orden autorizado.';
+const archiveFooter=document.querySelector('.archive-footer');
+if(archiveFooter)archiveFooter.textContent='DIVISIÓN DE ARCHIVOS TEMPORALES · Toda consulta queda registrada en el Archivo Central.';
 const rememberPendingConfirmation=id=>{
   if(!id)return;
   // Una confirmacion nueva debe poder volver a mostrar el aviso aunque el
