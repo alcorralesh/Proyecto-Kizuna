@@ -4243,12 +4243,36 @@ setTimeout(()=>{
     }catch(error){message.textContent=recipientAccessErrorMessage(error);console.error(error)}finally{submit.disabled=false}
   };
 
+  const restoreAdminSession=async()=>{
+    if(!adminAccessMode)return false;
+    adminMessage.textContent='Recuperando sesión administrativa…';
+    try{
+      const client=await getSupabase();
+      const {data:{session},error}=await client.auth.getSession();
+      if(error)throw error;
+      if(!session||!isAdmin(session.user)){
+        adminMessage.textContent='';
+        adminAccess.hidden=false;
+        return false;
+      }
+      currentUser=session.user;
+      adminMessage.textContent='';
+      await openAdminDashboard();
+      return true;
+    }catch(error){
+      console.warn('No se pudo restaurar la sesión administrativa.',error);
+      adminMessage.textContent='';
+      adminAccess.hidden=false;
+      return false;
+    }
+  };
+
   const restoreRecipientSession=async()=>{
     const finishSessionRestore=()=>{
       document.documentElement.classList.remove('is-restoring-archive-session');
       sessionRestore.hidden=true;
     };
-    if(adminAccessMode){finishSessionRestore();return}
+    if(adminAccessMode){finishSessionRestore();await restoreAdminSession();return}
     try{
       const client=await getSupabase();
       const {data:{session}}=await client.auth.getSession();
