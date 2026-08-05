@@ -862,6 +862,12 @@ body:has(#viewer[open]){overflow:hidden}
    llega casi hasta los bordes y el pie no reserva una línea informativa extra. */
 #viewer:has(#doc-body[data-comic-page]) .reader-shell{height:100%;min-height:100dvh}
 @media(max-width:600px){
+  html.kizuna-pwa-standalone #viewer:has(#doc-body.is-ac-info),
+  html.kizuna-pwa-standalone #viewer:has(#doc-body[data-comic-page]){
+    bottom:auto;
+    height:calc(100dvh + env(safe-area-inset-top) + env(safe-area-inset-bottom));
+    max-height:none
+  }
   #viewer:has(#doc-body[data-comic-page]) .reader-content.has-image{padding:0 3px}
   #viewer:has(#doc-body[data-comic-page]) .reader-hint{display:none}
   #viewer:has(#doc-body[data-comic-page]) .paper-foot{padding:6px max(4px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left))}
