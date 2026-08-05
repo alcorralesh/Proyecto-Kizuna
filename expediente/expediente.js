@@ -2618,6 +2618,58 @@ adminExitButton.type='button';
 adminExitButton.setAttribute('aria-label','Cerrar sesión');
 adminExitButton.title='Cerrar sesión';
 adminExitButton.querySelector('span').textContent='⏻';
+const adminNavDefinitions={
+  users:{label:'Usuarios',icon:'<circle cx="12" cy="8" r="3.25"/><path d="M5.5 19c.7-4 3-6 6.5-6s5.8 2 6.5 6"/>'},
+  mailbox:{label:'Buzón',icon:'<rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="m4.5 7 7.5 6 7.5-6"/>'},
+  media:{label:'Media',icon:'<rect x="3.5" y="4" width="17" height="16" rx="1.5"/><circle cx="9" cy="9" r="1.5"/><path d="m5.5 17 4.5-4 3 2.5 2.5-2 3 3.5"/>'},
+  blog:{label:'Blog',icon:'<path d="M6 3.5h9l3 3V20H6z"/><path d="M15 3.5V7h3M9 11h6M9 15h6"/>'},
+  events:{label:'Eventos',icon:'<rect x="3.5" y="5.5" width="17" height="15" rx="1.5"/><path d="M7.5 3.5v4M16.5 3.5v4M3.5 10h17M8 14h2M14 14h2"/>'},
+  shop:{label:'Tienda',icon:'<path d="M6.5 8.5h11l1 12h-13z"/><path d="M9 9V6.5a3 3 0 0 1 6 0V9"/>'},
+  communications:{label:'Comunicaciones',icon:'<path d="m4 11 12-5v12L4 13z"/><path d="M16 9.5c2 .8 2 4.2 0 5M7 14l1 5h3l-1.5-6"/>'},
+  sound:{label:'Sonido',icon:'<path d="M4 10h4l5-4v12l-5-4H4zM16 9c1.8 1.5 1.8 4.5 0 6M18.5 6.5c4 3.5 4 7.5 0 11"/>'},
+  directMessages:{label:'Mensajes',icon:'<path d="M4 5.5h16v11H9l-4.5 3v-3H4z"/><path d="M8 9.5h8M8 13h5"/>'},
+  mau:{label:'Mau',icon:'<circle cx="8" cy="8" r="2"/><circle cx="16" cy="8" r="2"/><circle cx="5.5" cy="12.5" r="1.7"/><circle cx="18.5" cy="12.5" r="1.7"/><path d="M8 17c0-2.5 1.8-4 4-4s4 1.5 4 4c0 2-1.8 3.5-4 3.5S8 19 8 17Z"/>'},
+  microevents:{label:'Interacciones',icon:'<circle cx="6" cy="12" r="2.25"/><circle cx="18" cy="6" r="2.25"/><circle cx="18" cy="18" r="2.25"/><path d="m8 11 8-4M8 13l8 4"/>'}
+};
+const adminNavSvg=paths=>`<svg viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
+const decorateAdminNavButton=button=>{
+  if(!button?.dataset.adminView||button.dataset.adminNavDecorated==='true')return;
+  const definition=adminNavDefinitions[button.dataset.adminView];
+  if(!definition)return;
+  const badge=button.querySelector('#admin-mailbox-badge');
+  if(badge)badge.remove();
+  button.dataset.adminNavDecorated='true';
+  button.dataset.adminLabel=definition.label;
+  button.setAttribute('aria-label',definition.label);
+  button.title=definition.label;
+  button.innerHTML=`<span class="admin-nav-icon">${adminNavSvg(definition.icon)}</span><span class="admin-nav-label">${definition.label}</span>`;
+  if(badge)button.appendChild(badge);
+};
+const adminSidebar=document.querySelector('.admin-sidebar');
+adminSidebar.querySelectorAll('button').forEach(decorateAdminNavButton);
+new MutationObserver(records=>records.forEach(record=>record.addedNodes.forEach(node=>{
+  if(node.nodeType!==Node.ELEMENT_NODE)return;
+  if(node.matches?.('button[data-admin-view]'))decorateAdminNavButton(node);
+  node.querySelectorAll?.('button[data-admin-view]').forEach(decorateAdminNavButton);
+}))).observe(adminSidebar,{childList:true,subtree:true});
+adminExitButton.innerHTML='<span class="admin-exit-label">Cerrar sesión</span><span class="admin-exit-icon" aria-hidden="true">⏻</span>';
+const adminRailToggle=document.createElement('button');
+adminRailToggle.type='button';
+adminRailToggle.className='admin-rail-toggle';
+adminRailToggle.innerHTML='<span aria-hidden="true">‹</span>';
+document.querySelector('.admin-rail').appendChild(adminRailToggle);
+const adminSidebarStorageKey='kizuna_admin_sidebar_collapsed_v1';
+const readAdminSidebarPreference=()=>{try{return localStorage.getItem(adminSidebarStorageKey)==='1'}catch(_error){return false}};
+const setAdminSidebarCollapsed=collapsed=>{
+  adminPanel.classList.toggle('is-sidebar-collapsed',collapsed);
+  adminRailToggle.setAttribute('aria-expanded',String(!collapsed));
+  adminRailToggle.setAttribute('aria-label',collapsed?'Desplegar menú de administración':'Colapsar menú de administración');
+  adminRailToggle.title=collapsed?'Desplegar menú':'Colapsar menú';
+  adminRailToggle.querySelector('span').textContent=collapsed?'›':'‹';
+  try{localStorage.setItem(adminSidebarStorageKey,collapsed?'1':'0')}catch(_error){}
+};
+setAdminSidebarCollapsed(readAdminSidebarPreference());
+adminRailToggle.onclick=()=>setAdminSidebarCollapsed(!adminPanel.classList.contains('is-sidebar-collapsed'));
 const adminUserRefreshButton=document.createElement('button');
 adminUserRefreshButton.id='admin-user-refresh';adminUserRefreshButton.type='button';adminUserRefreshButton.disabled=true;adminUserRefreshButton.textContent='↻ Actualizar usuario';
 document.querySelector('#admin-user-manage-tab .admin-layout>aside').appendChild(adminUserRefreshButton);
