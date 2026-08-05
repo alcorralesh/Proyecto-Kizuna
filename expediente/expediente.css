@@ -866,6 +866,13 @@ body:has(#viewer[open]){overflow:hidden}
   #viewer:has(#doc-body[data-comic-page]) .reader-hint{display:none}
   #viewer:has(#doc-body[data-comic-page]) .paper-foot{padding:6px max(4px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left))}
   #viewer:has(#doc-body[data-comic-page]) .reader-actions{gap:5px}
+  html.kizuna-pwa-standalone #viewer:has(#doc-body[data-comic-page]) .reader-shell{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:auto;
+    min-height:0
+  }
 }
 
 /* Recuperación profesional de documentos y carpetas. */
