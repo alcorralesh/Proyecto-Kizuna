@@ -66,8 +66,8 @@ const preferenceFor = (activity: { event_type: string; document_id: string | nul
   if (activity.event_type === 'supplementary_file_consulted' && activity.document_id === 'FINAL-01') {
     return { key: 'special:final-opened', action: 'Archivo final abierto', reference: 'FINAL-01' }
   }
-  if (activity.event_type === 'document_confirmed' && activity.document_id === 'ALBERTO' && details.activity_kind === 'alberto_message_opened') {
-    return { key: 'special:alberto-opened', action: 'Mensaje de Alberto abierto', reference: 'ALBERTO' }
+  if (activity.event_type === 'document_confirmed' && activity.document_id === 'ALBERTO' && details.activity_kind === 'alberto_digital_copy_opened') {
+    return { key: 'special:alberto-opened', action: 'Copia digital de la carta de Alberto abierta', reference: 'ALBERTO' }
   }
   if (activity.event_type === 'document_confirmed' && activity.document_id && activity.document_id !== 'ALBERTO') {
     return { key: `document:${activity.document_id}`, action: 'Lectura confirmada', reference: activity.document_id }

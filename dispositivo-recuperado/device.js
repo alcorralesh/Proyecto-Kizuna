@@ -162,6 +162,15 @@ function updateProgress({emit=true}={}){
   return complete;
 }
 
+function reportDeviceActivity(activityKind,details={}){
+  if(!embedded)return;
+  window.parent.postMessage({
+    type:'kizuna:recovered-device-activity',
+    activityKind,
+    details
+  },location.origin);
+}
+
 function showEvidenceProgress(){
   const count=reviewed.size;
   showToast(`${count} de ${apps.length} evidencias consultadas.`,{
@@ -393,7 +402,10 @@ function renderResidual(){
     <section class="memory-chat" id="memory-chat" hidden>
       <header><span class="memory-avatar">∅</span><div><strong>Sin remitente</strong><small>canal recuperado</small></div></header>
       <div class="memory-messages" id="memory-messages"></div>
-      <footer id="memory-actions"><button data-memory-continue type="button">Continuar</button></footer>
+      <footer id="memory-actions" aria-live="polite">
+        <div class="memory-continue-copy"><span>REGISTRO EN PAUSA</span><small>Hay más información por recuperar.</small><b>FRAGMENTO 01 DE 19</b></div>
+        <button data-memory-continue type="button"><span>Recuperar siguientes fragmentos</span><i aria-hidden="true">→</i></button>
+      </footer>
     </section>
     <section class="memory-finished" id="memory-finished" hidden>
       <span class="memory-signal is-closed"></span>
@@ -735,6 +747,7 @@ function fileRows(rows){
 }
 
 function openKtb(fromHistory=false){
+  reportDeviceActivity('device_ktb012_consulted',{documentId:'KTB-012'});
   currentApp='ktb';if(!recent.includes('ktb'))recent.unshift('ktb');
   home.hidden=true;recentsView.hidden=true;appView.hidden=false;
   $('#app-header-icon').innerHTML=appIcon('ktb');$('#app-header-icon').style.background='#8c742e';
@@ -842,6 +855,7 @@ function startMemoryModule(){
             chat.hidden=false;
             requestAnimationFrame(()=>chat.classList.add('is-visible'));
             addMemoryMessage('Si estás leyendo esto...');
+            anomalyLater(()=>$('#memory-actions')?.classList.add('is-ready'),520);
           },420);
         },1200);
       },820);
@@ -872,7 +886,9 @@ const memorySequence=[
 ];
 
 function playMemoryConversation(){
-  $('#memory-actions').hidden=true;
+  const actions=$('#memory-actions');
+  actions?.classList.remove('is-ready');
+  if(actions)actions.hidden=true;
   let index=0;
   const next=()=>{
     const list=$('#memory-messages');

@@ -67,13 +67,15 @@ const updateRecipientName=()=>{
 };
 let transientProgressState=null;
 const transientState=()=>normalizeFinalState(transientProgressState||emptyProgressState());
-const emptyProgressState=()=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoEnvelopeAuthorized:false,albertoEnvelopeAuthorizedAt:null,albertoPhysicalLetterRead:false,albertoPhysicalLetterReadAt:null,albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,comicReadPages:[],alt00Discovered:false,alt00DiscoveredAt:null,alt00Completed:false,alt00CompletedAt:null,alt00LastPage:1,earlyAccessVersion:EARLY_ACCESS_VERSION,earlyAccessShownAt:null,earlyAccessAcknowledgedAt:null,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,loadingSeen:false,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:ONBOARDING_VERSION,seenUnlocks:[]});
+const emptyProgressState=()=>({read:[],mailRead:0,finalFileSeen:false,finalAlertShown:false,completed:false,finalFlowStage:'',albertoEnvelopeAuthorized:false,albertoEnvelopeAuthorizedAt:null,albertoPhysicalLetterRead:false,albertoPhysicalLetterReadAt:null,albertoDigitalCopyOpenedAt:null,albertoResponseDeferredAt:null,albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null,recoveredDeviceOpenedAt:null,recoveredDeviceKtb012ConsultedAt:null,comicReadPages:[],alt00Discovered:false,alt00DiscoveredAt:null,alt00Completed:false,alt00CompletedAt:null,alt00LastPage:1,earlyAccessVersion:EARLY_ACCESS_VERSION,earlyAccessShownAt:null,earlyAccessAcknowledgedAt:null,legalAccepted:false,legalAcceptedAt:null,legalVersion:1,loadingSeen:false,onboardingCompleted:false,onboardingCompletedAt:null,onboardingVersion:ONBOARDING_VERSION,seenUnlocks:[]});
 const resetFinalDecisionState=state=>({
   ...state,
   albertoEnvelopeAuthorized:false,
   albertoEnvelopeAuthorizedAt:null,
   albertoPhysicalLetterRead:false,
   albertoPhysicalLetterReadAt:null,
+  albertoDigitalCopyOpenedAt:null,
+  albertoResponseDeferredAt:null,
   albertoMessageRead:false,
   albertoResponseAccepted:false,
   albertoResponse:null,
@@ -834,6 +836,8 @@ const markFinalFileConsulted=async source=>{
     albertoEnvelopeAuthorizedAt:null,
     albertoPhysicalLetterRead:false,
     albertoPhysicalLetterReadAt:null,
+    albertoDigitalCopyOpenedAt:null,
+    albertoResponseDeferredAt:null,
     albertoMessageRead:false,
     albertoResponseAccepted:false,
     albertoResponse:null,
@@ -1154,6 +1158,23 @@ const folderCardProgressMarkup=(id,done)=>{
   return `<div class="folder-card-progress ${progress.updateRead?'is-complete':progress.readCount?'is-started':''}" aria-label="${progress.readCount} de ${progress.total} documentos leídos. ${progress.detail.toLowerCase()}"><div><span><b>${progress.readCount}</b> de ${progress.total} leídos</span><strong>${progress.detail}</strong></div><i aria-hidden="true"><b style="width:${progress.percent}%"></b></i></div>`;
 };
 const gate=document.querySelector('#gate'),access=document.querySelector('#access'),sessionRestore=document.querySelector('#session-restore'),adminAccess=document.querySelector('#admin-access'),loading=document.querySelector('#auth-loading'),dash=document.querySelector('#dashboard'),message=document.querySelector('#access-message'),adminMessage=document.querySelector('#admin-access-message'),viewer=document.querySelector('#viewer'),mark=document.querySelector('#mark-read'),next=document.querySelector('#next-doc'),readerBackFolder=document.querySelector('#reader-back-folder'),readerBackExpedient=document.querySelector('#reader-back-expedient');let active='',readerReturnToFolder=null,recoveredDeviceReturnsToFolder=false,readerCanConfirm=false,readerChromeActive='',pendingConfirmedUnlockId='',pendingUnlockPresentationTimer=0,lastUnlockPresentationKey='';
+let viewerLockedScrollY=0;
+const syncViewerPageLock=()=>{
+  const root=document.documentElement;
+  if(viewer.open){
+    if(root.classList.contains('viewer-open'))return;
+    viewerLockedScrollY=window.scrollY;
+    document.body.style.top=`-${viewerLockedScrollY}px`;
+    root.classList.add('viewer-open');
+    return;
+  }
+  if(!root.classList.contains('viewer-open'))return;
+  root.classList.remove('viewer-open');
+  document.body.style.top='';
+  window.scrollTo(0,viewerLockedScrollY);
+};
+new MutationObserver(syncViewerPageLock).observe(viewer,{attributes:true,attributeFilter:['open']});
+viewer.addEventListener('close',syncViewerPageLock);
 const gatePhrase=document.querySelector('.gate-phrase');
 if(gatePhrase)gatePhrase.innerHTML='No todos los recuerdos están destinados a conservarse.<br><strong>Los que estás a punto de consultar, sí.</strong>';
 const sequenceIntroduction=document.querySelector('.list-title>p:last-child');
@@ -1354,6 +1375,15 @@ imageToolsStyle.remove();
 const readerTools=document.querySelector('.reader-tools'),readerZoom=document.querySelector('#reader-zoom'),readerStatus=document.querySelector('#reader-status'),readerCode=document.querySelector('#reader-code'),readerContent=document.querySelector('.reader-content'),readerPosition=document.querySelector('.reader-position'),readerHint=document.querySelector('.reader-hint');
 const readerCloseButton=document.querySelector('#viewer .reader-toolbar .close');
 const recoveredDeviceEvidenceIds=['timeline','routes','gallery','whatsapp','search','health','lost'];
+const recoveredDeviceEvidenceActivity={
+  timeline:{code:'AR-06-01',name:'Cronología'},
+  routes:{code:'AR-06-02',name:'Actividad'},
+  gallery:{code:'AR-06-03',name:'Galería'},
+  whatsapp:{code:'AR-06-04',name:'WhatsApp'},
+  search:{code:'AR-06-05',name:'Chrome'},
+  health:{code:'AR-06-06',name:'Salud'},
+  lost:{code:'AR-06-07',name:'Mis archivos'}
+};
 const emptyRecoveredDeviceProgress=()=>({reviewed:0,total:recoveredDeviceEvidenceIds.length,complete:false,reviewedIds:[],moduleState:'locked'});
 const normalizeRecoveredDeviceProgress=value=>{
   const source=Array.isArray(value?.reviewedIds)?value.reviewedIds:Array.isArray(value?.reviewed)?value.reviewed:[];
@@ -1401,6 +1431,35 @@ const persistRecoveredDeviceProgress=progress=>{
   });
   return recoveredDeviceSaveQueue;
 };
+const recordRecoveredDeviceProgressActivity=async(previous,current)=>{
+  const previousIds=new Set(previous.reviewedIds||[]);
+  const newIds=(current.reviewedIds||[]).filter(id=>!previousIds.has(id));
+  for(const id of newIds){
+    const evidence=recoveredDeviceEvidenceActivity[id];
+    await recordActivity('device_evidence_consulted',evidence?.code||'AR-06',{source:'recovered_device',evidence_id:id,evidence_name:evidence?.name||id});
+  }
+  if(!previous.complete&&current.complete){
+    await recordActivity('device_investigation_completed','AR06-DEVICE',{source:'recovered_device',reviewed:current.reviewed,total:current.total});
+  }
+  if(previous.moduleState!=='available'&&current.moduleState==='available'){
+    await recordActivity('device_residual_revealed','AR06-RESIDUAL',{source:'recovered_device',module:'Recuerdos'});
+  }
+  if(previous.moduleState!=='consumed'&&current.moduleState==='consumed'){
+    await recordActivity('device_residual_completed','AR06-RESIDUAL',{source:'recovered_device',module:'Recuerdos'});
+  }
+};
+const markRecoveredDeviceOpened=async()=>{
+  if(getState().recoveredDeviceOpenedAt)return;
+  const openedAt=new Date().toISOString();
+  await patchState({recoveredDeviceOpenedAt:openedAt});
+  await recordActivity('device_clone_opened','AR06-DEVICE',{source:'recovered_device',opened_at:openedAt});
+};
+const markRecoveredDeviceKtb012Consulted=async()=>{
+  if(getState().recoveredDeviceKtb012ConsultedAt)return;
+  const consultedAt=new Date().toISOString();
+  await patchState({recoveredDeviceKtb012ConsultedAt:consultedAt});
+  await recordActivity('device_ktb012_consulted','KTB-012',{source:'recovered_device',consulted_at:consultedAt});
+};
 const closeRecoveredDeviceExitPrompt=()=>document.querySelector('#recovered-device-exit-prompt')?.remove();
 const recoveredDeviceNeedsExitConfirmation=()=>active==='AR06-DEVICE'&&!recoveredDeviceProgress.complete;
 const showRecoveredDeviceExitPrompt=()=>{
@@ -1437,7 +1496,7 @@ const showRecoveredDeviceExitPrompt=()=>{
   prompt.querySelector('[data-device-exit="continue"]').focus();
 };
 window.addEventListener('message',async event=>{
-  if(event.origin!==location.origin||!['kizuna:recovered-device-ready','kizuna:recovered-device-progress'].includes(event.data?.type))return;
+  if(event.origin!==location.origin||!['kizuna:recovered-device-ready','kizuna:recovered-device-progress','kizuna:recovered-device-activity'].includes(event.data?.type))return;
   const frame=document.querySelector('.recovered-device-embed iframe');
   if(!frame||event.source!==frame.contentWindow)return;
   if(event.data.type==='kizuna:recovered-device-ready'){
@@ -1445,8 +1504,14 @@ window.addEventListener('message',async event=>{
     sendRecoveredDeviceProgress(frame);
     return;
   }
+  if(event.data.type==='kizuna:recovered-device-activity'){
+    if(event.data.activityKind==='device_ktb012_consulted')void markRecoveredDeviceKtb012Consulted();
+    return;
+  }
+  const previous=recoveredDeviceProgress;
   recoveredDeviceProgress=normalizeRecoveredDeviceProgress(event.data);
-  void persistRecoveredDeviceProgress(recoveredDeviceProgress);
+  const saved=await persistRecoveredDeviceProgress(recoveredDeviceProgress);
+  await recordRecoveredDeviceProgressActivity(previous,saved);
 });
 const readerShareButton=document.createElement('button');
 readerShareButton.type='button';
@@ -1996,7 +2061,7 @@ const unlockNoticeMeta=id=>{
   if(isFolder(id))return{kind:'primary folder',eyebrow:'SECUENCIA PRINCIPAL',title:name(id),detail:'La siguiente carpeta de la secuencia ya está disponible.',action:'Localizar carpeta'};
   return{kind:'primary document',eyebrow:'SECUENCIA PRINCIPAL',title:name(id),detail:'El siguiente documento de la secuencia ya está disponible.',action:'Localizar documento'};
 };
-const presentUnlockNotice=(unlockIds,confirmedId='')=>{
+const presentUnlockNotice=(unlockIds,confirmedId='',comicRecovery=null)=>{
   const ids=[...new Set(unlockIds||[])];
   if(!ids.length)return false;
   const presentationKey=`${confirmedId||'state'}:${ids.join('|')}`;
@@ -2011,15 +2076,15 @@ const presentUnlockNotice=(unlockIds,confirmedId='')=>{
   notice.setAttribute('role','status');
   notice.setAttribute('aria-live','polite');
   notice.setAttribute('aria-atomic','true');
-  notice.innerHTML=`<i aria-hidden="true"></i><div><p>${ids.length>1?'EXPEDIENTE ACTUALIZADO':'NUEVO ACCESO AUTORIZADO'}</p><h3>${ids.length>1?`${ids.length} nuevos accesos`:unlockNoticeMeta(ids[0]).title}</h3><span>${ids.length>1?names:'La secuencia ya está disponible para continuar.'}</span></div>`;
+  notice.innerHTML=`<i aria-hidden="true"></i><div><p>${ids.length>1?'EXPEDIENTE ACTUALIZADO':'NUEVO ACCESO AUTORIZADO'}</p><h3>${ids.length>1?`${ids.length} nuevos accesos`:unlockNoticeMeta(ids[0]).title}</h3><span>${ids.length>1?names:'La secuencia ya está disponible para continuar.'}</span>${comicRecovery?`<small class="new-unlock-comic"><em>HALLAZGO ASOCIADO · AC-01</em><b>Página ${String(comicRecovery.page).padStart(2,'0')} incorporada al registro ilustrado · ${comicRecovery.total}/11</b></small>`:''}</div>`;
   document.body.appendChild(notice);
-  unlockPresentationTimers.push(setTimeout(()=>notice.isConnected&&notice.classList.add('is-leaving'),4200));
-  unlockPresentationTimers.push(setTimeout(()=>notice.remove(),4700));
+  unlockPresentationTimers.push(setTimeout(()=>notice.isConnected&&notice.classList.add('is-leaving'),5200));
+  unlockPresentationTimers.push(setTimeout(()=>notice.remove(),5700));
   if(ids.length>1){
     const secondaryUnlock=ids.find(id=>id==='AC-01'||id==='AR06-DEVICE')||ids[1];
     unlockPresentationTimers.push(setTimeout(()=>locateUnlockedAccess(secondaryUnlock,{focus:false}),2800));
   }
-  unlockPresentationTimers.push(setTimeout(()=>clearPendingConfirmation(confirmedId),4800));
+  unlockPresentationTimers.push(setTimeout(()=>clearPendingConfirmation(confirmedId),5800));
   return true;
 };
 const unlockTargetNode=id=>{
@@ -2130,7 +2195,8 @@ function render(options={}){
     }));
     // El aviso vive fuera de #documents para que una sincronización de
     // Supabase no lo elimine durante un render intermedio.
-    presentUnlockNotice(newUnlocks,confirmedId);
+    const recoveredComicPage=Array.from({length:11},(_,index)=>`KTB-${String(index+4).padStart(3,'0')}`).indexOf(confirmedId)+1;
+    presentUnlockNotice(newUnlocks,confirmedId,recoveredComicPage?{page:recoveredComicPage,total:comicPages}:null);
   }else if(confirmedId&&canPresentUnlocks){
     // La escritura remota y la recomposicion de permisos pueden terminar en
     // fotogramas distintos. Reintentamos una sola vez antes de descartar la
@@ -2231,6 +2297,7 @@ function openFolderFile(folderId,fileId){const file=folders[folderId].files.find
 function openFolderFile(folderId,fileId){const file=folders[folderId].files.find(item=>item.id===fileId);if(file.mosaic==='tickets'){openTicketMosaic();return}active=fileId;readerReturnToFolder=folderId;readerCanConfirm=true;next.style.display='none';mark.style.display='inline-block';document.querySelector('#doc-type').textContent=`${folderId} / DOCUMENTO INTERNO`;document.querySelector('#doc-title').textContent=file.title;document.querySelector('#doc-body').innerHTML=`<img style="display:block;width:100%;height:auto" src="../assets/documents/${folderId}/${file.src}" alt="${file.title}">`}
 const ar06DeviceUnlocked=(progress=read())=>folders['AR-06'].files.every(file=>progress.includes(file.id))&&progress.includes('KTB-012');
 const openRecoveredDeviceFromAr06=({returnToFolder=true}={})=>{
+  void markRecoveredDeviceOpened();
   recoveredDeviceProgress=emptyRecoveredDeviceProgress();
   closeRecoveredDeviceExitPrompt();
   active='AR06-DEVICE';
@@ -2243,7 +2310,7 @@ const openRecoveredDeviceFromAr06=({returnToFolder=true}={})=>{
   readerTools.hidden=true;
   document.querySelector('#doc-type').textContent='AR-06 · DISPOSITIVO RECUPERADO';
   document.querySelector('#doc-title').textContent='Clon SM-G991B';
-  document.querySelector('#doc-body').innerHTML=`<section class="recovered-device-embed" aria-label="Dispositivo clonado SM-G991B"><iframe src="../dispositivo-recuperado/index.html?embedded=1&v=20260803-device-access01" title="Dispositivo clonado SM-G991B" loading="eager" allow="autoplay; fullscreen"></iframe></section>`;
+  document.querySelector('#doc-body').innerHTML=`<section class="recovered-device-embed" aria-label="Dispositivo clonado SM-G991B"><iframe src="../dispositivo-recuperado/index.html?embedded=1&v=20260805-memory-continue01" title="Dispositivo clonado SM-G991B" loading="eager" allow="autoplay; fullscreen"></iframe></section>`;
   if(!viewer.open)viewer.showModal();
   syncReaderChrome();
 };
@@ -2338,7 +2405,7 @@ const openRecoveredFolder=id=>{clearRecoveryTimers();viewer.classList.remove('is
 const showRecoveredFolderReady=(id,state)=>{document.querySelector('#doc-title').textContent='Carpeta recuperada';document.querySelector('#doc-body').innerHTML=`<section class="recovery-ready recovery-folder-ready"><div class="recovery-ready-symbol">▱</div><p class="recovery-kicker">CARPETA RECUPERADA</p><h3>${id}</h3><p class="recovery-ready-name">${state.title}</p><dl><div><dt>DOCUMENTOS LOCALIZADOS</dt><dd>${state.total}</dd></div><div><dt>DOCUMENTOS CONSULTADOS</dt><dd>${state.seen}</dd></div><div><dt>ESTADO</dt><dd>Disponible para consulta</dd></div></dl><div class="recovery-final-stamp">ÍNDICE RECUPERADO</div><button type="button" id="open-recovered-folder">Abrir carpeta →</button></section>`;document.querySelector('#open-recovered-folder').onclick=()=>openRecoveredFolder(id)};
 function folderRecoveryScreen(id){const state=folderRecoveryState(id),node=randomArchiveNode();prepareRecoveryView(id,state.seen?'Consultando carpeta':'Recuperación de carpeta','DIVISIÓN DE ARCHIVOS TEMPORALES / ÍNDICE DE ARCHIVO');if(state.seen){const heading=state.complete?'Carpeta completada':'Índice recuperado',message=state.complete?'Abriendo archivo histórico…':'Restaurando última posición…';document.querySelector('#doc-body').innerHTML=`<section class="recovery-quick recovery-folder-quick"><div class="recovery-quick-icon">${state.complete?'✓':'↻'}</div><p>CONSULTA DE CARPETA</p><h3>${id}</h3><strong>${heading}</strong><span>${state.seen} de ${state.total} documentos consultados</span><span>${message}</span><small>NODO · ${node}</small></section>`;recoveryLater(()=>openRecoveredFolder(id),1450);return}const steps=['Localizando índice autorizado','Validando permisos de consulta','Catalogando documentos internos','Reconstruyendo estructura de la carpeta'];document.querySelector('#doc-body').innerHTML=`<section class="archive-recovery archive-folder-recovery"><header><div><p>RECUPERACIÓN DE CARPETA</p><h3>${id}</h3><small>${state.title}</small></div><span>NODO DE ARCHIVO<strong>${node}</strong></span></header>${recoveryStepsMarkup(steps)}<div class="recovery-progress"><div><i class="recovery-progress-fill"></i></div><strong class="recovery-progress-value">0 %</strong></div><p class="recovery-live" aria-live="polite">Solicitud de índice recibida…</p></section>`;setRecoveryPhase(0,7,'Localizando índice autorizado…');recoveryLater(()=>setRecoveryPhase(1,29,'Índice localizado. Validando permisos…'),650);recoveryLater(()=>setRecoveryPhase(2,57,`Permisos confirmados. Catalogando ${state.total} registros…`),1350);recoveryLater(()=>setRecoveryPhase(3,84,'Reconstruyendo estructura de la carpeta…'),2150);recoveryLater(()=>{setRecoveryPhase(4,100,'Carpeta recuperada.');recoveryLater(()=>showRecoveredFolderReady(id,state),500)},3050)}
 const warningReadList=()=>Array.from({length:11},(_,index)=>`<li><span>✓</span>KTB-${String(index+1).padStart(3,'0')}</li>`).join('');
-const renderArchiveWarning=(code,title,onAccept)=>{prepareRecoveryView(code,title,'DIVISIÓN DE ARCHIVOS TEMPORALES / ADVERTENCIA DE ACCESO');document.querySelector('#doc-body').innerHTML=`<section class="archive-warning"><header><div><p>ADVERTENCIA DE ACCESO</p><h3>Contenido recuperado<br><em>fuera del expediente original.</em></h3></div><div class="warning-seal">ACCESO<br>CONTROLADO</div></header><p>Los archivos que va a consultar proceden de una extracción parcial realizada sobre un dispositivo asociado al destinatario.</p><div class="warning-risks"><strong>Los registros pueden contener:</strong><ul><li>Fragmentos incompletos</li><li>Errores de recuperación</li><li>Alteraciones en los metadatos</li><li>Información no catalogada</li></ul></div><section><div><p>LECTURAS PREVIAS VERIFICADAS</p><ul class="warning-read-list">${warningReadList()}</ul></div><dl><div><dt>ARCHIVO RECUPERADO</dt><dd>${code.replace('KTB-','')}</dd></div><div><dt>INTEGRIDAD ESTIMADA</dt><dd>68 %</dd></div><div><dt>ESTADO</dt><dd>Acceso autorizado</dd></div></dl></section><label class="warning-consent"><input id="archive-warning-confirm" type="checkbox"><span>Comprendo el origen de estos archivos y deseo continuar.</span></label><footer><button type="button" id="archive-warning-cancel">Volver al expediente</button><button type="button" id="archive-warning-accept" disabled>Aceptar y continuar →</button></footer></section>`;const checkbox=document.querySelector('#archive-warning-confirm'),accept=document.querySelector('#archive-warning-accept');checkbox.onchange=()=>accept.disabled=!checkbox.checked;document.querySelector('#archive-warning-cancel').onclick=closeViewerAndFocusPending;accept.onclick=()=>onAccept(accept)};
+const renderArchiveWarning=(code,title,onAccept)=>{prepareRecoveryView(code,title,'DIVISIÓN DE ARCHIVOS TEMPORALES / ADVERTENCIA DE ACCESO');document.querySelector('#doc-body').innerHTML=`<section class="archive-warning"><header><div><p>ADVERTENCIA DE ACCESO</p><h3>Archivos recuperados<br><em>fuera del expediente.</em></h3></div><div class="warning-seal">ACCESO<br>CONTROLADO</div></header><p>Los archivos que va a consultar proceden de una extracción parcial realizada sobre un dispositivo asociado al destinatario.</p><div class="warning-risks"><strong>Los registros pueden contener:</strong><ul><li>Fragmentos incompletos</li><li>Errores de recuperación</li><li>Alteraciones en los metadatos</li><li>Información no catalogada</li></ul></div><section><div><p>LECTURAS PREVIAS VERIFICADAS</p><ul class="warning-read-list">${warningReadList()}</ul></div><dl><div><dt>ARCHIVO RECUPERADO</dt><dd>${code.replace('KTB-','')}</dd></div><div><dt>INTEGRIDAD ESTIMADA</dt><dd>68 %</dd></div><div><dt>ESTADO</dt><dd>Acceso autorizado</dd></div></dl></section><label class="warning-consent"><input id="archive-warning-confirm" type="checkbox"><span>Comprendo el origen de estos archivos y deseo continuar.</span></label><footer><button type="button" id="archive-warning-cancel">Volver al expediente</button><button type="button" id="archive-warning-accept" disabled>Aceptar y continuar →</button></footer></section>`;const checkbox=document.querySelector('#archive-warning-confirm'),accept=document.querySelector('#archive-warning-accept');checkbox.onchange=()=>accept.disabled=!checkbox.checked;document.querySelector('#archive-warning-cancel').onclick=closeViewerAndFocusPending;accept.onclick=()=>onAccept(accept)};
 function openAr06Protocol(){renderArchiveWarning('AR-06','Autorización de acceso',button=>startAr06Recovery(button))}
 async function startAr06Recovery(button){try{if(!read().includes('AR06-PROTOCOL')){await persistReadMarker('AR06-PROTOCOL',button,{pendingLabel:'Autorizando acceso…'});void recordActivity('document_confirmed','AR06-PROTOCOL',{source:'recovered_file_protocol'}).catch(error=>console.warn('No se pudo registrar la actividad de AR-06.',error))}folderRecoveryScreen('AR-06')}catch(error){console.error('No se pudo autorizar el acceso a AR-06.',error)}}
 function showDoc(id){clearRecoveryTimers();viewer.classList.remove('is-recovery-mode');document.querySelector('.reader-content').classList.remove('is-recovery');document.querySelector('.stamp').style.display='block';if(id==='AR-06'&&!read().includes('AR06-PROTOCOL')){openAr06Protocol();return}if(id==='AR-03'){openAr03();return}if(folders[id]){openFolder(id);return}active=id;next.style.display='inline-block';mark.style.display='inline-block';const [title,...paras]=textFor(id);document.querySelector('#doc-type').textContent=isFolder(id)?'CARPETA DE ARCHIVOS RECUPERADOS / ACCESO AUTORIZADO':'DIVISIÓN DE ARCHIVOS TEMPORALES / ACCESO AUTORIZADO';document.querySelector('#doc-title').textContent=documentImages.has(id)?'Documento recuperado':title;document.querySelector('#doc-body').innerHTML=documentImages.has(id)?`<img style="display:block;width:100%;height:auto" src="../assets/documents/${id}.png" alt="Documento ${id}">`:paras.map(text=>`<p>${text}</p>`).join('')+(id==='KTB-014'?'<p><strong>EXPEDIENTE CERRADO<br>ARCHIVADO DEFINITIVAMENTE</strong></p>':'');mark.textContent=read().includes(id)?'Volver al expediente':isFolder(id)?'Cerrar carpeta y autorizar siguiente fase':window.KizunaMicroevents?.labelFor?.(id)||'Confirmar lectura';if(!viewer.open)viewer.showModal()}
@@ -4093,9 +4160,9 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   document.querySelector('#admin-preview-normal-access').onclick=()=>showEarlyAccessAuthorizationSimulation({profile,state:current,mode:'normal'});
   document.querySelector('#admin-play-finale').onclick=()=>{if(!window.KizunaFinale){alert('No se ha podido cargar la vista previa del final.');return}window.KizunaFinale.play({assetBase:'../',preview:true,lastPage:1})};
   document.querySelector('#admin-preview-alt00-response').onclick=()=>{if(!window.KizunaFinale?.play){alert('No se ha podido cargar la nueva vista previa.');return}window.KizunaFinale.play({assetBase:'../',preview:true,lastPage:1,responseOutcome:true,displayName:profile.display_name||profile.email})};
-  document.querySelector('#admin-open-recovered-device').onclick=()=>window.open('../dispositivo-recuperado/index.html?admin=1&v=20260803-device-access01','_blank','noopener,noreferrer');
+  document.querySelector('#admin-open-recovered-device').onclick=()=>window.open('../dispositivo-recuperado/index.html?admin=1&v=20260805-memory-continue01','_blank','noopener,noreferrer');
   document.querySelector('#admin-reopen-alberto-response').onclick=async()=>{const button=document.querySelector('#admin-reopen-alberto-response'),status=document.querySelector('#admin-alberto-status');if(!await adminConfirm({title:'Reabrir la respuesta final',message:`La carta seguirá constando como leída, pero ${profile.display_name||profile.email} volverá a recibir el recordatorio de respuesta pendiente.`,confirmLabel:'Reabrir respuesta'}))return;button.disabled=true;status.textContent='Reabriendo respuesta…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoMessageRead:true,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};try{const savedState=await saveAdminProgressState(profile.id,nextState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent='No se ha podido reabrir la respuesta.';button.disabled=false}};
-  document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!await adminConfirm({title:'Reiniciar la experiencia de la carta',message:`Se borrarán la autorización del sobre, la confirmación de lectura y la respuesta de ${profile.display_name||profile.email}. La experiencia volverá a comenzar desde el aviso inicial.`,confirmLabel:'Reiniciar carta',danger:true}))return;button.disabled=true;status.textContent='Reiniciando experiencia…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoEnvelopeAuthorized:false,albertoEnvelopeAuthorizedAt:null,albertoPhysicalLetterRead:false,albertoPhysicalLetterReadAt:null,albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};try{const savedState=await saveAdminProgressState(profile.id,nextState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent='No se ha podido reiniciar la experiencia.';button.disabled=false}};
+  document.querySelector('#admin-reset-alberto').onclick=async()=>{const button=document.querySelector('#admin-reset-alberto'),status=document.querySelector('#admin-alberto-status');if(!await adminConfirm({title:'Reiniciar la experiencia de la carta',message:`Se borrarán la autorización del sobre, la confirmación de lectura y la respuesta de ${profile.display_name||profile.email}. La experiencia volverá a comenzar desde el aviso inicial.`,confirmLabel:'Reiniciar carta',danger:true}))return;button.disabled=true;status.textContent='Reiniciando experiencia…';const nextState={...current,completed:true,finalFlowStage:'closed',albertoEnvelopeAuthorized:false,albertoEnvelopeAuthorizedAt:null,albertoPhysicalLetterRead:false,albertoPhysicalLetterReadAt:null,albertoDigitalCopyOpenedAt:null,albertoResponseDeferredAt:null,albertoMessageRead:false,albertoResponseAccepted:false,albertoResponse:null,albertoRespondedAt:null,acceptanceEmailSentAt:null,acceptanceEmailId:null};try{const savedState=await saveAdminProgressState(profile.id,nextState);renderAdminEditor(profile,savedState,'settings')}catch(error){console.error(error);status.textContent='No se ha podido reiniciar la experiencia.';button.disabled=false}};
   document.querySelector('#admin-renew-legal').onclick=async()=>{
     const button=document.querySelector('#admin-renew-legal'),status=document.querySelector('#admin-legal-status');
     if(!await adminConfirm({title:'Publicar nuevas condiciones',message:`Se creará una nueva versión para ${profile.display_name||profile.email}. Tendrá que aceptarla antes de volver a acceder al expediente.`,confirmLabel:'Crear nueva versión'}))return;
@@ -4147,7 +4214,10 @@ const renderAdminActivity=async userId=>{
       if(kind==='early_access_acknowledged')return'Liberación anticipada AT-03 confirmada';
       if(kind==='alt00_discovered')return'ALT-00 descubierto';
       if(kind==='alt00_completed')return'ALT-00 completado · 10 páginas';
-      if(kind==='alberto_message_opened')return'Carta de Alberto abierta';
+      if(kind==='alberto_envelope_authorized')return'Apertura del sobre de Alberto autorizada';
+      if(kind==='alberto_physical_letter_confirmed'||kind==='alberto_message_opened')return'Lectura de la carta física de Alberto confirmada';
+      if(kind==='alberto_digital_copy_opened')return'Copia digital de la carta de Alberto abierta';
+      if(kind==='alberto_response_deferred')return'Respuesta a la carta de Alberto aplazada';
       if(kind==='alberto_response_submitted')return`Respuesta a la carta de Alberto · ${albertoResponses[item.details?.response]||'Respuesta registrada'}`;
       if(kind==='login')return'Inicio de sesión verificado';
       if(kind==='session_restored')return'Acceso al expediente · sesión recuperada';
@@ -4157,6 +4227,12 @@ const renderAdminActivity=async userId=>{
       if(kind==='folder_unlocked')return`Carpeta desbloqueada · ${item.document_id||'Archivo recuperado'}`;
       if(kind==='supplementary_archive_unlocked')return`Archivo complementario desbloqueado · ${item.document_id||'AC-01'}`;
       if(kind==='device_clone_unlocked')return'Dispositivo clonado desbloqueado · SM-G991B';
+      if(kind==='device_clone_opened')return'Dispositivo clonado abierto por primera vez · SM-G991B';
+      if(kind==='device_evidence_consulted')return`Evidencia del dispositivo consultada · ${item.document_id||'AR-06'}${item.details?.evidence_name?` · ${item.details.evidence_name}`:''}`;
+      if(kind==='device_investigation_completed')return`Investigación del dispositivo completada · ${item.details?.reviewed||7} / ${item.details?.total||7}`;
+      if(kind==='device_residual_revealed')return'Módulo residual «Recuerdos» descubierto';
+      if(kind==='device_residual_completed')return'Módulo residual «Recuerdos» completado';
+      if(kind==='device_ktb012_consulted')return'Acta KTB-012 consultada desde el dispositivo';
       if(kind==='document_unlocked')return`Documento desbloqueado · ${item.document_id||'Documento'}`;
       if(kind==='final_closure_started')return'Protocolo de cierre iniciado';
       if(kind==='expedient_completed')return'Expediente cerrado correctamente';
