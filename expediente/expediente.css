@@ -858,6 +858,16 @@ body:has(#viewer[open]){overflow:hidden}
 @media(max-width:390px){.reader-heading{display:none}.reader-toolbar{grid-template-columns:auto 1fr}.reader-tools{justify-content:flex-end}.reader-tools output{min-width:38px}.reader-tools button{min-width:40px;width:40px}}
 @media(max-width:600px){.reader-actions:has(#comic-prev-fixed:not([hidden])){grid-template-columns:repeat(2,minmax(0,1fr))}.reader-actions:has(#comic-prev-fixed:not([hidden])) #reader-back-expedient{grid-column:1/-1}}
 
+/* AC-01 aprovecha el mismo lienzo útil que ALT-00 en teléfonos: la página
+   llega casi hasta los bordes y el pie no reserva una línea informativa extra. */
+#viewer:has(#doc-body[data-comic-page]) .reader-shell{height:100%;min-height:100dvh}
+@media(max-width:600px){
+  #viewer:has(#doc-body[data-comic-page]) .reader-content.has-image{padding:0 3px}
+  #viewer:has(#doc-body[data-comic-page]) .reader-hint{display:none}
+  #viewer:has(#doc-body[data-comic-page]) .paper-foot{padding:6px max(4px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left))}
+  #viewer:has(#doc-body[data-comic-page]) .reader-actions{gap:5px}
+}
+
 /* Recuperación profesional de documentos y carpetas. */
 #viewer.is-recovery-mode .paper-foot{display:none}
 .reader-content.is-recovery{place-items:center;padding:clamp(12px,3vw,42px);overflow:auto;background:radial-gradient(circle at 50% 10%,#34413b,#171e1b 68%)}

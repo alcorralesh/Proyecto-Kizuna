@@ -1761,10 +1761,10 @@ const enhanceDocumentImages=()=>{
     const canDrag=()=>true;
     const restartDrag=()=>{const point=[...pointers.values()][0];dragging=Boolean(point&&canDrag());if(point){point.startX=point.x;point.startY=point.y;point.scrollX=frame.scrollLeft;point.scrollY=frame.scrollTop}};
     const turnComicPageBySwipe=(event,point,wasSinglePointer)=>{
-      if(!wasSinglePointer||event.pointerType!=='touch'||point.pinching||scale>fitScale+.01)return false;
-      if(!viewer.classList.contains('is-reader-fullscreen')||!document.querySelector('#doc-body')?.dataset.comicPage)return false;
-      const deltaX=event.clientX-point.startX,deltaY=event.clientY-point.startY,elapsed=performance.now()-point.startedAt;
-      if(elapsed>850||Math.abs(deltaX)<58||Math.abs(deltaX)<Math.abs(deltaY)*1.25)return false;
+      if(!wasSinglePointer||point.pinching||scale>fitScale+.01)return false;
+      if(!document.querySelector('#doc-body')?.dataset.comicPage)return false;
+      const deltaX=event.clientX-point.startX,deltaY=event.clientY-point.startY;
+      if(Math.abs(deltaX)<85||Math.abs(deltaX)<Math.abs(deltaY)*1.5)return false;
       const control=deltaX<0?comicFollowing:comicPrevious;
       if(control.hidden||control.disabled)return false;
       control.click();
