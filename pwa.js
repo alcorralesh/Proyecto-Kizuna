@@ -393,9 +393,10 @@
     try{
       registration=await navigator.serviceWorker.register(
         new URL('service-worker.js',baseUrl),
-        {scope:baseUrl.pathname}
+        {scope:baseUrl.pathname,updateViaCache:'none'}
       );
       watchRegistration(registration);
+      await registration.update().catch(()=>{});
       updateTimer=window.setInterval(checkForUpdates,60*60*1000);
     }catch(error){
       console.warn('No se pudo activar el modo aplicación de KIZUNA.',error);
