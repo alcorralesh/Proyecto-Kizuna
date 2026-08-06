@@ -2908,6 +2908,12 @@ const renderAdminPushDevices=async userId=>{
     summaryState.innerHTML=`<i aria-hidden="true"></i><span><small>NOTIFICACIONES</small><strong>${notificationState.label}</strong></span>`;
     summaryState.title=notificationState.description;
   }
+  const dashboardNotification=document.querySelector('[data-admin-summary-notification-state]');
+  if(dashboardNotification){
+    dashboardNotification.className=`is-${notificationState.className}`;
+    dashboardNotification.textContent=`NOTIFICACIONES · ${notificationState.label}`;
+    dashboardNotification.title=notificationState.description;
+  }
   target.innerHTML=`<header><div><p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4></div><strong class="${notificationState.className}">${notificationState.label}</strong></header>
     <p class="admin-push-preference-state ${notificationState.className}"><b>${notificationState.description}</b>${preference?.responded_at?`<span>Respuesta registrada ${directMessageDate(preference.responded_at)}</span>`:''}</p>
     <details class="admin-push-state-legend">
@@ -3749,6 +3755,21 @@ const invokeAdminDeviceProgress=async(profileId,action,progress={})=>{
   if(error)throw error;
   return normalizeAdminDeviceProgress(data);
 };
+const syncAdminSummaryDevice=(editor,deviceState)=>{
+  const card=editor?.querySelector('[data-admin-summary-device]');
+  if(!card||card.classList.contains('is-locked'))return;
+  const reviewed=deviceState.reviewed.length,total=adminDeviceApps.length,complete=reviewed===total;
+  const title=card.querySelector('[data-admin-summary-device-title]');
+  const count=card.querySelector('[data-admin-summary-device-count]');
+  const detail=card.querySelector('[data-admin-summary-device-detail]');
+  const bar=card.querySelector('[data-admin-summary-device-bar]');
+  card.classList.toggle('is-complete',complete);
+  card.classList.toggle('is-active',!complete);
+  if(title)title.textContent=complete?'Investigación completada':reviewed?'Investigación en curso':'Disponible para consulta';
+  if(count)count.textContent=`${reviewed}/${total}`;
+  if(detail)detail.textContent=complete?(deviceState.moduleState==='available'?'Las siete evidencias están revisadas y «Recuerdos» está disponible.':'Las siete evidencias del dispositivo han sido examinadas.'):(reviewed?`${reviewed} evidencias revisadas; el avance está guardado.`:'El dispositivo está desbloqueado y aún no se ha examinado.');
+  if(bar)bar.style.width=`${Math.round(reviewed/total*100)}%`;
+};
 const renderAdminDevicePanel=async(profile,panel,providedState=null)=>{
   if(!panel)return;
   const editor=panel.closest('#admin-editor');
@@ -3764,6 +3785,7 @@ const renderAdminDevicePanel=async(profile,panel,providedState=null)=>{
     return;
   }
   if(!isCurrentPanel())return;
+  syncAdminSummaryDevice(editor,deviceState);
   const selected=new Set(deviceState.reviewed);
   const moduleLabels={locked:'BLOQUEADA',available:'DISPONIBLE',consumed:'YA CONSULTADA'};
   const moduleDescriptions={
@@ -4015,6 +4037,39 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   const ktbRead=progressKeys.filter(id=>id.startsWith('KTB-')&&selected.has(id)).length;
   const accessLevel=roman(Math.max(1,Math.min(8,ktbRead-5||1)));
   const displayName=adminEditorEscape(profile.display_name||profile.email),email=adminEditorEscape(profile.email);
+  const orderedProgress=adminDocumentGroups.filter(group=>!group.final).flatMap(group=>group.ids);
+  const nextRecordId=orderedProgress.find(id=>!selected.has(id))||null;
+  const nextRecordTitle=nextRecordId?adminRecordTitle(nextRecordId):'Archivo Central completado';
+  const archiveComplete=reviewed===total;
+  const deviceUnlocked=ar06DeviceUnlocked([...selected]);
+  const summaryAlbertoResponded=current.albertoResponseAccepted===true;
+  const summaryAlbertoPhysicalRead=Boolean(current.albertoPhysicalLetterRead||current.albertoMessageRead);
+  const summaryAlbertoAuthorized=current.albertoEnvelopeAuthorized===true;
+  const closureComplete=Boolean(current.completed&&selected.has('KTB-014'));
+  const albertoStatus=summaryAlbertoResponded?'Respuesta registrada':summaryAlbertoPhysicalRead?'Respuesta pendiente':summaryAlbertoAuthorized?'Sobre autorizado':closureComplete?'Carta disponible':'Aún no disponible';
+  const albertoDetail=summaryAlbertoResponded?'La decisión final ya forma parte del expediente.':summaryAlbertoPhysicalRead?'La carta ha sido leída y espera una decisión.':summaryAlbertoAuthorized?'El destinatario ya puede abrir el sobre físico.':closureComplete?'El Archivo Central ha terminado; comienza la comunicación personal.':'Se habilitará cuando termine la secuencia documental.';
+  const generalStatus=summaryAlbertoResponded?'Historia confirmada':closureComplete?'Archivo Central completado':'Expediente en curso';
+  const generalDetail=summaryAlbertoResponded?'El expediente y la comunicación final están completos.':closureComplete?'La consulta documental ha terminado. La carta de Alberto sigue su propio curso.':nextRecordId?`Próximo acceso: ${nextRecordId} · ${nextRecordTitle}`:'No quedan accesos documentales pendientes.';
+  const summaryAlerts=[];
+  if(!isActive)summaryAlerts.push(['critical','Cuenta desactivada','El destinatario no puede iniciar una nueva sesión.','settings']);
+  if(nextRecordId)summaryAlerts.push(['next','Siguiente acceso',`${nextRecordId} · ${nextRecordTitle}`,'documents']);
+  if(closureComplete&&!summaryAlbertoResponded)summaryAlerts.push(['pending','Carta de Alberto',summaryAlbertoPhysicalRead?'La respuesta sigue pendiente.':'La comunicación personal está disponible.','settings']);
+  if(archiveComplete&&summaryAlbertoResponded&&isActive)summaryAlerts.push(['clear','Secuencia completa','No hay intervenciones pendientes.','activity']);
+  const summaryMarkup=`<section class="admin-editor-panel admin-summary-dashboard" data-editor-panel="summary">
+    <header class="admin-summary-hero">
+      <div class="admin-summary-hero-copy"><p class="system-line">RESUMEN DEL EXPEDIENTE</p><span class="admin-summary-state">${generalStatus}</span><h3>${generalDetail}</h3><p>Vista operativa del recorrido completo de ${displayName}.</p></div>
+      <div class="admin-summary-progress" style="--summary-progress:${integrity}%"><strong>${integrity}<small>%</small></strong><span>Integridad documental</span><i aria-hidden="true"><b></b></i><dl><div><dt>${reviewed}</dt><dd>confirmados</dd></div><div><dt>${total-reviewed}</dt><dd>pendientes</dd></div><div><dt>${accessLevel}</dt><dd>nivel</dd></div></dl></div>
+    </header>
+    <section class="admin-summary-journey" aria-label="Recorrido del destinatario">
+      <article class="admin-summary-stage ${archiveComplete?'is-complete':'is-active'}"><header><span>01</span><div><p>ARCHIVO CENTRAL</p><h4>${archiveComplete?'Consulta completada':nextRecordId?`${nextRecordId} pendiente`:'Secuencia en revisión'}</h4></div><b>${reviewed}/${total}</b></header><p>${archiveComplete?'Todos los registros de la secuencia han sido consultados.':`Siguiente: ${nextRecordTitle}.`}</p><div class="admin-summary-stage-bar"><i style="width:${integrity}%"></i></div><button type="button" data-summary-tab="documents">${archiveComplete?'Revisar documentos':'Gestionar documentos'} <span>→</span></button></article>
+      <article class="admin-summary-stage ${deviceUnlocked?'is-active':'is-locked'}" data-admin-summary-device><header><span>02</span><div><p>DISPOSITIVO CLONADO</p><h4 data-admin-summary-device-title>${deviceUnlocked?'Consultando progreso…':'Acceso bloqueado'}</h4></div><b data-admin-summary-device-count>${deviceUnlocked?'—/7':'0/7'}</b></header><p data-admin-summary-device-detail>${deviceUnlocked?'Recuperando las evidencias examinadas.':'Se habilitará después de confirmar KTB-012.'}</p><div class="admin-summary-stage-bar"><i data-admin-summary-device-bar style="width:0%"></i></div><button type="button" data-summary-tab="device">${deviceUnlocked?'Gestionar dispositivo':'Ver requisitos'} <span>→</span></button></article>
+      <article class="admin-summary-stage ${summaryAlbertoResponded?'is-complete':closureComplete?'is-active':'is-locked'}"><header><span>03</span><div><p>CARTA DE ALBERTO</p><h4>${albertoStatus}</h4></div><b>${summaryAlbertoResponded?'✓':closureComplete?'!':'—'}</b></header><p>${albertoDetail}</p><div class="admin-summary-stage-bar"><i style="width:${summaryAlbertoResponded?'100':summaryAlbertoPhysicalRead?'72':summaryAlbertoAuthorized?'38':closureComplete?'15':'0'}%"></i></div><button type="button" data-summary-tab="settings">Gestionar carta <span>→</span></button></article>
+    </section>
+    <div class="admin-summary-lower">
+      <section class="admin-summary-attention"><header><div><p class="system-line">ATENCIÓN ADMINISTRATIVA</p><h4>${summaryAlerts.length} ${summaryAlerts.length===1?'situación':'situaciones'}</h4></div><span data-admin-summary-notification-state>NOTIFICACIONES · CONSULTANDO…</span></header><ul>${summaryAlerts.map(([kind,title,detail,tab])=>`<li class="is-${kind}"><i aria-hidden="true"></i><div><strong>${title}</strong><span>${detail}</span></div><button type="button" data-summary-tab="${tab}" aria-label="Abrir ${title}">→</button></li>`).join('')}</ul></section>
+      <section class="admin-summary-recent"><header><div><p class="system-line">ACTIVIDAD RECIENTE</p><h4>Últimos movimientos</h4></div><time id="admin-summary-last-activity">Consultando…</time></header><div id="admin-activity-preview"><p>Cargando actividad…</p></div><button type="button" data-summary-tab="activity">Ver registro completo <span>→</span></button></section>
+    </div>
+  </section>`;
   const documentRow=id=>{
     const read=selected.has(id),title=adminEditorEscape(adminRecordTitle(id));
     return `<label class="admin-document-row" data-status="${read?'read':'pending'}" data-search="${adminEditorEscape(`${id} ${title}`.toLowerCase())}" data-document-id="${id}"><span class="admin-document-code">${id}</span><span class="admin-document-title">${title}</span><span class="admin-document-state ${read?'is-read':''}">${read?'LEÍDO':'PENDIENTE'}</span><time class="admin-document-date">${read?'Registrado':'—'}</time><input type="checkbox" name="records" value="${id}" ${read?'checked':''}><i aria-hidden="true"></i></label>`;
@@ -4022,7 +4077,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   const groupedDocuments=adminDocumentGroups.filter(group=>!group.final).map(group=>`<section class="admin-document-group"><header><div><p class="system-line">${adminEditorEscape(group.title)}</p><small>${adminEditorEscape(group.note)}</small></div><strong>${group.ids.filter(id=>selected.has(id)).length} de ${group.ids.length}</strong></header><div class="admin-document-grid">${group.ids.map(documentRow).join('')}</div></section>`).join('');
   const finalDocument=documentRow('FINAL-01');
   editor.hidden=false;editor.className='admin-user-workspace';editor.dataset.adminUserId=profile.id;
-  editor.innerHTML=`<header class="admin-user-profile"><div><p class="system-line">DESTINATARIO SELECCIONADO</p><h2>${displayName}</h2><p>${email}</p></div><dl><div><dt>Expediente</dt><dd>KTB-EXP-2026-JP-00184</dd><span class="admin-user-badge ${isActive?'active':'inactive'}">${isActive?'CUENTA ACTIVA':'CUENTA DESACTIVADA'}</span></div><div><dt>Documentos</dt><dd>${reviewed} de ${total}</dd></div><div><dt>Progreso</dt><dd>${integrity} %</dd></div><div><dt>Última actividad</dt><dd id="admin-last-activity">Consultando…</dd></div></dl></header><nav class="admin-editor-tabs" role="tablist"><button type="button" class="active" data-editor-tab="summary">Resumen</button><button type="button" data-editor-tab="documents">Documentos</button><button type="button" data-editor-tab="activity">Actividad</button><button type="button" data-editor-tab="purchases">Productos comprados</button><button type="button" data-editor-tab="settings">Ajustes</button></nav><div class="admin-user-body"><div class="admin-user-main"><section class="admin-editor-panel" data-editor-panel="summary"><p class="system-line">RESUMEN DEL EXPEDIENTE</p><h3>Estado general</h3><div class="admin-overview-grid"><article><strong>${reviewed}</strong><span>Registros confirmados</span></article><article><strong>${total-reviewed}</strong><span>Registros pendientes</span></article><article><strong>${accessLevel}</strong><span>Nivel de acceso</span></article><article><strong>${integrity} %</strong><span>Integridad documental</span></article></div></section><section class="admin-editor-panel" data-editor-panel="documents" hidden><div class="admin-document-toolbar"><div class="admin-document-filters"><button type="button" class="active" data-record-filter="all">Todos</button><button type="button" data-record-filter="read">Leídos</button><button type="button" data-record-filter="pending">Pendientes</button></div><label><span>Buscar documento</span><input id="admin-document-search" type="search" placeholder="Buscar documento"></label></div><form id="admin-progress-form">${groupedDocuments}<section class="admin-final-document"><p class="system-line">FINAL-01 · ARCHIVO LOCALIZADO</p>${finalDocument}<p class="admin-note">FINAL-01 depende de KTB-014: si KTB-014 no está confirmado, este documento se desmarca automáticamente.</p></section><p class="admin-note">Al desmarcar KTB-014 se reabre el expediente, se restablece el cierre final y también se desmarca FINAL-01.</p></form><details class="admin-identity-details"><summary>Identidad y acceso</summary><form id="admin-identity-form"><label>Nombre y apellidos<input name="displayName" required maxlength="80" value="${displayName}"></label><div><span>Estado de la cuenta</span><button type="button" id="admin-toggle-user" class="admin-account-toggle ${isActive?'active':''}" aria-pressed="${isActive}"><i></i>${isActive?'Cuenta activa':'Cuenta desactivada'}</button></div><button>Guardar identidad</button><span id="admin-identity-status" role="status"></span></form></details></section><section class="admin-editor-panel" data-editor-panel="activity" hidden><div id="admin-activity-log"><p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Cargando actividad…</p></div></section><section class="admin-editor-panel" data-editor-panel="purchases" hidden><div id="admin-purchases"><p class="system-line">TIENDA KIZUNA</p><h3>Productos comprados</h3><p>Cargando pedidos simulados…</p></div></section><section class="admin-editor-panel" data-editor-panel="settings" hidden><p class="system-line">AJUSTES DEL DESTINATARIO</p><h3>Acceso y seguridad</h3><p>Gestiona la identidad, el acceso y las acciones permanentes de este expediente.</p><button type="button" class="admin-open-identity">Editar identidad y acceso</button></section></div><aside class="admin-user-side"><section class="admin-progress-card"><p class="system-line">PROGRESO DEL EXPEDIENTE</p><strong>${integrity} %</strong><div><i style="width:${integrity}%"></i></div><dl><div><dt>${reviewed}</dt><dd>Documentos leídos</dd></div><div><dt>${total-reviewed}</dt><dd>Documentos pendientes</dd></div></dl><p>NIVEL DE ACCESO ACTUAL<br><b>${accessLevel}</b></p><button type="button" id="admin-save-progress">Guardar cambios</button><span id="admin-save-status" role="status"></span></section><section class="admin-activity-preview"><p class="system-line">ACTIVIDAD RECIENTE</p><div id="admin-activity-preview"><p>Cargando actividad…</p></div><button type="button" id="admin-view-all-activity">Ver actividad completa →</button></section><section class="admin-danger-zone"><p class="system-line">ZONA DE SEGURIDAD</p><p>Limpiar expediente reinicia documentos, carpetas, p\u00e1ginas del c\u00f3mic, aviso legal, gu\u00eda inicial, cierre final, carta de Alberto y respuesta registrada. La cuenta, el nombre y el correo se conservan.</p><p class="admin-reset-warning">El usuario volver\u00e1 a empezar desde KTB-001 y podr\u00e1 responder otra vez a la carta final.</p><button type="button" id="admin-reset-progress">Limpiar expediente completo</button><button type="button" id="admin-side-toggle-user">${isActive?'Desactivar acceso':'Reactivar acceso'}</button><span id="admin-reset-status" role="status"></span></section></aside></div>`;
+  editor.innerHTML=`<header class="admin-user-profile"><div><p class="system-line">DESTINATARIO SELECCIONADO</p><h2>${displayName}</h2><p>${email}</p></div><dl><div><dt>Expediente</dt><dd>KTB-EXP-2026-JP-00184</dd><span class="admin-user-badge ${isActive?'active':'inactive'}">${isActive?'CUENTA ACTIVA':'CUENTA DESACTIVADA'}</span></div><div><dt>Documentos</dt><dd>${reviewed} de ${total}</dd></div><div><dt>Progreso</dt><dd>${integrity} %</dd></div><div><dt>Última actividad</dt><dd id="admin-last-activity">Consultando…</dd></div></dl></header><nav class="admin-editor-tabs" role="tablist"><button type="button" class="active" data-editor-tab="summary">Resumen</button><button type="button" data-editor-tab="documents">Documentos</button><button type="button" data-editor-tab="activity">Actividad</button><button type="button" data-editor-tab="purchases">Productos comprados</button><button type="button" data-editor-tab="settings">Ajustes</button></nav><div class="admin-user-body"><div class="admin-user-main">${summaryMarkup}<section class="admin-editor-panel" data-editor-panel="documents" hidden><div class="admin-document-toolbar"><div class="admin-document-filters"><button type="button" class="active" data-record-filter="all">Todos</button><button type="button" data-record-filter="read">Leídos</button><button type="button" data-record-filter="pending">Pendientes</button></div><label><span>Buscar documento</span><input id="admin-document-search" type="search" placeholder="Buscar documento"></label></div><form id="admin-progress-form">${groupedDocuments}<section class="admin-final-document"><p class="system-line">FINAL-01 · ARCHIVO LOCALIZADO</p>${finalDocument}<p class="admin-note">FINAL-01 depende de KTB-014: si KTB-014 no está confirmado, este documento se desmarca automáticamente.</p></section><p class="admin-note">Al desmarcar KTB-014 se reabre el expediente, se restablece el cierre final y también se desmarca FINAL-01.</p></form><details class="admin-identity-details"><summary>Identidad y acceso</summary><form id="admin-identity-form"><label>Nombre y apellidos<input name="displayName" required maxlength="80" value="${displayName}"></label><div><span>Estado de la cuenta</span><button type="button" id="admin-toggle-user" class="admin-account-toggle ${isActive?'active':''}" aria-pressed="${isActive}"><i></i>${isActive?'Cuenta activa':'Cuenta desactivada'}</button></div><button>Guardar identidad</button><span id="admin-identity-status" role="status"></span></form></details></section><section class="admin-editor-panel" data-editor-panel="activity" hidden><div id="admin-activity-log"><p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Cargando actividad…</p></div></section><section class="admin-editor-panel" data-editor-panel="purchases" hidden><div id="admin-purchases"><p class="system-line">TIENDA KIZUNA</p><h3>Productos comprados</h3><p>Cargando pedidos simulados…</p></div></section><section class="admin-editor-panel" data-editor-panel="settings" hidden><p class="system-line">AJUSTES DEL DESTINATARIO</p><h3>Acceso y seguridad</h3><p>Gestiona la identidad, el acceso y las acciones permanentes de este expediente.</p><button type="button" class="admin-open-identity">Editar identidad y acceso</button></section></div><aside class="admin-user-side"><section class="admin-progress-card"><p class="system-line">PROGRESO DEL EXPEDIENTE</p><strong>${integrity} %</strong><div><i style="width:${integrity}%"></i></div><dl><div><dt>${reviewed}</dt><dd>Documentos leídos</dd></div><div><dt>${total-reviewed}</dt><dd>Documentos pendientes</dd></div></dl><p>NIVEL DE ACCESO ACTUAL<br><b>${accessLevel}</b></p><button type="button" id="admin-save-progress">Guardar cambios</button><span id="admin-save-status" role="status"></span></section><section class="admin-activity-preview"><p class="system-line">ACTIVIDAD RECIENTE</p><div id="admin-activity-preview"><p>Cargando actividad…</p></div><button type="button" id="admin-view-all-activity">Ver actividad completa →</button></section><section class="admin-danger-zone"><p class="system-line">ZONA DE SEGURIDAD</p><p>Limpiar expediente reinicia documentos, carpetas, p\u00e1ginas del c\u00f3mic, aviso legal, gu\u00eda inicial, cierre final, carta de Alberto y respuesta registrada. La cuenta, el nombre y el correo se conservan.</p><p class="admin-reset-warning">El usuario volver\u00e1 a empezar desde KTB-001 y podr\u00e1 responder otra vez a la carta final.</p><button type="button" id="admin-reset-progress">Limpiar expediente completo</button><button type="button" id="admin-side-toggle-user">${isActive?'Desactivar acceso':'Reactivar acceso'}</button><span id="admin-reset-status" role="status"></span></section></aside></div>`;
 
   const accountBadge=editor.querySelector('.admin-user-badge');
   const resetDescription=editor.querySelector('.admin-danger-zone > p:not(.system-line):not(.admin-reset-warning)');
@@ -4044,13 +4099,13 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
   simulationsTab.type='button';
   simulationsTab.dataset.editorTab='simulations';
   simulationsTab.textContent='Simulaciones';
-  editor.querySelector('[data-editor-tab="settings"]').before(simulationsTab);
+  editor.querySelector('[data-editor-tab="settings"]').after(simulationsTab);
   const simulationsPanel=document.createElement('section');
   simulationsPanel.className='admin-editor-panel admin-simulations-panel';
   simulationsPanel.dataset.editorPanel='simulations';
   simulationsPanel.hidden=true;
   simulationsPanel.innerHTML='<header class="admin-simulations-heading"><p class="system-line">ENTORNO DE COMPROBACIÓN</p><h3>Vistas de prueba</h3><p>Reproduce experiencias del destinatario sin modificar su expediente ni guardar cambios en Supabase.</p></header>';
-  settingsPanel.before(simulationsPanel);
+  settingsPanel.after(simulationsPanel);
   const identityDetails=editor.querySelector('.admin-identity-details'),dangerZone=editor.querySelector('.admin-danger-zone');
   identityDetails.open=true;settingsPanel.append(identityDetails,dangerZone);
   const identityEmailLabel=document.createElement('label');
@@ -4102,6 +4157,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
 
   const activateTab=name=>{editor.querySelectorAll('[data-editor-tab]').forEach(button=>button.classList.toggle('active',button.dataset.editorTab===name));editor.querySelectorAll('[data-editor-panel]').forEach(panel=>panel.hidden=panel.dataset.editorPanel!==name)};
   editor.querySelectorAll('[data-editor-tab]').forEach(button=>button.onclick=()=>activateTab(button.dataset.editorTab));
+  editor.querySelectorAll('[data-summary-tab]').forEach(button=>button.onclick=()=>activateTab(button.dataset.summaryTab));
   activateTab(requestedTab);
   const viewAllActivity=document.querySelector('#admin-view-all-activity');if(viewAllActivity)viewAllActivity.onclick=()=>activateTab('activity');
   document.querySelector('.admin-open-identity').onclick=()=>{activateTab('settings');const details=document.querySelector('.admin-identity-details');details.open=true;details.scrollIntoView({behavior:'smooth',block:'center'})};
@@ -4258,8 +4314,8 @@ const renderAdminPurchases=async userId=>{
 };
 
 const renderAdminActivity=async userId=>{
-  const full=document.querySelector('#admin-activity-log'),preview=document.querySelector('#admin-activity-preview'),last=document.querySelector('#admin-last-activity');if(!full)return;
-  try{const {data,error}=await supabaseClient.from('expedient_activity_log').select('event_type,document_id,details,created_at').eq('user_id',userId).order('created_at',{ascending:false});if(error)throw error;const items=data||[];if(last)last.textContent=items[0]?new Date(items[0].created_at).toLocaleDateString('es-ES'):'Sin actividad';
+  const full=document.querySelector('#admin-activity-log'),preview=document.querySelector('#admin-activity-preview'),last=document.querySelector('#admin-last-activity'),summaryLast=document.querySelector('#admin-summary-last-activity');if(!full)return;
+  try{const {data,error}=await supabaseClient.from('expedient_activity_log').select('event_type,document_id,details,created_at').eq('user_id',userId).order('created_at',{ascending:false});if(error)throw error;const items=data||[];const lastLabel=items[0]?new Date(items[0].created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'}):'Sin actividad';if(last)last.textContent=lastLabel;if(summaryLast)summaryLast.textContent=lastLabel;
     const albertoResponses={japon:'Sí. Nos vamos a Japón.',ramen:'Acepto... pero quiero mucho ramen.',claro:'¿De verdad pensabas que iba a decir que no?'};
     const activityTitle=item=>{
       const kind=item.details?.activity_kind||item.event_type;
@@ -4303,7 +4359,7 @@ const renderAdminActivity=async userId=>{
     if(!items.length){full.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Aún no hay actividad registrada para este destinatario.</p>';if(preview)preview.innerHTML='<p>Sin actividad registrada.</p>';return}
     full.innerHTML=`<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p class="admin-activity-count">${items.length} registros</p><ol class="admin-activity-list">${items.map(row).join('')}</ol>`;if(preview)preview.innerHTML=`<ol class="admin-activity-list compact">${items.slice(0,3).map(row).join('')}</ol>`;
     const dates=new Map();items.filter(item=>item.document_id).forEach(item=>{if(!dates.has(item.document_id))dates.set(item.document_id,new Date(item.created_at).toLocaleDateString('es-ES'))});dates.forEach((date,id)=>{const target=document.querySelector(`.admin-document-row[data-document-id="${id}"] .admin-document-date`);if(target)target.textContent=date});
-  }catch(error){console.error(error);if(last)last.textContent='No disponible';full.innerHTML='<p>No se ha podido recuperar la actividad.</p>';if(preview)preview.innerHTML='<p>Actividad no disponible.</p>'}
+  }catch(error){console.error(error);if(last)last.textContent='No disponible';if(summaryLast)summaryLast.textContent='No disponible';full.innerHTML='<p>No se ha podido recuperar la actividad.</p>';if(preview)preview.innerHTML='<p>Actividad no disponible.</p>'}
 };
 
 const openAdminDashboard=async()=>{
