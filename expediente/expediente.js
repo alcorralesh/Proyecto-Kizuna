@@ -4315,10 +4315,15 @@ const renderAdminPurchases=async userId=>{
 
 const renderAdminActivity=async userId=>{
   const full=document.querySelector('#admin-activity-log'),preview=document.querySelector('#admin-activity-preview'),last=document.querySelector('#admin-last-activity'),summaryLast=document.querySelector('#admin-summary-last-activity');if(!full)return;
-  try{const {data,error}=await supabaseClient.from('expedient_activity_log').select('event_type,document_id,details,created_at').eq('user_id',userId).order('created_at',{ascending:false});if(error)throw error;const items=data||[];const lastLabel=items[0]?new Date(items[0].created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'}):'Sin actividad';if(last)last.textContent=lastLabel;if(summaryLast)summaryLast.textContent=lastLabel;
+  try{
+    const {data,error}=await supabaseClient.from('expedient_activity_log').select('event_type,document_id,details,created_at').eq('user_id',userId).order('created_at',{ascending:false});
+    if(error)throw error;
+    const items=data||[],lastLabel=items[0]?new Date(items[0].created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'}):'Sin actividad';
+    if(last)last.textContent=lastLabel;if(summaryLast)summaryLast.textContent=lastLabel;
     const albertoResponses={japon:'Sí. Nos vamos a Japón.',ramen:'Acepto... pero quiero mucho ramen.',claro:'¿De verdad pensabas que iba a decir que no?'};
+    const activityKind=item=>item.details?.activity_kind||item.event_type;
     const activityTitle=item=>{
-      const kind=item.details?.activity_kind||item.event_type;
+      const kind=activityKind(item);
       if(kind==='early_access_acknowledged')return'Liberación anticipada AT-03 confirmada';
       if(kind==='alt00_discovered')return'ALT-00 descubierto';
       if(kind==='alt00_completed')return'ALT-00 completado · 10 páginas';
@@ -4355,9 +4360,81 @@ const renderAdminActivity=async userId=>{
       if(item.details?.source?.startsWith('recovered_file'))return`Archivo recuperado · ${item.document_id||'Documento'}`;
       return`Lectura confirmada · ${item.document_id||'Documento'}`;
     };
-    const row=item=>`<li><time>${new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})}</time><strong>${adminEditorEscape(activityTitle(item))}</strong></li>`;
     if(!items.length){full.innerHTML='<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Aún no hay actividad registrada para este destinatario.</p>';if(preview)preview.innerHTML='<p>Sin actividad registrada.</p>';return}
-    full.innerHTML=`<p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p class="admin-activity-count">${items.length} registros</p><ol class="admin-activity-list">${items.map(row).join('')}</ol>`;if(preview)preview.innerHTML=`<ol class="admin-activity-list compact">${items.slice(0,3).map(row).join('')}</ol>`;
+    const chapterDefinitions=[
+      {id:'access',label:'Acceso y autorizaciones',note:'Inicio de la experiencia, bases legales y guía inicial',category:'system'},
+      {id:'ktb-start',label:'Archivo Central · KTB-001 a KTB-006',note:'Apertura de la secuencia documental',category:'archive'},
+      ...Array.from({length:6},(_,index)=>({id:`ar-${String(index+1).padStart(2,'0')}`,label:`Carpeta AR-${String(index+1).padStart(2,'0')}`,note:`Archivos recuperados y KTB-${String(index+7).padStart(3,'0')}`,category:'archive'})),
+      {id:'complementary',label:'Archivo complementario · AC-01',note:'Registro ilustrado recuperado',category:'archive'},
+      {id:'device',label:'Dispositivo clonado',note:'Evidencias de AR-06 y módulo «Recuerdos»',category:'device'},
+      {id:'closure',label:'Cierre del expediente',note:'KTB-013, KTB-014 y FINAL-01',category:'archive'},
+      {id:'alberto',label:'Carta de Alberto',note:'Sobre, lectura física y respuesta final',category:'alberto'},
+      {id:'alt00',label:'Registro alternativo · ALT-00',note:'Línea temporal descartada',category:'archive'},
+      {id:'communications',label:'Comunicaciones',note:'Notificaciones y canales autorizados',category:'system'},
+      {id:'administration',label:'Administración y sistema',note:'Reinicios y operaciones internas',category:'system'}
+    ];
+    const chapterMap=new Map(chapterDefinitions.map((chapter,index)=>[chapter.id,{...chapter,index}]));
+    const activityChapter=item=>{
+      const kind=activityKind(item),id=String(item.document_id||'').toUpperCase();
+      if(kind.startsWith('alberto_'))return'alberto';
+      if(kind.startsWith('device_')||id.startsWith('AR06-DEVICE')||id.startsWith('AR06-RESIDUAL'))return'device';
+      if(kind.startsWith('alt00_')||id==='ALT-00')return'alt00';
+      if(['final_closure_started','expedient_completed','supplementary_file_consulted'].includes(kind)||['KTB-013','KTB-014','FINAL-01'].includes(id))return'closure';
+      if(['push_channel_authorized','push_channel_declined'].includes(kind))return'communications';
+      if(['expedient_reset','legal_terms_reset','onboarding_reset'].includes(kind))return'administration';
+      if(['early_access_acknowledged','login','session_restored','logout','legal_terms_accepted','onboarding_completed','onboarding_skipped'].includes(kind))return'access';
+      if(kind==='comic_page_read'||kind==='supplementary_archive_unlocked'||id==='AC-01')return'complementary';
+      if(/^KTB-00[1-6]$/.test(id))return'ktb-start';
+      for(let index=1;index<=6;index+=1){
+        const folder=`AR-${String(index).padStart(2,'0')}`,ktb=`KTB-${String(index+6).padStart(3,'0')}`,compact=`AR${String(index).padStart(2,'0')}`;
+        if(id===folder||id===ktb||id.startsWith(`${compact}-`)||id.startsWith(`${compact}_`)||id.startsWith(`${compact}C`)||id.startsWith(`${compact}T`))return`ar-${String(index).padStart(2,'0')}`;
+      }
+      return'administration';
+    };
+    const enriched=items.map((item,index)=>{
+      const chapterId=activityChapter(item),chapter=chapterMap.get(chapterId)||chapterMap.get('administration'),title=activityTitle(item),kind=activityKind(item);
+      return{...item,index,kind,title,chapterId,chapter,category:chapter.category,search:`${title} ${item.document_id||''} ${chapter.label}`.toLowerCase()};
+    });
+    const dateLabel=item=>new Date(item.created_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'});
+    const row=item=>`<li class="admin-activity-row" data-activity-category="${item.category}"><time>${dateLabel(item)}</time><span class="admin-activity-row-marker" aria-hidden="true"></span><strong>${adminEditorEscape(item.title)}</strong>${item.document_id?`<small>${adminEditorEscape(item.document_id)}</small>`:''}</li>`;
+    const compactRow=item=>`<li><time>${dateLabel(item)}</time><strong>${adminEditorEscape(item.title)}</strong></li>`;
+    const repeatKinds=new Set(['login','session_restored','logout','comic_page_read']);
+    const repeatedMarkup=chapterItems=>{
+      const buckets=new Map(),parts=[];
+      chapterItems.forEach(item=>{
+        const key=repeatKinds.has(item.kind)?`${item.kind}:${item.document_id||''}`:`single:${item.index}`;
+        if(!buckets.has(key))buckets.set(key,[]);
+        buckets.get(key).push(item);
+      });
+      buckets.forEach(bucket=>{
+        if(bucket.length===1){parts.push(row(bucket[0]));return}
+        const representative=bucket[0],label=representative.kind==='comic_page_read'?`Registro ilustrado · ${bucket.length} avances registrados`:`${representative.title} · ${bucket.length} veces`;
+        parts.push(`<li class="admin-activity-repeat"><details><summary><span class="admin-activity-row-marker" aria-hidden="true"></span><strong>${adminEditorEscape(label)}</strong><small>Ver registros</small></summary><ol>${bucket.map(row).join('')}</ol></details></li>`);
+      });
+      return parts.join('');
+    };
+    let viewMode='narrative',activeFilter='all',query='',sortOrder='asc';
+    full.innerHTML=`<header class="admin-activity-heading"><div><p class="system-line">REGISTRO DE ACTIVIDAD</p><h3>Actividad del expediente</h3><p>Consulta la historia por etapas o conserva la precisión del registro cronológico.</p></div><strong>${items.length}<span>registros</span></strong></header>
+      <section class="admin-activity-controls" aria-label="Controles del registro"><div class="admin-activity-view-switch"><button type="button" class="active" data-activity-view="narrative">Recorrido narrativo</button><button type="button" data-activity-view="chronological">Cronológico</button></div><div class="admin-activity-filter-row"><div class="admin-activity-filters" role="group" aria-label="Filtrar actividad"><button type="button" class="active" data-activity-filter="all">Todos</button><button type="button" data-activity-filter="archive">Documentos</button><button type="button" data-activity-filter="device">Dispositivo</button><button type="button" data-activity-filter="alberto">Carta</button><button type="button" data-activity-filter="system">Sistema</button></div><label class="admin-activity-search"><span>Buscar</span><input type="search" placeholder="Código o actividad…"></label><label class="admin-activity-order"><span>Orden</span><select><option value="asc">Primeros primero</option><option value="desc">Recientes primero</option></select></label></div><p class="admin-activity-result" role="status"></p></section><div class="admin-activity-results"></div>`;
+    const results=full.querySelector('.admin-activity-results'),resultState=full.querySelector('.admin-activity-result'),orderSelect=full.querySelector('.admin-activity-order select');
+    const renderResults=()=>{
+      const filtered=enriched.filter(item=>(activeFilter==='all'||item.category===activeFilter)&&(!query||item.search.includes(query)));
+      resultState.textContent=`${filtered.length} de ${items.length} registros · ${viewMode==='narrative'?'ordenados por recorrido':'orden cronológico'}`;
+      if(!filtered.length){results.innerHTML='<p class="admin-activity-empty">No hay registros que coincidan con estos filtros.</p>';return}
+      const direction=sortOrder==='asc'?1:-1,sorted=[...filtered].sort((a,b)=>(Date.parse(a.created_at)-Date.parse(b.created_at))*direction);
+      if(viewMode==='chronological'){
+        results.innerHTML=`<ol class="admin-activity-list admin-activity-chronological">${sorted.map(row).join('')}</ol>`;
+        return;
+      }
+      const byChapter=new Map();sorted.forEach(item=>{if(!byChapter.has(item.chapterId))byChapter.set(item.chapterId,[]);byChapter.get(item.chapterId).push(item)});
+      results.innerHTML=`<div class="admin-activity-narrative">${chapterDefinitions.filter(chapter=>byChapter.has(chapter.id)).map((chapter,index)=>{const chapterItems=byChapter.get(chapter.id),chapterNumber=chapterMap.get(chapter.id)?.index??index;return`<details class="admin-activity-chapter" ${index<2?'open':''}><summary><span class="admin-activity-chapter-index">${String(chapterNumber+1).padStart(2,'0')}</span><div><strong>${chapter.label}</strong><small>${chapter.note}</small></div><b>${chapterItems.length}</b></summary><ol>${repeatedMarkup(chapterItems)}</ol></details>`}).join('')}</div>`;
+    };
+    full.querySelectorAll('[data-activity-view]').forEach(button=>button.onclick=()=>{viewMode=button.dataset.activityView;sortOrder=viewMode==='narrative'?'asc':'desc';orderSelect.value=sortOrder;full.querySelectorAll('[data-activity-view]').forEach(item=>item.classList.toggle('active',item===button));renderResults()});
+    full.querySelectorAll('[data-activity-filter]').forEach(button=>button.onclick=()=>{activeFilter=button.dataset.activityFilter;full.querySelectorAll('[data-activity-filter]').forEach(item=>item.classList.toggle('active',item===button));renderResults()});
+    full.querySelector('.admin-activity-search input').oninput=event=>{query=event.currentTarget.value.trim().toLowerCase();renderResults()};
+    orderSelect.onchange=event=>{sortOrder=event.currentTarget.value;renderResults()};
+    renderResults();
+    if(preview)preview.innerHTML=`<ol class="admin-activity-list compact">${enriched.slice(0,3).map(compactRow).join('')}</ol>`;
     const dates=new Map();items.filter(item=>item.document_id).forEach(item=>{if(!dates.has(item.document_id))dates.set(item.document_id,new Date(item.created_at).toLocaleDateString('es-ES'))});dates.forEach((date,id)=>{const target=document.querySelector(`.admin-document-row[data-document-id="${id}"] .admin-document-date`);if(target)target.textContent=date});
   }catch(error){console.error(error);if(last)last.textContent='No disponible';if(summaryLast)summaryLast.textContent='No disponible';full.innerHTML='<p>No se ha podido recuperar la actividad.</p>';if(preview)preview.innerHTML='<p>Actividad no disponible.</p>'}
 };
