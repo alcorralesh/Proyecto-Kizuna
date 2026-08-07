@@ -19,6 +19,7 @@
   const currentIso = () => new Date().toISOString();
   const active = message => new Date(message.published_at) <= new Date()
     && (!message.expires_at || new Date(message.expires_at) > new Date());
+  const storedInMailbox = message => message.display_mode === 'mailbox' || Boolean(message.saved_to_mailbox_at);
   const sorted = rows => [...rows].filter(active).sort((a, b) =>
     new Date(b.published_at) - new Date(a.published_at));
   const isBusy = () => Boolean(
@@ -31,12 +32,19 @@
     document.dispatchEvent(new CustomEvent('kizuna:recipient-messages', { detail: snapshot }));
   };
   const patch = async (id, changes) => {
-    if (!client || !id) return;
+    if (!client || !id) return false;
     const row = messages.find(message => message.id === id);
+    const previous = row ? Object.fromEntries(Object.keys(changes).map(key => [key, row[key]])) : null;
     if (row) Object.assign(row, changes);
     notify();
     const { error } = await client.from('expedient_messages').update(changes).eq('id', id);
-    if (error) console.warn('No se pudo actualizar el estado del mensaje.', error);
+    if (error) {
+      if (row && previous) Object.assign(row, previous);
+      notify();
+      console.warn('No se pudo actualizar el estado del mensaje.', error);
+      return false;
+    }
+    return true;
   };
   const removeNotice = () => document.querySelector('#recipient-message-notice')?.remove();
   const deferNotice = () => {
@@ -115,17 +123,21 @@
         ${message.requires_ack ? '<button type="button" data-message-ack>Confirmar recepción</button>' : '<button type="button" data-message-read>Entendido</button>'}
       </footer>
     </article>`;
+    const noticeFooter = root.querySelector('footer');
+    noticeFooter.dataset.actionCount = String(noticeFooter.querySelectorAll('button').length);
     document.body.appendChild(root);
     if (requested) clearRequestedMessage();
     requestAnimationFrame(() => root.classList.add('visible'));
     if (!message.displayed_at) await patch(message.id, { displayed_at: currentIso() });
     const close = async changes => {
+      const updated = await patch(message.id, changes);
+      if (!updated) return false;
       root.classList.remove('visible');
-      await patch(message.id, changes);
       setTimeout(() => {
         root.remove();
         deferNotice();
       }, 260);
+      return true;
     };
     root.querySelector('[data-message-dismiss]').onclick = () => close({ dismissed_at: currentIso() });
     root.querySelector('[data-message-read]')?.addEventListener('click', () =>
@@ -133,8 +145,8 @@
     root.querySelector('[data-message-ack]')?.addEventListener('click', () =>
       close({ read_at: currentIso(), acknowledged_at: currentIso(), dismissed_at: currentIso() }));
     root.querySelector('[data-message-mailbox]').onclick = async () => {
-      await close({ read_at: message.read_at || currentIso(), dismissed_at: currentIso() });
-      document.dispatchEvent(new CustomEvent('kizuna:open-recipient-mailbox', { detail: message }));
+      const saved = await close({ read_at: message.read_at || currentIso(), saved_to_mailbox_at: message.saved_to_mailbox_at || currentIso(), dismissed_at: currentIso() });
+      if (saved) document.dispatchEvent(new CustomEvent('kizuna:open-recipient-mailbox', { detail: message }));
     };
     root.querySelector('[data-message-destination]')?.addEventListener('click', async () => {
       await patch(message.id, { read_at: message.read_at || currentIso(), dismissed_at: currentIso() });
@@ -190,8 +202,8 @@
   const api = {
     connect,
     stop,
-    list: () => sorted(messages).filter(message => message.display_mode !== 'push'),
-    unreadCount: () => messages.filter(message => active(message) && message.display_mode !== 'push' && !message.read_at).length,
+    list: () => sorted(messages).filter(storedInMailbox),
+    unreadCount: () => messages.filter(message => active(message) && storedInMailbox(message) && !message.read_at).length,
     markRead: id => patch(id, { read_at: currentIso() }),
     acknowledge: id => patch(id, { read_at: currentIso(), acknowledged_at: currentIso() }),
     dismiss: id => patch(id, { dismissed_at: currentIso() }),

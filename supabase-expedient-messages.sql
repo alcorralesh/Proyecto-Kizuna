@@ -16,6 +16,7 @@ create table if not exists public.expedient_messages (
   expires_at timestamptz,
   displayed_at timestamptz,
   read_at timestamptz,
+  saved_to_mailbox_at timestamptz,
   acknowledged_at timestamptz,
   dismissed_at timestamptz,
   created_at timestamptz not null default now(),
@@ -23,6 +24,10 @@ create table if not exists public.expedient_messages (
   constraint expedient_messages_expiry_check
     check (expires_at is null or expires_at > published_at)
 );
+
+-- Actualiza instalaciones existentes sin recrear la tabla.
+alter table public.expedient_messages
+  add column if not exists saved_to_mailbox_at timestamptz;
 
 create index if not exists expedient_messages_recipient_idx
   on public.expedient_messages (user_id, published_at desc);
@@ -81,6 +86,7 @@ begin
     new.created_at := old.created_at;
     new.displayed_at := coalesce(old.displayed_at, new.displayed_at);
     new.read_at := coalesce(old.read_at, new.read_at);
+    new.saved_to_mailbox_at := coalesce(old.saved_to_mailbox_at, new.saved_to_mailbox_at);
     new.acknowledged_at := coalesce(old.acknowledged_at, new.acknowledged_at);
     new.dismissed_at := coalesce(old.dismissed_at, new.dismissed_at);
   end if;

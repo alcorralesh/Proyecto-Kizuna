@@ -573,7 +573,7 @@ const showEarlyAccessAuthorizationSimulation=({profile={},state={},mode='anomaly
     <div class="early-auth-simulation-shell">
       <header class="early-auth-simulation-brand">
         <img src="../assets/kizuna-logo-official.png" alt="">
-        <span>KIZUNA<small>DIVISIÓN DE ARCHIVOS TEMPORALES</small></span>
+        <span>KIZUNA<small>DIVISIÓN DE ARCHIVOS TEMPORALES · HOY</small></span>
         <b>${anomalyMode?'PRIMER ACCESO · AT-03':'ACCESO HABITUAL · SIMULACIÓN'}</b>
       </header>
       <article class="early-auth-simulation-card">
@@ -1850,7 +1850,8 @@ const automaticMailboxMessages=()=>{
 const earlyAccessMailboxMessages=()=>getState().earlyAccessAcknowledgedAt?[{id:'AT-03',subject:'Liberación anticipada autorizada',body:'El Comité KIZUNA ha revocado la restricción temporal del expediente. Clasificación AT-03: acceso autorizado con efecto inmediato. «Hay futuros que pueden esperar. Este no era uno de ellos.»',order:.5,urgent:true,source:'system'}]:[];
 const mailboxMessages=()=>[...remoteRecipientMessages.map(message=>({...message,id:message.id,order:new Date(message.published_at).getTime(),source:'remote',urgent:message.priority==='urgent'})),...automaticMailboxMessages(),...earlyAccessMailboxMessages()].sort((a,b)=>b.order-a.order);
 const mailboxUnreadCount=()=>Math.max(0,automaticMailboxMessages().length+earlyAccessMailboxMessages().length-Number(getState().mailRead||0))+remoteRecipientMessages.filter(message=>!message.read_at).length;
-const renderMailbox=()=>{const items=mailboxMessages(),unread=mailboxUnreadCount();paintMailboxButton(unread);mailbox.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #b4ae9f;padding-bottom:14px"><div><p style="margin:0;color:#7e1b19;font:10px var(--mono);letter-spacing:.1em">SISTEMA DE NOTIFICACIONES</p><h3 style="margin:6px 0 0;font:31px var(--serif)">Buzón del expediente</h3></div><button id="mailbox-close" style="border:0;background:none;font:25px var(--serif);color:#7e1b19;cursor:pointer">×</button></div><p style="font:10px/1.6 var(--mono)">${items.length} comunicaciones registradas · más recientes primero</p>${items.map(item=>`<details data-recipient-message="${item.source==='remote'?item.id:''}" style="border-top:1px solid ${item.urgent?'#7e1b19':'#c5bdaa'};padding:13px 0;${item.urgent?'background:#f4dfd5;margin:0 -10px;padding:15px 10px;border-left:4px solid #7e1b19':''}"><summary style="cursor:pointer;list-style:none;font:600 13px var(--serif)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${item.urgent||item.source==='remote'&&!item.read_at?'#7e1b19':'#9a998f'};margin-right:8px"></span>${mailboxEscape(item.subject)}<small style="display:block;margin:5px 0 0 16px;font:9px var(--mono);color:#7e1b19">DIVISIÓN DE ARCHIVOS TEMPORALES · ${item.source==='remote'?new Date(item.published_at).toLocaleDateString('es-ES'):mailboxEscape(item.id)}</small></summary><p style="margin:12px 0 0 16px;font:12px/1.65 var(--mono)">${mailboxEscape(item.body).replace(/\n/g,'<br>')}</p>${item.source==='remote'&&item.requires_ack&&!item.acknowledged_at?`<button data-ack-message="${item.id}" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Confirmar recepción</button>`:''}${item.action==='final-file'?'<button id="final-file-from-mail" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Consultar FINAL-01</button>':''}${item.action==='alberto'?'<button id="alberto-from-mail" style="margin:10px 0 0 16px;background:#17211e;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Abrir comunicación personal</button>':''}</details>`).join('')||'<p>No hay comunicaciones registradas.</p>'}`;document.querySelector('#mailbox-close').onclick=()=>mailbox.style.display='none';mailbox.querySelectorAll('details[data-recipient-message]').forEach(details=>details.addEventListener('toggle',()=>{if(details.open&&details.dataset.recipientMessage)window.KizunaRecipientMessages?.markRead(details.dataset.recipientMessage)}));mailbox.querySelectorAll('[data-ack-message]').forEach(button=>button.onclick=()=>window.KizunaRecipientMessages?.acknowledge(button.dataset.ackMessage));const finalButton=document.querySelector('#final-file-from-mail');if(finalButton)finalButton.onclick=()=>{mailbox.style.display='none';openFinalLocatedFile()};const albertoButton=document.querySelector('#alberto-from-mail');if(albertoButton)albertoButton.onclick=()=>{location.href='../index.html#mensaje-alberto'}};
+let openMailboxMessageKey='';
+const renderMailbox=()=>{const items=mailboxMessages(),unread=mailboxUnreadCount();paintMailboxButton(unread);mailbox.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #b4ae9f;padding-bottom:14px"><div><p style="margin:0;color:#7e1b19;font:10px var(--mono);letter-spacing:.1em">SISTEMA DE NOTIFICACIONES</p><h3 style="margin:6px 0 0;font:31px var(--serif)">Buzón del expediente</h3></div><button id="mailbox-close" style="border:0;background:none;font:25px var(--serif);color:#7e1b19;cursor:pointer">×</button></div><p style="font:10px/1.6 var(--mono)">${items.length} comunicaciones registradas · más recientes primero</p>${items.map(item=>`<details class="mailbox-message-entry" data-mailbox-key="${mailboxEscape(item.source)}:${mailboxEscape(item.id)}" ${openMailboxMessageKey===item.source+":"+item.id?"open":""} data-recipient-message="${item.source==='remote'?item.id:''}" style="border-top:1px solid ${item.urgent?'#7e1b19':'#c5bdaa'};padding:13px 0;${item.urgent?'background:#f4dfd5;margin:0 -10px;padding:15px 10px;border-left:4px solid #7e1b19':''}"><summary style="cursor:pointer;list-style:none;font:600 13px var(--serif)"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${item.source==='remote'?(!item.read_at?'#7e1b19':'#9a998f'):(item.urgent?'#7e1b19':'#9a998f')};margin-right:8px"></span>${mailboxEscape(item.subject)}<small style="display:block;margin:5px 0 0 16px;font:9px var(--mono);color:#7e1b19">DIVISIÓN DE ARCHIVOS TEMPORALES · ${item.source==='remote'?new Date(item.published_at).toLocaleDateString('es-ES'):mailboxEscape(item.id)}</small></summary><p style="margin:12px 0 0 16px;font:12px/1.65 var(--mono)">${mailboxEscape(item.body).replace(/\n/g,'<br>')}</p>${item.source==='remote'&&item.requires_ack&&!item.acknowledged_at?`<button data-ack-message="${item.id}" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Confirmar recepción</button>`:''}${item.action==='final-file'?'<button id="final-file-from-mail" style="margin:10px 0 0 16px;background:#7e1b19;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Consultar FINAL-01</button>':''}${item.action==='alberto'?'<button id="alberto-from-mail" style="margin:10px 0 0 16px;background:#17211e;color:#fff;border:0;padding:10px 13px;font:9px var(--mono);cursor:pointer">Abrir comunicación personal</button>':''}</details>`).join('')||'<p>No hay comunicaciones registradas.</p>'}`;document.querySelector('#mailbox-close').onclick=()=>mailbox.style.display='none';mailbox.querySelectorAll(".mailbox-message-entry").forEach(details=>details.addEventListener("toggle",()=>{if(details.open){openMailboxMessageKey=details.dataset.mailboxKey;const message=remoteRecipientMessages.find(item=>item.id===details.dataset.recipientMessage);if(message&&!message.read_at)window.KizunaRecipientMessages?.markRead(details.dataset.recipientMessage)}else if(openMailboxMessageKey===details.dataset.mailboxKey)openMailboxMessageKey=""}));mailbox.querySelectorAll('[data-ack-message]').forEach(button=>button.onclick=()=>window.KizunaRecipientMessages?.acknowledge(button.dataset.ackMessage));const finalButton=document.querySelector('#final-file-from-mail');if(finalButton)finalButton.onclick=()=>{mailbox.style.display='none';openFinalLocatedFile()};const albertoButton=document.querySelector('#alberto-from-mail');if(albertoButton)albertoButton.onclick=()=>{location.href='../index.html#mensaje-alberto'}};
 mailboxButton.onclick=()=>{const opening=mailbox.style.display==='none';if(opening){renderMailbox();mailbox.style.display='block';patchState({mailRead:automaticMailboxMessages().length+earlyAccessMailboxMessages().length}).finally(()=>{renderMailbox();updateMailboxIndicator()})}else mailbox.style.display='none'};
 mailbox.addEventListener('toggle',event=>{
   const details=event.target;
@@ -2711,7 +2712,7 @@ adminDirectMessagesNav.type='button';adminDirectMessagesNav.dataset.adminView='d
 document.querySelector('.admin-sidebar').appendChild(adminDirectMessagesNav);
 const adminDirectMessagesView=document.createElement('section');
 adminDirectMessagesView.id='admin-direct-messages-view';adminDirectMessagesView.className='admin-view';adminDirectMessagesView.hidden=true;
-adminDirectMessagesView.innerHTML=`<p class="system-line">ARCHIVO CENTRAL · COMUNICACIÓN DIRECTA</p><h1>Mensajes a<br><em>destinatarios.</em></h1><p class="admin-intro">Envía comunicaciones al buzón, como avisos dentro de KIZUNA o directamente como notificaciones del dispositivo.</p><div class="admin-direct-messages-layout"><form id="admin-direct-message-form"><p class="system-line">NUEVA COMUNICACIÓN</p><label>Destinatario<select name="user_id" required><option value="">Cargando destinatarios…</option></select></label><label>Asunto<input name="subject" required maxlength="160" placeholder="Actualización del expediente"></label><label>Mensaje<textarea name="body" required maxlength="5000" rows="7" placeholder="Escribe aquí la comunicación…"></textarea></label><div class="admin-direct-message-options"><label>Presentación<select name="display_mode"><option value="mailbox">Sólo en el buzón</option><option value="banner">Aviso flotante</option><option value="highlight">Mensaje destacado</option><option value="modal">Modal prioritario</option><option value="push">Notificación push</option></select></label><label>Prioridad<select name="priority"><option value="normal">Normal</option><option value="high">Alta</option><option value="urgent">Urgente</option></select></label></div><div class="admin-direct-message-help"><p data-message-mode-help></p><p data-message-priority-help></p></div><label class="admin-direct-message-ack"><input name="requires_ack" type="checkbox"> Solicitar confirmación de recepción</label><aside class="admin-direct-message-preview mode-mailbox priority-normal"><header><span>VISTA PREVIA</span><b data-message-preview-label>SÓLO EN EL BUZÓN</b></header><div class="admin-direct-message-preview-stage"><article><small>DIVISIÓN DE ARCHIVOS TEMPORALES</small><strong data-message-preview-subject>Asunto del mensaje</strong><p data-message-preview-body>El texto aparecerá aquí.</p><footer><span data-message-preview-action>ABRIR MENSAJE</span></footer></article></div></aside><button type="submit">Enviar comunicación →</button><span id="admin-direct-message-status" role="status"></span></form><section><div class="admin-direct-message-list-heading"><div><p class="system-line">COMUNICACIONES ENVIADAS</p><span id="admin-direct-message-summary"></span></div><button id="admin-direct-message-refresh" type="button">↻ Actualizar</button></div><div id="admin-direct-message-list"><p>Cargando mensajes…</p></div></section></div>`;
+adminDirectMessagesView.innerHTML=`<p class="system-line">ARCHIVO CENTRAL · COMUNICACIÓN DIRECTA</p><h1>Mensajes a<br><em>destinatarios.</em></h1><p class="admin-intro">Envía comunicaciones al buzón, como avisos dentro de KIZUNA o directamente como notificaciones del dispositivo.</p><div class="admin-direct-messages-layout"><form id="admin-direct-message-form"><p class="system-line">NUEVA COMUNICACIÓN</p><label>Destinatario<select name="user_id" required><option value="">Cargando destinatarios…</option></select></label><label>Asunto<input name="subject" required maxlength="160" placeholder="Actualización del expediente"></label><label>Mensaje<textarea name="body" required maxlength="5000" rows="7" placeholder="Escribe aquí la comunicación…"></textarea></label><div class="admin-direct-message-options"><label>Presentación<select name="display_mode"><option value="mailbox">Sólo en el buzón</option><option value="banner">Aviso flotante</option><option value="highlight">Mensaje destacado</option><option value="modal">Modal prioritario</option><option value="push">Notificación push</option></select></label><label>Prioridad<select name="priority"><option value="normal">Normal</option><option value="high">Alta</option><option value="urgent">Urgente</option></select></label></div><div class="admin-direct-message-help"><p data-message-mode-help></p><p data-message-priority-help></p></div><label class="admin-direct-message-ack"><input name="requires_ack" type="checkbox"> Solicitar confirmación de recepción</label><aside class="admin-direct-message-preview mode-mailbox priority-normal"><header><span>VISTA PREVIA</span><b data-message-preview-label>SÓLO EN EL BUZÓN</b></header><div class="admin-direct-message-preview-stage"><article><small>DIVISIÓN DE ARCHIVOS TEMPORALES · HOY</small><strong data-message-preview-subject>Asunto del mensaje</strong><p data-message-preview-body>El texto aparecerá aquí.</p><footer><span data-message-preview-action></span><span data-message-preview-secondary-action hidden></span></footer></article></div></aside><button type="submit">Enviar comunicación →</button><span id="admin-direct-message-status" role="status"></span></form><section><div class="admin-direct-message-list-heading"><div><p class="system-line">COMUNICACIONES ENVIADAS</p><span id="admin-direct-message-summary"></span></div><div class="admin-direct-message-list-actions"><button id="admin-direct-message-hide-read" type="button" aria-pressed="false">Ocultar leídos</button><button id="admin-direct-message-refresh" type="button">↻ Actualizar</button></div></div><div id="admin-direct-message-list"><p>Cargando mensajes…</p></div></section></div>`;
 document.querySelector('.admin-views').appendChild(adminDirectMessagesView);
 
 const adminMauNav=document.createElement('button');
@@ -2816,6 +2817,19 @@ const updateAdminDirectMessageRecipientState=()=>{
   submit.title=submit.disabled?'Selecciona un destinatario con un Terminal Autorizado activo.':'';
 };
 let adminDirectMessagesCache=[];
+let adminDirectMessagesHideRead=false;
+let adminDirectMessagesPresentation='all';
+const adminDirectMessagePresentationFilter=document.createElement('label');
+adminDirectMessagePresentationFilter.className='admin-direct-message-presentation-filter';
+adminDirectMessagePresentationFilter.innerHTML=`<select aria-label="Filtrar mensajes por presentación">
+  <option value="all">Todas</option>
+  <option value="mailbox">Sólo en el buzón</option>
+  <option value="banner">Avisos flotantes</option>
+  <option value="highlight">Mensajes destacados</option>
+  <option value="modal">Modales prioritarios</option>
+  <option value="push">Notificaciones push</option>
+</select>`;
+document.querySelector('.admin-direct-message-list-actions')?.prepend(adminDirectMessagePresentationFilter);
 const adminDirectMessageDeliveryOptions=document.createElement('section');
 adminDirectMessageDeliveryOptions.className='admin-direct-message-delivery-options';
 adminDirectMessageDeliveryOptions.innerHTML=`<p class="system-line">ENTREGA Y DESTINO</p>
@@ -2980,12 +2994,37 @@ const directMessageState=message=>{
 };
 const renderAdminDirectMessages=messages=>{
   const selectedUserId=adminDirectMessageForm.elements.user_id.value;
-  const visibleMessages=selectedUserId?messages.filter(message=>message.user_id===selectedUserId):messages;
+  const hideReadButton=document.querySelector('#admin-direct-message-hide-read');
+  if(!selectedUserId){
+    adminDirectMessagesHideRead=false;
+    hideReadButton.disabled=true;
+    hideReadButton.hidden=true;
+    hideReadButton.setAttribute('aria-pressed','false');
+    hideReadButton.textContent='Ocultar leídos';
+    adminDirectMessagePresentationFilter.hidden=true;
+    adminDirectMessageSummary.textContent='Selecciona un destinatario para consultar sus comunicaciones.';
+    adminDirectMessageList.innerHTML='<div class="admin-direct-message-selection-empty"><span aria-hidden="true">01</span><strong>Selecciona un destinatario</strong><p>El historial de comunicaciones aparecerá aquí cuando elijas una cuenta.</p></div>';
+    return;
+  }
+  hideReadButton.disabled=false;
+  hideReadButton.hidden=false;
+  adminDirectMessagePresentationFilter.hidden=false;
+  const recipientMessages=selectedUserId?messages.filter(message=>message.user_id===selectedUserId):messages;
+  const presentationMessages=adminDirectMessagesPresentation==='all'
+    ?recipientMessages
+    :recipientMessages.filter(message=>message.display_mode===adminDirectMessagesPresentation);
+  const isRead=message=>Boolean(message.read_at||message.acknowledged_at);
+  const hiddenReadCount=adminDirectMessagesHideRead?presentationMessages.filter(isRead).length:0;
+  const visibleMessages=adminDirectMessagesHideRead?presentationMessages.filter(message=>!isRead(message)):presentationMessages;
   const recipientOption=selectedUserId?adminDirectMessageForm.elements.user_id.selectedOptions[0]:null;
   const recipientLabel=recipientOption?.textContent?.split(' · ')[0]||'';
-  adminDirectMessageSummary.textContent=selectedUserId
-    ?`${visibleMessages.length} comunicación${visibleMessages.length===1?'':'es'} de ${recipientLabel}`
-    :`${visibleMessages.length} comunicación${visibleMessages.length===1?'':'es'} registrada${visibleMessages.length===1?'':'s'}`;
+  const presentationName=adminDirectMessagePresentationFilter.querySelector('select').selectedOptions[0]?.textContent||'Todas';
+  const summaryBase=adminDirectMessagesPresentation==='all'
+    ?`${recipientMessages.length} comunicación${recipientMessages.length===1?'':'es'} de ${recipientLabel}`
+    :`${presentationMessages.length} de ${recipientMessages.length} comunicaciones de ${recipientLabel} · ${presentationName}`;
+  adminDirectMessageSummary.textContent=adminDirectMessagesHideRead
+    ?`${summaryBase} · ${visibleMessages.length} visible${visibleMessages.length===1?'':'s'} · ${hiddenReadCount} leída${hiddenReadCount===1?'':'s'} oculta${hiddenReadCount===1?'':'s'}`
+    :summaryBase;
   adminDirectMessageList.innerHTML=visibleMessages.map(message=>{
     const [label,state]=directMessageState(message),profile=message.expedient_profiles||{},deliveries=message.expedient_push_deliveries||[];
     const accepted=deliveries.filter(delivery=>['accepted','received','opened'].includes(delivery.status)).length;
@@ -3010,13 +3049,15 @@ const renderAdminDirectMessages=messages=>{
       <span>ENVIADA <b>${accepted}</b></span><span>RECIBIDA <b>${received}</b></span><span>ABIERTA <b>${opened}</b></span><span>LEÍDA <b>${message.read_at?'SÍ':'NO'}</b></span>
       ${!deliveries.length?'<em>SIN DISPOSITIVO SUSCRITO</em>':''}${failed?`<em>${failed} FALLO${failed===1?'':'S'}</em>`:''}
     </div>${deviceRows?`<section class="admin-direct-message-devices"><h3>DISPOSITIVOS DE DESTINO</h3><ul>${deviceRows}</ul></section>`:''}`:'';
-    return `<article class="admin-direct-message-item">
+    const presentationLabel={mailbox:'Sólo en el buzón',banner:'Aviso flotante',highlight:'Mensaje destacado',modal:'Modal prioritario',push:'Notificación push'}[message.display_mode]||message.display_mode;
+    const priorityLabel={normal:'Normal',high:'Alta',urgent:'Urgente'}[message.priority]||message.priority;
+    return `<article class="admin-direct-message-item priority-${adminEditorEscape(message.priority)}${failed?' has-delivery-failure':''}">
       <header><div><span>${adminEditorEscape(profile.display_name||profile.email||'Destinatario')}</span><strong>${adminEditorEscape(message.subject)}</strong></div><b data-message-state="${state}">${label}</b></header>
       <p>${adminEditorEscape(message.body).replace(/\n/g,'<br>')}</p>
       ${pushStats}
-      <footer><span>${directMessageDate(message.published_at)} · ${adminEditorEscape(message.display_mode)} · prioridad ${adminEditorEscape(message.priority)}${message.deep_link?` · destino ${adminEditorEscape(message.deep_link)}`:''}</span>${message.requires_ack?'<em>CONFIRMACIÓN SOLICITADA</em>':''}</footer>
+      <footer><span>${directMessageDate(message.published_at)} · ${adminEditorEscape(presentationLabel)} · Prioridad ${adminEditorEscape(priorityLabel)}${message.deep_link?` · Destino ${adminEditorEscape(message.deep_link)}`:''}</span><div class="admin-direct-message-footer-actions">${message.requires_ack?'<em>CONFIRMACIÓN SOLICITADA</em>':''}<button type="button" data-direct-message-delete="${adminEditorEscape(message.id)}">Eliminar</button></div></footer>
     </article>`;
-  }).join('')||`<p class="admin-direct-message-empty">${selectedUserId?'Todavía no se ha enviado ninguna comunicación a este destinatario.':'Todavía no se ha enviado ninguna comunicación.'}</p>`;
+  }).join('')||`<p class="admin-direct-message-empty">${adminDirectMessagesHideRead&&hiddenReadCount?'Todos los mensajes leídos de esta presentación están ocultos. Pulsa «Mostrar leídos» para volver a consultarlos.':adminDirectMessagesPresentation!=='all'?'No hay comunicaciones de esta presentación para el destinatario seleccionado.':'Todavía no se ha enviado ninguna comunicación a este destinatario.'}</p>`;
 };
 const loadAdminDirectMessages=async()=>{
   if(!supabaseClient)return;
@@ -3060,6 +3101,48 @@ adminDirectMessageForm.elements.user_id.addEventListener('change',()=>{
   renderAdminDirectMessages(adminDirectMessagesCache);
   updateAdminDirectMessageRecipientState();
 });
+const adminDirectMessageHideRead=document.querySelector('#admin-direct-message-hide-read');
+adminDirectMessagePresentationFilter.querySelector('select').addEventListener('change',event=>{
+  adminDirectMessagesPresentation=event.target.value;
+  renderAdminDirectMessages(adminDirectMessagesCache);
+});
+adminDirectMessageHideRead.onclick=()=>{
+  adminDirectMessagesHideRead=!adminDirectMessagesHideRead;
+  adminDirectMessageHideRead.setAttribute('aria-pressed',String(adminDirectMessagesHideRead));
+  adminDirectMessageHideRead.textContent=adminDirectMessagesHideRead?'Mostrar leídos':'Ocultar leídos';
+  renderAdminDirectMessages(adminDirectMessagesCache);
+};
+adminDirectMessageList.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-direct-message-delete]');
+  if(!button||button.disabled)return;
+  const messageId=button.dataset.directMessageDelete;
+  const message=adminDirectMessagesCache.find(item=>item.id===messageId);
+  if(!message)return;
+  const profile=message.expedient_profiles||{};
+  const recipient=profile.display_name||profile.email||'el destinatario';
+  const confirmed=await adminConfirm({
+    title:'Eliminar comunicación',
+    message:`Se eliminará «${message.subject}» de forma permanente. Si llegó a entregarse, también desaparecerá del buzón de ${recipient}.`,
+    confirmLabel:'Eliminar mensaje',
+    danger:true
+  });
+  if(!confirmed)return;
+  button.disabled=true;
+  button.textContent='Eliminando…';
+  adminDirectMessageStatus.textContent='Eliminando comunicación…';
+  const {data:deleted,error}=await supabaseClient.from('expedient_messages').delete().eq('id',messageId).select('id');
+  if(error||!deleted?.length){
+    console.error('No se pudo eliminar la comunicación.',error);
+    button.disabled=false;
+    button.textContent='Eliminar';
+    adminDirectMessageStatus.textContent='No se pudo eliminar la comunicación.';
+    return;
+  }
+  adminDirectMessagesCache=adminDirectMessagesCache.filter(item=>item.id!==messageId);
+  renderAdminDirectMessages(adminDirectMessagesCache);
+  adminDirectMessageStatus.textContent='Comunicación eliminada correctamente.';
+  setTimeout(()=>{adminDirectMessageStatus.textContent=''},3000);
+});
 const adminMessageModeHelp={
   mailbox:'No aparece sobre la web. Se guarda en el buzón y enciende su indicador de mensajes nuevos.',
   banner:'Aparece como una tarjeta compacta flotante en una esquina y también queda guardado en el buzón.',
@@ -3075,11 +3158,30 @@ const adminMessagePriorityHelp={
 const adminMessageModeLabel={mailbox:'SÓLO EN EL BUZÓN',banner:'AVISO FLOTANTE',highlight:'MENSAJE DESTACADO',modal:'MODAL PRIORITARIO',push:'NOTIFICACIÓN PUSH'};
 const updateAdminDirectMessagePreview=()=>{
   const preview=adminDirectMessageForm.querySelector('.admin-direct-message-preview'),mode=adminDirectMessageForm.elements.display_mode.value,priority=adminDirectMessageForm.elements.priority.value,requiresAck=adminDirectMessageForm.elements.requires_ack.checked,deepLinkPreset=adminDirectMessageForm.elements.deep_link_preset.value;
+  const action=preview.querySelector('[data-message-preview-action]');
+  const secondaryAction=preview.querySelector('[data-message-preview-secondary-action]');
+  const customDeepLink=adminDirectMessageForm.elements.deep_link_custom.value.trim();
+  const hasDestination=Boolean(deepLinkPreset&&(deepLinkPreset!=='custom'||customDeepLink));
   preview.className=`admin-direct-message-preview mode-${mode} priority-${priority}`;
   preview.querySelector('[data-message-preview-label]').textContent=adminMessageModeLabel[mode];
   preview.querySelector('[data-message-preview-subject]').textContent=adminDirectMessageForm.elements.subject.value||'Asunto del mensaje';
   preview.querySelector('[data-message-preview-body]').textContent=adminDirectMessageForm.elements.body.value||'El texto aparecerá aquí.';
-  preview.querySelector('[data-message-preview-action]').textContent=deepLinkPreset?'ABRIR DESTINO':mode==='push'?'ABRIR KIZUNA':requiresAck?'CONFIRMAR RECEPCIÓN':mode==='mailbox'?'ABRIR MENSAJE':'ENTENDIDO';
+  secondaryAction.hidden=true;
+  secondaryAction.textContent='';
+  action.dataset.actionKind='default';
+  if(mode==='mailbox'){
+    action.textContent=requiresAck?'CONFIRMAR RECEPCIÓN':hasDestination?'ABRIR DESTINO DEL MENSAJE':'';
+    action.dataset.actionKind=requiresAck?'acknowledge':'destination';
+    if(requiresAck&&hasDestination){
+      secondaryAction.hidden=false;
+      secondaryAction.textContent='ABRIR DESTINO DEL MENSAJE';
+      secondaryAction.dataset.actionKind='destination';
+    }
+    preview.querySelector('article footer').hidden=!action.textContent&&secondaryAction.hidden;
+  }else{
+    action.textContent=hasDestination?'ABRIR DESTINO':mode==='push'?'ABRIR KIZUNA':requiresAck?'CONFIRMAR RECEPCIÓN':'ENTENDIDO';
+    preview.querySelector('article footer').hidden=false;
+  }
   adminDirectMessageForm.querySelector('[data-message-mode-help]').textContent=adminMessageModeHelp[mode];
   adminDirectMessageForm.querySelector('[data-message-priority-help]').textContent=adminMessagePriorityHelp[priority];
 };
@@ -3093,6 +3195,7 @@ const updateAdminDirectMessageDestination=()=>{
   if(name==='display_mode')updateAdminDirectMessageRecipientState();
 }));
 adminDirectMessageForm.elements.deep_link_preset.addEventListener('change',updateAdminDirectMessageDestination);
+adminDirectMessageForm.elements.deep_link_custom.addEventListener('input',updateAdminDirectMessagePreview);
 updateAdminDirectMessagePreview();
 const normalizeAdminMessageDeepLink=data=>{
   const preset=String(data.get('deep_link_preset')||'');

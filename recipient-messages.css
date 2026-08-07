@@ -29,3 +29,9 @@
   .recipient-message-notice footer button{width:100%}
 }
 @media(prefers-reduced-motion:reduce){.recipient-message-notice{transition:none}}
+
+@media(min-width:601px){
+  .recipient-message-notice footer[data-action-count="3"]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .recipient-message-notice footer[data-action-count="3"] button{width:100%;min-height:46px}
+  .recipient-message-notice footer[data-action-count="3"] [data-message-mailbox]{grid-column:1/-1}
+}
