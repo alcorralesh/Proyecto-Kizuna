@@ -15,12 +15,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=EB+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="../public-subpage-header.css?v=20260807-subpage-header01">
 </head>
 <body class="events-page">
-  <header class="site-header events-page-header">
-    <a class="wordmark" href="../index.html"><img src="../assets/kizuna-logo-official.png" alt="Kizuna Travel Bureau"><span>KIZUNA<small>TRAVEL BUREAU</small></span></a>
-    <div id="public-session" data-events-session data-expedient-href="../expediente/index.html" aria-live="polite"></div>
-    <a class="text-link events-back-link" href="../index.html#eventos">Volver a la web <b>←</b></a>
+  <header class="kizuna-subpage-header" data-kizuna-subpage-header data-root="../">
+    <a class="kizuna-subpage-brand" href="../index.html"><img src="../assets/kizuna-logo-official.png" alt=""><span>KIZUNA<small>TRAVEL BUREAU</small></span></a>
+    <nav class="kizuna-subpage-actions" aria-label="Navegación de eventos">
+      <a class="kizuna-subpage-control kizuna-subpage-back" href="../index.html#eventos"><span class="kizuna-subpage-control-icon" aria-hidden="true">←</span><span class="kizuna-subpage-control-label">Volver a la web</span></a>
+      <div data-kizuna-subpage-session aria-live="polite"></div>
+    </nav>
   </header>
   <main>
     <section class="public-events events-archive" data-events-mode="all">
@@ -34,6 +37,8 @@
     <p>Because the best memories deserve to exist.</p>
     <div><a href="../index.html">La agencia</a><a href="../tienda/index.html">Tienda</a><a href="../expediente/index.html?admin=1">Acceso interno</a></div>
   </footer>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../events.js?v=20260804-lore-copy01"></script>
+  <script src="../public-subpage-header.js?v=20260807-subpage-header01"></script>
 <script src="../pwa.js?v=20260806-admin-update01"></script></body>
 </html>
