@@ -51,6 +51,7 @@
   let pushUserId=null;
   let pushActivityRecorder=null;
   let pushClientKey=null;
+  let pushDeviceIdentityPromise=null;
 
   const pushTerminalClientKey=()=>{
     if(pushClientKey)return pushClientKey;
@@ -65,6 +66,49 @@
       pushClientKey=crypto.randomUUID?.()||null;
     }
     return pushClientKey;
+  };
+
+  const pushTerminalPlatform=()=>isIos()?'ios':isAndroid()?'android':'web';
+  const pushTerminalIdentity=()=>{
+    if(pushDeviceIdentityPromise)return pushDeviceIdentityPromise;
+    pushDeviceIdentityPromise=(async()=>{
+      const platform=pushTerminalPlatform();
+      const ua=String(navigator.userAgent||'');
+      let model='';
+      let mobile=/mobile/i.test(ua);
+      try{
+        if(navigator.userAgentData?.getHighEntropyValues){
+          const values=await navigator.userAgentData.getHighEntropyValues(['model']);
+          model=String(values?.model||'').trim();
+          mobile=Boolean(navigator.userAgentData.mobile);
+        }
+      }catch(_error){}
+      if(!model){
+        const samsung=ua.match(/;\s*(SM-[A-Z0-9-]+)\s*(?:Build|[;)])/i);
+        if(samsung)model=samsung[1].toUpperCase();
+      }
+      const ipad=isIos()&&(/ipad/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1));
+      const iphone=isIos()&&!ipad;
+      const deviceClass=ipad?'tablet':iphone?'phone':platform==='android'?(mobile?'phone':'tablet'):'computer';
+      const label=ipad?'iPad':iphone?'iPhone':platform==='android'?(model||`Dispositivo Android`):/mac/i.test(ua)?'Mac':/windows/i.test(ua)?'Ordenador Windows':'Navegador web';
+      const screenWidth=Math.min(Number(screen.width)||0,Number(screen.height)||0);
+      const screenHeight=Math.max(Number(screen.width)||0,Number(screen.height)||0);
+      const signatureParts=[
+        'kizuna-terminal-v2',platform,deviceClass,model.toLowerCase(),
+        `${screenWidth}x${screenHeight}`,String(Number(devicePixelRatio||1).toFixed(2)),
+        String(navigator.maxTouchPoints||0),String(navigator.hardwareConcurrency||0),
+        String(navigator.deviceMemory||0),navigator.language||'',
+        Intl.DateTimeFormat().resolvedOptions().timeZone||''
+      ];
+      let signature=null;
+      try{
+        const bytes=new TextEncoder().encode(signatureParts.join('|'));
+        const digest=await crypto.subtle.digest('SHA-256',bytes);
+        signature=Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+      }catch(_error){}
+      return{platform,model:model||null,deviceClass,label,signature};
+    })();
+    return pushDeviceIdentityPromise;
   };
 
   const removeElement=selector=>document.querySelector(selector)?.remove();
@@ -182,14 +226,31 @@
   const savePushSubscription=async subscription=>{
     if(!pushClient||!pushUserId||!subscription)return;
     const serialized=subscription.toJSON();
-    const {error}=await pushClient.rpc('register_expedient_push_subscription',{
+    const identity=await pushTerminalIdentity();
+    const extended=await pushClient.rpc('register_expedient_push_subscription_v2',{
       push_endpoint:subscription.endpoint,
       push_p256dh:serialized.keys?.p256dh,
       push_auth:serialized.keys?.auth,
       push_user_agent:navigator.userAgent,
-      push_platform:isIos()?'ios':/android/i.test(navigator.userAgent)?'android':'web'
+      push_platform:identity.platform,
+      push_client_key:pushTerminalClientKey(),
+      push_device_signature:identity.signature,
+      push_device_label:identity.label,
+      push_device_model:identity.model,
+      push_device_class:identity.deviceClass
     });
-    if(error)throw error;
+    if(extended.error){
+      const unavailable=['PGRST202','42883'].includes(extended.error.code)||/register_expedient_push_subscription_v2|function.+does not exist/i.test(extended.error.message||'');
+      if(!unavailable)throw extended.error;
+      const {error}=await pushClient.rpc('register_expedient_push_subscription',{
+        push_endpoint:subscription.endpoint,
+        push_p256dh:serialized.keys?.p256dh,
+        push_auth:serialized.keys?.auth,
+        push_user_agent:navigator.userAgent,
+        push_platform:identity.platform
+      });
+      if(error)throw error;
+    }
     await syncPushTerminalState(subscription);
   };
 

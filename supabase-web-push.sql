@@ -45,6 +45,10 @@ create table if not exists public.expedient_push_subscriptions (
 -- representan decisiones diferentes.
 alter table public.expedient_push_subscriptions
   add column if not exists client_key text,
+  add column if not exists device_signature text,
+  add column if not exists device_label text,
+  add column if not exists device_model text,
+  add column if not exists device_class text,
   add column if not exists permission_state text not null default 'granted',
   add column if not exists subscription_present boolean not null default true,
   add column if not exists permission_checked_at timestamptz not null default now(),
@@ -67,6 +71,9 @@ create index if not exists expedient_push_subscriptions_user_idx
 
 create index if not exists expedient_push_subscriptions_signal_idx
   on public.expedient_push_subscriptions (user_id, permission_checked_at desc);
+
+create index if not exists expedient_push_subscriptions_device_signature_idx
+  on public.expedient_push_subscriptions (user_id, device_signature, revoked_at);
 
 create table if not exists public.expedient_push_preferences (
   user_id uuid primary key references public.expedient_profiles(id) on delete cascade,
@@ -206,6 +213,112 @@ $$;
 
 revoke all on function public.register_expedient_push_subscription(text, text, text, text, text) from public;
 grant execute on function public.register_expedient_push_subscription(text, text, text, text, text) to authenticated;
+
+-- Registro ampliado de terminal. La firma es un resumen técnico generado en el
+-- navegador que permite proponer duplicados sin guardar datos del expediente.
+-- Sólo client_key provoca una sustitución automática porque identifica con
+-- certeza la misma instalación. Las firmas aproximadas se consolidan desde
+-- administración para no confundir dos dispositivos legítimos del mismo modelo.
+create or replace function public.register_expedient_push_subscription_v2(
+  push_endpoint text,
+  push_p256dh text,
+  push_auth text,
+  push_user_agent text,
+  push_platform text,
+  push_client_key text,
+  push_device_signature text,
+  push_device_label text,
+  push_device_model text,
+  push_device_class text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  subscription_id uuid;
+  normalized_client_key text := nullif(trim(push_client_key), '');
+  normalized_signature text := nullif(trim(push_device_signature), '');
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+  if nullif(trim(push_endpoint), '') is null
+    or nullif(trim(push_p256dh), '') is null
+    or nullif(trim(push_auth), '') is null then
+    raise exception 'Invalid push subscription';
+  end if;
+  if normalized_client_key is not null and char_length(normalized_client_key) > 100 then
+    raise exception 'Invalid client key';
+  end if;
+  if normalized_signature is not null and normalized_signature !~ '^[a-f0-9]{64}$' then
+    raise exception 'Invalid device signature';
+  end if;
+  if push_device_class is not null and push_device_class not in ('phone','tablet','computer') then
+    raise exception 'Invalid device class';
+  end if;
+
+  insert into public.expedient_push_subscriptions (
+    user_id, endpoint, p256dh, auth, user_agent, platform, client_key,
+    device_signature, device_label, device_model, device_class,
+    last_seen_at, permission_state, subscription_present,
+    permission_checked_at, revoked_at, revoked_reason, updated_at
+  ) values (
+    auth.uid(), push_endpoint, push_p256dh, push_auth, push_user_agent,
+    push_platform, normalized_client_key, normalized_signature,
+    nullif(trim(push_device_label), ''), nullif(trim(push_device_model), ''),
+    nullif(trim(push_device_class), ''), now(), 'granted', true,
+    now(), null, null, now()
+  )
+  on conflict (endpoint) do update set
+    user_id = auth.uid(),
+    p256dh = excluded.p256dh,
+    auth = excluded.auth,
+    user_agent = excluded.user_agent,
+    platform = excluded.platform,
+    client_key = coalesce(excluded.client_key, public.expedient_push_subscriptions.client_key),
+    device_signature = coalesce(excluded.device_signature, public.expedient_push_subscriptions.device_signature),
+    device_label = coalesce(excluded.device_label, public.expedient_push_subscriptions.device_label),
+    device_model = coalesce(excluded.device_model, public.expedient_push_subscriptions.device_model),
+    device_class = coalesce(excluded.device_class, public.expedient_push_subscriptions.device_class),
+    last_seen_at = now(),
+    permission_state = 'granted',
+    subscription_present = true,
+    permission_checked_at = now(),
+    revoked_at = case
+      when public.expedient_push_subscriptions.user_id = auth.uid()
+        and public.expedient_push_subscriptions.revoked_reason = 'admin'
+        then public.expedient_push_subscriptions.revoked_at
+      else null
+    end,
+    revoked_reason = case
+      when public.expedient_push_subscriptions.user_id = auth.uid()
+        and public.expedient_push_subscriptions.revoked_reason = 'admin'
+        then 'admin'
+      else null
+    end,
+    updated_at = now()
+  returning id into subscription_id;
+
+  if normalized_client_key is not null then
+    update public.expedient_push_subscriptions
+    set revoked_at = coalesce(revoked_at, now()),
+        revoked_reason = coalesce(revoked_reason, 'replaced'),
+        subscription_present = false,
+        updated_at = now()
+    where user_id = auth.uid()
+      and client_key = normalized_client_key
+      and id <> subscription_id
+      and revoked_at is null;
+  end if;
+
+  return subscription_id;
+end;
+$$;
+
+revoke all on function public.register_expedient_push_subscription_v2(text, text, text, text, text, text, text, text, text, text) from public;
+grant execute on function public.register_expedient_push_subscription_v2(text, text, text, text, text, text, text, text, text, text) to authenticated;
 
 -- Recibe el pulso del terminal al abrir KIZUNA. client_key es un identificador
 -- técnico aleatorio de la instalación; no contiene datos del expediente.
