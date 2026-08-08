@@ -39,10 +39,6 @@ Deno.serve(async request => {
   const payload = await request.json().catch(() => ({}))
   const action = String(payload.action ?? 'send')
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-  const anonKey =
-    Deno.env.get('SUPABASE_ANON_KEY') ||
-    Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ||
-    readKeyMap('SUPABASE_PUBLISHABLE_KEYS')
   const serviceRoleKey =
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
     Deno.env.get('SUPABASE_SECRET_KEY') ||
@@ -92,14 +88,9 @@ Deno.serve(async request => {
 
   const authorization = request.headers.get('Authorization')
   if (!authorization) return json({ error: 'Autorización requerida.' }, 401)
-  if (!anonKey) {
-    console.error('Supabase publishable key is not available')
-    return json({
-      error: 'La función no dispone de la clave pública necesaria para validar la sesión.',
-    }, 503)
-  }
-  const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } })
-  const { data: userData, error: userError } = await userClient.auth.getUser()
+  const accessToken = authorization.replace(/^Bearer\s+/i, '').trim()
+  if (!accessToken) return json({ error: 'Autorización requerida.' }, 401)
+  const { data: userData, error: userError } = await adminClient.auth.getUser(accessToken)
   if (userError || !userData.user) return json({ error: 'Sesión no válida.' }, 401)
   if (userData.user.app_metadata?.role !== 'admin') return json({ error: 'Acceso administrativo requerido.' }, 403)
   if (!vapidPublicKey || !vapidPrivateKey || !vapidSubject) {

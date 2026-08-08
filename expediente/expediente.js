@@ -2712,7 +2712,7 @@ adminDirectMessagesNav.type='button';adminDirectMessagesNav.dataset.adminView='d
 document.querySelector('.admin-sidebar').appendChild(adminDirectMessagesNav);
 const adminDirectMessagesView=document.createElement('section');
 adminDirectMessagesView.id='admin-direct-messages-view';adminDirectMessagesView.className='admin-view';adminDirectMessagesView.hidden=true;
-adminDirectMessagesView.innerHTML=`<p class="system-line">ARCHIVO CENTRAL · COMUNICACIÓN DIRECTA</p><h1>Mensajes a<br><em>destinatarios.</em></h1><p class="admin-intro">Envía comunicaciones al buzón, como avisos dentro de KIZUNA o directamente como notificaciones del dispositivo.</p><div class="admin-direct-messages-layout"><form id="admin-direct-message-form"><p class="system-line">NUEVA COMUNICACIÓN</p><label>Destinatario<select name="user_id" required><option value="">Cargando destinatarios…</option></select></label><label>Asunto<input name="subject" required maxlength="160" placeholder="Actualización del expediente"></label><label>Mensaje<textarea name="body" required maxlength="5000" rows="7" placeholder="Escribe aquí la comunicación…"></textarea></label><div class="admin-direct-message-options"><label>Presentación<select name="display_mode"><option value="mailbox">Sólo en el buzón</option><option value="banner">Aviso flotante</option><option value="highlight">Mensaje destacado</option><option value="modal">Modal prioritario</option><option value="push">Notificación push</option></select></label><label>Prioridad<select name="priority"><option value="normal">Normal</option><option value="high">Alta</option><option value="urgent">Urgente</option></select></label></div><div class="admin-direct-message-help"><p data-message-mode-help></p><p data-message-priority-help></p></div><label class="admin-direct-message-ack"><input name="requires_ack" type="checkbox"> Solicitar confirmación de recepción</label><aside class="admin-direct-message-preview mode-mailbox priority-normal"><header><span>VISTA PREVIA</span><b data-message-preview-label>SÓLO EN EL BUZÓN</b></header><div class="admin-direct-message-preview-stage"><article><small>DIVISIÓN DE ARCHIVOS TEMPORALES · HOY</small><strong data-message-preview-subject>Asunto del mensaje</strong><p data-message-preview-body>El texto aparecerá aquí.</p><footer><span data-message-preview-action></span><span data-message-preview-secondary-action hidden></span></footer></article></div></aside><button type="submit">Enviar comunicación →</button><span id="admin-direct-message-status" role="status"></span></form><section><div class="admin-direct-message-list-heading"><div><p class="system-line">COMUNICACIONES ENVIADAS</p><span id="admin-direct-message-summary"></span></div><div class="admin-direct-message-list-actions"><button id="admin-direct-message-hide-read" type="button" aria-pressed="false">Ocultar leídos</button><button id="admin-direct-message-refresh" type="button">↻ Actualizar</button></div></div><div id="admin-direct-message-list"><p>Cargando mensajes…</p></div></section></div>`;
+adminDirectMessagesView.innerHTML=`<p class="system-line">ARCHIVO CENTRAL · COMUNICACIÓN DIRECTA</p><h1>Mensajes a<br><em>destinatarios.</em></h1><p class="admin-intro">Envía comunicaciones al buzón, como avisos dentro de KIZUNA o directamente como notificaciones del dispositivo.</p><div class="admin-direct-messages-layout"><form id="admin-direct-message-form"><p class="system-line">NUEVA COMUNICACIÓN</p><label>Destinatario<select name="user_id" required><option value="">Cargando destinatarios…</option></select></label><label>Asunto<input name="subject" required maxlength="160" placeholder="Actualización del expediente"></label><label>Mensaje<textarea name="body" required maxlength="5000" rows="7" placeholder="Escribe aquí la comunicación…"></textarea></label><div class="admin-direct-message-options"><label>Presentación<select name="display_mode"><option value="mailbox">Sólo en el buzón</option><option value="banner">Aviso flotante</option><option value="highlight">Mensaje destacado</option><option value="modal">Modal prioritario</option><option value="push">Notificación push</option></select></label><label>Prioridad<select name="priority"><option value="normal">Normal</option><option value="high">Alta</option><option value="urgent">Urgente</option></select></label></div><div class="admin-direct-message-help"><p data-message-mode-help></p><p data-message-priority-help></p></div><label class="admin-direct-message-ack"><input name="requires_ack" type="checkbox"> Solicitar confirmación de recepción</label><aside class="admin-direct-message-preview mode-mailbox priority-normal"><header><span>VISTA PREVIA</span><b data-message-preview-label>SÓLO EN EL BUZÓN</b></header><div class="admin-direct-message-preview-stage"><article><header class="admin-message-preview-notice-header"><span data-message-preview-notice-label>NUEVO MENSAJE</span><i aria-hidden="true">×</i></header><small>DIVISIÓN DE ARCHIVOS TEMPORALES · HOY</small><strong data-message-preview-subject>Asunto del mensaje</strong><p data-message-preview-body>El texto aparecerá aquí.</p><footer><span data-message-preview-mailbox-action hidden>Guardar y ver en el buzón</span><span data-message-preview-action></span><span data-message-preview-secondary-action hidden></span></footer></article></div></aside><button type="submit">Enviar comunicación →</button><span id="admin-direct-message-status" role="status"></span></form><section><div class="admin-direct-message-list-heading"><div><p class="system-line">COMUNICACIONES ENVIADAS</p><span id="admin-direct-message-summary"></span></div><div class="admin-direct-message-list-actions"><button id="admin-direct-message-hide-read" type="button" aria-pressed="false">Ocultar leídos</button><button id="admin-direct-message-refresh" type="button">↻ Actualizar</button></div></div><div id="admin-direct-message-list"><p>Cargando mensajes…</p></div></section></div>`;
 document.querySelector('.admin-views').appendChild(adminDirectMessagesView);
 
 const adminMauNav=document.createElement('button');
@@ -2796,11 +2796,14 @@ const adminDirectMessageRecipientState=document.createElement('aside');
 adminDirectMessageRecipientState.className='admin-direct-message-recipient-state';
 adminDirectMessageRecipientState.hidden=true;
 adminDirectMessageForm.elements.user_id.closest('label').after(adminDirectMessageRecipientState);
+let adminDirectMessageActiveDevices=new Map();
 const updateAdminDirectMessageRecipientState=()=>{
   const option=adminDirectMessageForm.elements.user_id.selectedOptions[0];
+  const userId=option?.value||'';
+  const devices=adminDirectMessageActiveDevices.get(userId)||[];
   const state=option?.dataset.pushState||'unselected';
   const states={
-    authorized:['TERMINAL AUTORIZADO','Hay un dispositivo activo. Puedes enviar notificaciones push a este destinatario.',true],
+    authorized:['TERMINAL AUTORIZADO',`Hay ${devices.length===1?'un dispositivo activo':`${devices.length} dispositivos activos`}. Puedes enviar notificaciones push a este destinatario.`,true],
     pending:['PUSH PENDIENTE','Todavía no ha aceptado ni rechazado la autorización. No puedes enviarle una push por ahora.',false],
     declined:['CANAL NO DISPONIBLE','Ha decidido continuar sin notificaciones. Puedes solicitar una nueva autorización desde Usuarios > Ajustes.',false],
     inactive:['SIN TERMINAL ACTIVO','Aceptó las notificaciones, pero ya no tiene ningún dispositivo activo. No puedes enviarle una push.',false]
@@ -2809,7 +2812,11 @@ const updateAdminDirectMessageRecipientState=()=>{
   adminDirectMessageRecipientState.hidden=!current;
   if(current){
     adminDirectMessageRecipientState.className=`admin-direct-message-recipient-state ${state}`;
-    adminDirectMessageRecipientState.innerHTML=`<i aria-hidden="true"></i><div><strong>${current[0]}</strong><span>${current[1]}</span></div>`;
+    const deviceList=state==='authorized'&&devices.length?`<ul>${devices.map(subscription=>{
+      const device=directMessageDeviceInfo(subscription);
+      return `<li><b aria-hidden="true">${subscription.platform==='android'?'A':subscription.platform==='ios'?'i':'W'}</b><span><strong>${adminEditorEscape(device.title)}</strong><small>${adminEditorEscape(device.detail)}</small></span></li>`;
+    }).join('')}</ul>`:'';
+    adminDirectMessageRecipientState.innerHTML=`<i aria-hidden="true"></i><div><strong>${current[0]}</strong><span>${current[1]}</span>${deviceList}</div>`;
   }
   const pushSelected=adminDirectMessageForm.elements.display_mode.value==='push';
   const submit=adminDirectMessageForm.querySelector('button[type="submit"]');
@@ -3065,7 +3072,7 @@ const loadAdminDirectMessages=async()=>{
   const [{data:profiles,error:profilesError},{data:messages,error:messagesError},{data:subscriptions,error:subscriptionsError},{data:preferences,error:preferencesError}]=await Promise.all([
     supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').order('display_name'),
     supabaseClient.from('expedient_messages').select('*,expedient_profiles(display_name,email),expedient_push_deliveries(status,accepted_at,received_at,opened_at,updated_at,error,expedient_push_subscriptions(id,user_agent,platform,last_seen_at,revoked_at))').order('published_at',{ascending:false}).limit(100),
-    supabaseClient.from('expedient_push_subscriptions').select('user_id').is('revoked_at',null),
+    supabaseClient.from('expedient_push_subscriptions').select('id,user_id,user_agent,platform,created_at,last_seen_at,revoked_at').is('revoked_at',null),
     supabaseClient.from('expedient_push_preferences').select('user_id,status')
   ]);
   if(profilesError||messagesError||subscriptionsError||preferencesError){
@@ -3076,6 +3083,11 @@ const loadAdminDirectMessages=async()=>{
   }
   const previous=recipientSelect.value;
   const activePushUsers=new Set((subscriptions||[]).map(subscription=>subscription.user_id));
+  adminDirectMessageActiveDevices=(subscriptions||[]).reduce((devicesByUser,subscription)=>{
+    if(!devicesByUser.has(subscription.user_id))devicesByUser.set(subscription.user_id,[]);
+    devicesByUser.get(subscription.user_id).push(subscription);
+    return devicesByUser;
+  },new Map());
   const pushPreferences=new Map((preferences||[]).map(preference=>[preference.user_id,preference.status]));
   recipientSelect.innerHTML='<option value="">Selecciona un destinatario</option>'+profiles.filter(profile=>profile.is_active!==false).map(profile=>{
     const pushActive=activePushUsers.has(profile.id);
@@ -3158,14 +3170,18 @@ const adminMessagePriorityHelp={
 const adminMessageModeLabel={mailbox:'SÓLO EN EL BUZÓN',banner:'AVISO FLOTANTE',highlight:'MENSAJE DESTACADO',modal:'MODAL PRIORITARIO',push:'NOTIFICACIÓN PUSH'};
 const updateAdminDirectMessagePreview=()=>{
   const preview=adminDirectMessageForm.querySelector('.admin-direct-message-preview'),mode=adminDirectMessageForm.elements.display_mode.value,priority=adminDirectMessageForm.elements.priority.value,requiresAck=adminDirectMessageForm.elements.requires_ack.checked,deepLinkPreset=adminDirectMessageForm.elements.deep_link_preset.value;
+  const mailboxAction=preview.querySelector('[data-message-preview-mailbox-action]');
   const action=preview.querySelector('[data-message-preview-action]');
   const secondaryAction=preview.querySelector('[data-message-preview-secondary-action]');
   const customDeepLink=adminDirectMessageForm.elements.deep_link_custom.value.trim();
   const hasDestination=Boolean(deepLinkPreset&&(deepLinkPreset!=='custom'||customDeepLink));
   preview.className=`admin-direct-message-preview mode-${mode} priority-${priority}`;
   preview.querySelector('[data-message-preview-label]').textContent=adminMessageModeLabel[mode];
+  preview.querySelector('[data-message-preview-notice-label]').textContent={banner:'COMUNICACIÓN DEL ARCHIVO',highlight:'MENSAJE DESTACADO',modal:'ATENCIÓN DEL DESTINATARIO'}[mode]||'NUEVO MENSAJE';
   preview.querySelector('[data-message-preview-subject]').textContent=adminDirectMessageForm.elements.subject.value||'Asunto del mensaje';
   preview.querySelector('[data-message-preview-body]').textContent=adminDirectMessageForm.elements.body.value||'El texto aparecerá aquí.';
+  mailboxAction.hidden=true;
+  action.hidden=false;
   secondaryAction.hidden=true;
   secondaryAction.textContent='';
   action.dataset.actionKind='default';
@@ -3179,9 +3195,16 @@ const updateAdminDirectMessagePreview=()=>{
     }
     preview.querySelector('article footer').hidden=!action.textContent&&secondaryAction.hidden;
   }else{
-    action.textContent=hasDestination?'ABRIR DESTINO':mode==='push'?'ABRIR KIZUNA':requiresAck?'CONFIRMAR RECEPCIÓN':'ENTENDIDO';
+    mailboxAction.hidden=mode==='push';
+    action.hidden=!hasDestination;
+    action.textContent=hasDestination?(mode==='push'?'ABRIR KIZUNA':'ABRIR DESTINO'):'';
+    secondaryAction.hidden=false;
+    secondaryAction.textContent=requiresAck?'CONFIRMAR RECEPCIÓN':'ENTENDIDO';
+    secondaryAction.dataset.actionKind=requiresAck?'acknowledge':'default';
     preview.querySelector('article footer').hidden=false;
   }
+  const previewFooter=preview.querySelector('article footer');
+  previewFooter.dataset.actionCount=String([...previewFooter.children].filter(item=>!item.hidden&&item.textContent.trim()).length);
   adminDirectMessageForm.querySelector('[data-message-mode-help]').textContent=adminMessageModeHelp[mode];
   adminDirectMessageForm.querySelector('[data-message-priority-help]').textContent=adminMessagePriorityHelp[priority];
 };
@@ -3203,6 +3226,17 @@ const normalizeAdminMessageDeepLink=data=>{
   if(!value)return null;
   if(/^[a-z][a-z0-9+.-]*:/i.test(value)||value.startsWith('//')||/[\u0000-\u001f\u007f]/.test(value))throw new Error('El destino debe ser una ruta interna de KIZUNA.');
   return value.replace(/^\/+/,'');
+};
+const invokeAuthenticatedAdminFunction=async(name,body)=>{
+  let {data:{session},error:sessionError}=await supabaseClient.auth.getSession();
+  const expiresSoon=session?.expires_at&&session.expires_at*1000<Date.now()+60000;
+  if(!session||expiresSoon){
+    const refreshed=await supabaseClient.auth.refreshSession();
+    sessionError=refreshed.error;
+    session=refreshed.data.session;
+  }
+  if(sessionError||!session?.access_token)throw new Error('La sesión administrativa ha caducado. Vuelve a iniciar sesión antes de enviar la notificación.');
+  return supabaseClient.functions.invoke(name,{body,headers:{Authorization:`Bearer ${session.access_token}`}});
 };
 adminDirectMessageForm.onsubmit=async event=>{
   event.preventDefault();
@@ -3228,9 +3262,10 @@ adminDirectMessageForm.onsubmit=async event=>{
     if(error)throw error;
     let pushResult=null;
     let pushIssue=null;
+    let pushIssueMessage='';
     if(sendPush){
-      const {data:result,error:pushError}=await supabaseClient.functions.invoke('send-expedient-push',{body:{action:'send',messageId:created.id}});
-      if(pushError)pushIssue=pushError;
+      const {data:result,error:pushError}=await invokeAuthenticatedAdminFunction('send-expedient-push',{action:'send',messageId:created.id});
+      if(pushError){pushIssue=pushError;pushIssueMessage=await functionErrorMessage(pushError)}
       pushResult=result;
     }
     const recipient=adminDirectMessageForm.elements.user_id.value;
@@ -3240,7 +3275,7 @@ adminDirectMessageForm.onsubmit=async event=>{
     updateAdminDirectMessagePreview();
     adminDirectMessageStatus.textContent=sendPush
       ?pushIssue
-        ?'Mensaje guardado, pero la notificación push no pudo enviarse.'
+        ?`Mensaje guardado, pero la notificación push no pudo enviarse: ${pushIssueMessage}`
         :pushResult?.sent
         ?`Comunicación enviada · ${pushResult.sent} dispositivo${pushResult.sent===1?'':'s'} ✓`
         :'Mensaje guardado, pero el destinatario aún no ha activado las notificaciones.'
