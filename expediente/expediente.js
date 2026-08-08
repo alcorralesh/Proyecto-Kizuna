@@ -2808,6 +2808,8 @@ const updateAdminDirectMessageRecipientState=()=>{
   const state=option?.dataset.pushState||'unselected';
   const states={
     authorized:['TERMINAL AUTORIZADO',`Hay ${devices.length===1?'un dispositivo activo':`${devices.length} dispositivos activos`}. Puedes enviar notificaciones push a este destinatario.`,true],
+    blocked:['TERMINAL BLOQUEADO','Las notificaciones están desactivadas en los ajustes del dispositivo. No se enviará ninguna push.',false],
+    'no-signal':['TERMINAL SIN SEÑAL','No hay una comprobación reciente del permiso y la suscripción. No se enviará ninguna push.',false],
     pending:['PUSH PENDIENTE','Todavía no ha aceptado ni rechazado la autorización. No puedes enviarle una push por ahora.',false],
     declined:['CANAL NO DISPONIBLE','Ha decidido continuar sin notificaciones. Puedes solicitar una nueva autorización desde Usuarios > Ajustes.',false],
     inactive:['SIN TERMINAL ACTIVO','Aceptó las notificaciones, pero ya no tiene ningún dispositivo activo. No puedes enviarle una push.',false]
@@ -2863,6 +2865,16 @@ adminDirectMessageDeliveryOptions.innerHTML=`<p class="system-line">ENTREGA Y DE
 adminDirectMessageForm.querySelector('.admin-direct-message-ack').before(adminDirectMessageDeliveryOptions);
 let adminDirectMessageChannel=null;
 const directMessageDate=value=>value?new Intl.DateTimeFormat('es-ES',{dateStyle:'short',timeStyle:'short'}).format(new Date(value)):'—';
+const PUSH_TERMINAL_SIGNAL_MAX_AGE=7*24*60*60*1000;
+const directMessageTerminalState=subscription=>{
+  if(subscription?.revoked_at&& !['provider','replaced'].includes(subscription?.revoked_reason))return{key:'revoked',label:'REVOCADO',description:'Administración ha retirado este terminal del Canal Seguro.'};
+  if(subscription?.revoked_at)return{key:'no-signal',label:'SIN SEÑAL',description:'La suscripción anterior ha caducado o ha sido sustituida y debe sincronizarse de nuevo.'};
+  if(subscription?.permission_state==='denied')return{key:'blocked',label:'BLOQUEADO EN EL DISPOSITIVO',description:'Las notificaciones están desactivadas en los ajustes de este dispositivo.'};
+  const checkedAt=Date.parse(subscription?.permission_checked_at||subscription?.last_seen_at||'');
+  const stale=!Number.isFinite(checkedAt)||Date.now()-checkedAt>PUSH_TERMINAL_SIGNAL_MAX_AGE;
+  if(stale||subscription?.permission_state!=='granted'||subscription?.subscription_present!==true)return{key:'no-signal',label:'SIN SEÑAL',description:'KIZUNA no ha podido confirmar recientemente el permiso y la suscripción de este terminal.'};
+  return{key:'active',label:'ACTIVO',description:'Permiso concedido, suscripción válida y señal reciente.'};
+};
 const directMessageDeviceInfo=subscription=>{
   if(!subscription)return{title:'Dispositivo eliminado',detail:'La suscripción ya no está disponible'};
   const ua=String(subscription.user_agent||''),platform=String(subscription.platform||'web').toLowerCase();
@@ -2885,7 +2897,7 @@ const directMessageDeviceInfo=subscription=>{
   const platformLabel=platform==='android'?'Android':platform==='ios'?'iOS / iPadOS':'Web';
   return{
     title:`${device} · ${browser}`,
-    detail:`${platformLabel} · última actividad ${directMessageDate(subscription.last_seen_at)}`
+    detail:`${platformLabel} · última comprobación ${directMessageDate(subscription.permission_checked_at||subscription.last_seen_at)}`
   };
 };
 const directMessageDeliveryState=delivery=>{
@@ -2904,7 +2916,7 @@ const renderAdminPushDevices=async userId=>{
   target.innerHTML='<p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4><p>Cargando suscripciones push…</p>';
   const [{data,error},{data:preference,error:preferenceError}]=await Promise.all([
     supabaseClient.from('expedient_push_subscriptions')
-      .select('id,user_agent,platform,created_at,last_seen_at,revoked_at')
+      .select('id,user_agent,platform,created_at,last_seen_at,revoked_at,revoked_reason,permission_state,subscription_present,permission_checked_at')
       .eq('user_id',userId)
       .order('last_seen_at',{ascending:false}),
     supabaseClient.from('expedient_push_preferences')
@@ -2917,11 +2929,19 @@ const renderAdminPushDevices=async userId=>{
     target.innerHTML='<p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4><p>No se pudieron consultar los dispositivos.</p>';
     return;
   }
-  const subscriptions=data||[],active=subscriptions.filter(item=>!item.revoked_at);
+  const subscriptions=data||[];
+  const subscriptionsByState=subscriptions.map(subscription=>({subscription,state:directMessageTerminalState(subscription)}));
+  const active=subscriptionsByState.filter(item=>item.state.key==='active').map(item=>item.subscription);
+  const blocked=subscriptionsByState.filter(item=>item.state.key==='blocked').map(item=>item.subscription);
+  const withoutSignal=subscriptionsByState.filter(item=>item.state.key==='no-signal').map(item=>item.subscription);
   if(preferenceError)console.warn('No se pudo consultar la autorización narrativa de notificaciones.',preferenceError);
   const preferenceStatus=preference?.status||null;
   const notificationState=active.length
     ?{label:`${active.length} TERMINAL${active.length===1?'':'ES'} ACTIVO${active.length===1?'':'S'}`,className:'authorized',description:`Canal Seguro establecido · ${active.length} dispositivo${active.length===1?'':'s'} activo${active.length===1?'':'s'}`}
+    :blocked.length
+      ?{label:`${blocked.length} TERMINAL${blocked.length===1?'':'ES'} BLOQUEADO${blocked.length===1?'':'S'}`,className:'blocked',description:'Las notificaciones están desactivadas desde los ajustes de los dispositivos.'}
+    :withoutSignal.length
+      ?{label:'SIN SEÑAL',className:'no-signal',description:'No se ha recibido una comprobación fiable durante los últimos siete días.'}
     :preferenceStatus==='declined'
       ?{label:'CANAL NO DISPONIBLE',className:'declined',description:'El destinatario continuó sin autorizar este dispositivo.'}
       :preferenceStatus==='granted'
@@ -2941,15 +2961,15 @@ const renderAdminPushDevices=async userId=>{
   }
   const summaryChannel=document.querySelector('[data-admin-summary-channel]');
   if(summaryChannel){
-    const newest=active[0]||null;
+    const newest=subscriptions[0]||null;
     summaryChannel.className=`admin-summary-channel is-${notificationState.className}`;
     summaryChannel.innerHTML=`<header>
       <span class="admin-summary-channel-mark" aria-hidden="true"><i class="kizuna-header-icon kizuna-header-icon-channel"></i></span>
-      <div><p class="system-line">CANAL SEGURO · AT-03</p><h4>${active.length?`${active.length} terminal${active.length===1?'':'es'} enlazado${active.length===1?'':'s'}`:notificationState.label}</h4><small>${newest?`Última señal recibida ${directMessageDate(newest.last_seen_at)}`:notificationState.description}</small></div>
+      <div><p class="system-line">CANAL SEGURO · AT-03</p><h4>${subscriptions.length?`${subscriptions.length} terminal${subscriptions.length===1?'':'es'} registrado${subscriptions.length===1?'':'s'}`:notificationState.label}</h4><small>${newest?`${active.length} activo${active.length===1?'':'s'} · última comprobación ${directMessageDate(newest.permission_checked_at||newest.last_seen_at)}`:notificationState.description}</small></div>
       <button type="button" data-summary-manage-terminals>Gestionar terminales <span>→</span></button>
     </header>
-    <ul>${active.slice(0,3).map(subscription=>{const device=directMessageDeviceInfo(subscription);return `<li><i aria-hidden="true"></i><span><strong>${adminEditorEscape(device.title)}</strong><small>${adminEditorEscape(device.detail)}</small></span><b>ACTIVO</b></li>`}).join('')||'<li class="is-empty"><span><strong>Sin terminales activos</strong><small>El Canal Seguro todavía no tiene un dispositivo enlazado.</small></span></li>'}</ul>
-    ${active.length>3?`<p class="admin-summary-channel-more">Y ${active.length-3} terminal${active.length-3===1?'':'es'} más.</p>`:''}`;
+    <ul>${subscriptionsByState.slice(0,3).map(({subscription,state})=>{const device=directMessageDeviceInfo(subscription);return `<li class="is-${state.key}"><i aria-hidden="true"></i><span><strong>${adminEditorEscape(device.title)}</strong><small>${adminEditorEscape(device.detail)}</small></span><b>${state.label}</b></li>`}).join('')||'<li class="is-empty"><span><strong>Sin terminales registrados</strong><small>El Canal Seguro todavía no tiene un dispositivo enlazado.</small></span></li>'}</ul>
+    ${subscriptions.length>3?`<p class="admin-summary-channel-more">Y ${subscriptions.length-3} terminal${subscriptions.length-3===1?'':'es'} más.</p>`:''}`;
     summaryChannel.querySelector('[data-summary-manage-terminals]').onclick=()=>document.querySelector('[data-editor-tab="settings"]')?.click();
   }
   target.innerHTML=`<header><div><p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4></div><strong class="${notificationState.className}">${notificationState.label}</strong></header>
@@ -2958,18 +2978,21 @@ const renderAdminPushDevices=async userId=>{
       <summary>¿Qué significa cada estado?</summary>
       <dl>
         <div class="authorized"><dt><i></i> Terminal autorizado</dt><dd>Hay al menos un dispositivo activo. Puedes enviarle notificaciones push.</dd></div>
+        <div class="blocked"><dt><i></i> Bloqueado en el dispositivo</dt><dd>El destinatario ha desactivado las notificaciones desde los ajustes del sistema.</dd></div>
+        <div class="no-signal"><dt><i></i> Sin señal</dt><dd>El terminal no ha comprobado su permiso y su suscripción durante los últimos siete días.</dd></div>
+        <div class="revoked"><dt><i></i> Revocado</dt><dd>Administración ha retirado este terminal del Canal Seguro.</dd></div>
         <div class="pending"><dt><i></i> Push pendiente</dt><dd>El usuario todavía no ha aceptado ni rechazado la autorización. Aún no puedes enviarle una push.</dd></div>
         <div class="declined"><dt><i></i> Canal no disponible</dt><dd>El usuario decidió continuar sin notificaciones. Puedes solicitarle la autorización de nuevo.</dd></div>
         <div class="inactive"><dt><i></i> Sin terminal activo</dt><dd>Aceptó anteriormente, pero todos sus dispositivos están revocados o inactivos. No se puede enviar una push.</dd></div>
       </dl>
     </details>
     <p class="admin-push-devices-note">Revocar detiene las notificaciones en ese navegador sin borrar el historial. El propio dispositivo podrá registrarse otra vez si vuelve a autorizarlas.</p>
-    <ul>${subscriptions.map(subscription=>{
+    <ul>${subscriptionsByState.map(({subscription,state})=>{
       const device=directMessageDeviceInfo(subscription),revoked=Boolean(subscription.revoked_at);
-      return `<li class="${revoked?'is-revoked':''}" data-push-subscription="${subscription.id}">
+      return `<li class="is-${state.key}" data-push-subscription="${subscription.id}">
         <span class="admin-direct-message-device-icon" aria-hidden="true">${subscription.platform==='android'?'A':subscription.platform==='ios'?'i':'W'}</span>
-        <span><strong>${adminEditorEscape(device.title)}</strong><small>${adminEditorEscape(device.detail)}</small></span>
-        <b>${revoked?'REVOCADO':'ACTIVO'}</b>
+        <span><strong>${adminEditorEscape(device.title)}</strong><small>${adminEditorEscape(device.detail)} · ${adminEditorEscape(state.description)}</small></span>
+        <b>${state.label}</b>
         <button type="button" data-push-device-action="${revoked?'reactivate':'revoke'}" data-push-subscription-id="${subscription.id}">${revoked?'Reactivar dispositivo':'Revocar dispositivo'}</button>
       </li>`;
     }).join('')||'<li class="is-empty">Este destinatario todavía no ha autorizado ningún dispositivo.</li>'}</ul>
@@ -2998,7 +3021,9 @@ const renderAdminPushDevices=async userId=>{
     button.disabled=true;status.textContent=reactivating?'Reactivando dispositivo…':'Revocando dispositivo…';
     const now=new Date().toISOString();
     const {error:revokeError}=await supabaseClient.from('expedient_push_subscriptions')
-      .update({revoked_at:reactivating?null:now,updated_at:now})
+      .update(reactivating
+        ?{revoked_at:null,revoked_reason:null,permission_state:'unknown',subscription_present:false,permission_checked_at:now,updated_at:now}
+        :{revoked_at:now,revoked_reason:'admin',updated_at:now})
       .eq('id',button.dataset.pushSubscriptionId)
       .eq('user_id',userId);
     if(revokeError){
@@ -3088,8 +3113,8 @@ const loadAdminDirectMessages=async()=>{
   const recipientSelect=adminDirectMessageForm.elements.user_id;
   const [{data:profiles,error:profilesError},{data:messages,error:messagesError},{data:subscriptions,error:subscriptionsError},{data:preferences,error:preferencesError}]=await Promise.all([
     supabaseClient.from('expedient_profiles').select('id,email,display_name,is_active').order('display_name'),
-    supabaseClient.from('expedient_messages').select('*,expedient_profiles(display_name,email),expedient_push_deliveries(status,accepted_at,received_at,opened_at,updated_at,error,expedient_push_subscriptions(id,user_agent,platform,last_seen_at,revoked_at))').order('published_at',{ascending:false}).limit(100),
-    supabaseClient.from('expedient_push_subscriptions').select('id,user_id,user_agent,platform,created_at,last_seen_at,revoked_at').is('revoked_at',null),
+    supabaseClient.from('expedient_messages').select('*,expedient_profiles(display_name,email),expedient_push_deliveries(status,accepted_at,received_at,opened_at,updated_at,error,expedient_push_subscriptions(id,user_agent,platform,last_seen_at,revoked_at,permission_state,subscription_present,permission_checked_at))').order('published_at',{ascending:false}).limit(100),
+    supabaseClient.from('expedient_push_subscriptions').select('id,user_id,user_agent,platform,created_at,last_seen_at,revoked_at,permission_state,subscription_present,permission_checked_at').is('revoked_at',null),
     supabaseClient.from('expedient_push_preferences').select('user_id,status')
   ]);
   if(profilesError||messagesError||subscriptionsError||preferencesError){
@@ -3099,8 +3124,11 @@ const loadAdminDirectMessages=async()=>{
     return false;
   }
   const previous=recipientSelect.value;
-  const activePushUsers=new Set((subscriptions||[]).map(subscription=>subscription.user_id));
-  adminDirectMessageActiveDevices=(subscriptions||[]).reduce((devicesByUser,subscription)=>{
+  const eligibleSubscriptions=(subscriptions||[]).filter(subscription=>directMessageTerminalState(subscription).key==='active');
+  const activePushUsers=new Set(eligibleSubscriptions.map(subscription=>subscription.user_id));
+  const blockedPushUsers=new Set((subscriptions||[]).filter(subscription=>directMessageTerminalState(subscription).key==='blocked').map(subscription=>subscription.user_id));
+  const noSignalPushUsers=new Set((subscriptions||[]).filter(subscription=>directMessageTerminalState(subscription).key==='no-signal').map(subscription=>subscription.user_id));
+  adminDirectMessageActiveDevices=eligibleSubscriptions.reduce((devicesByUser,subscription)=>{
     if(!devicesByUser.has(subscription.user_id))devicesByUser.set(subscription.user_id,[]);
     devicesByUser.get(subscription.user_id).push(subscription);
     return devicesByUser;
@@ -3108,8 +3136,9 @@ const loadAdminDirectMessages=async()=>{
   const pushPreferences=new Map((preferences||[]).map(preference=>[preference.user_id,preference.status]));
   recipientSelect.innerHTML='<option value="">Selecciona un destinatario</option>'+profiles.filter(profile=>profile.is_active!==false).map(profile=>{
     const pushActive=activePushUsers.has(profile.id);
-    const pushLabel=pushActive?'PUSH ACTIVA':pushPreferences.get(profile.id)==='declined'?'SIN CANAL':'PUSH PENDIENTE';
-    const pushState=pushActive?'authorized':pushPreferences.get(profile.id)==='declined'?'declined':pushPreferences.get(profile.id)==='granted'?'inactive':'pending';
+    const pushBlocked=blockedPushUsers.has(profile.id),pushNoSignal=noSignalPushUsers.has(profile.id);
+    const pushLabel=pushActive?'PUSH ACTIVA':pushBlocked?'PUSH BLOQUEADA':pushNoSignal?'SIN SEÑAL':pushPreferences.get(profile.id)==='declined'?'SIN CANAL':'PUSH PENDIENTE';
+    const pushState=pushActive?'authorized':pushBlocked?'blocked':pushNoSignal?'no-signal':pushPreferences.get(profile.id)==='declined'?'declined':pushPreferences.get(profile.id)==='granted'?'inactive':'pending';
     return `<option value="${profile.id}" data-push-available="${pushActive}" data-push-state="${pushState}">${adminEditorEscape(profile.display_name||profile.email)} · ${adminEditorEscape(profile.email)} · ${pushLabel}</option>`;
   }).join('');
   if([...recipientSelect.options].some(option=>option.value===previous))recipientSelect.value=previous;

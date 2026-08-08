@@ -40,8 +40,33 @@ create table if not exists public.expedient_push_subscriptions (
   revoked_at timestamptz
 );
 
+-- Estado observado por la propia instalación. Se conserva separado de
+-- revoked_at porque el bloqueo del sistema y la revocación administrativa
+-- representan decisiones diferentes.
+alter table public.expedient_push_subscriptions
+  add column if not exists client_key text,
+  add column if not exists permission_state text not null default 'granted',
+  add column if not exists subscription_present boolean not null default true,
+  add column if not exists permission_checked_at timestamptz not null default now(),
+  add column if not exists revoked_reason text;
+
+alter table public.expedient_push_subscriptions
+  drop constraint if exists expedient_push_subscriptions_permission_state_check;
+alter table public.expedient_push_subscriptions
+  add constraint expedient_push_subscriptions_permission_state_check
+  check (permission_state in ('granted', 'denied', 'unknown'));
+
+alter table public.expedient_push_subscriptions
+  drop constraint if exists expedient_push_subscriptions_revoked_reason_check;
+alter table public.expedient_push_subscriptions
+  add constraint expedient_push_subscriptions_revoked_reason_check
+  check (revoked_reason is null or revoked_reason in ('admin', 'provider', 'replaced'));
+
 create index if not exists expedient_push_subscriptions_user_idx
   on public.expedient_push_subscriptions (user_id, revoked_at);
+
+create index if not exists expedient_push_subscriptions_signal_idx
+  on public.expedient_push_subscriptions (user_id, permission_checked_at desc);
 
 create table if not exists public.expedient_push_preferences (
   user_id uuid primary key references public.expedient_profiles(id) on delete cascade,
@@ -145,10 +170,12 @@ begin
 
   insert into public.expedient_push_subscriptions (
     user_id, endpoint, p256dh, auth, user_agent, platform,
-    last_seen_at, revoked_at, updated_at
+    last_seen_at, permission_state, subscription_present,
+    permission_checked_at, revoked_at, updated_at
   ) values (
     auth.uid(), push_endpoint, push_p256dh, push_auth,
-    push_user_agent, push_platform, now(), null, now()
+    push_user_agent, push_platform, now(), 'granted', true,
+    now(), null, now()
   )
   on conflict (endpoint) do update set
     user_id = auth.uid(),
@@ -157,9 +184,17 @@ begin
     user_agent = excluded.user_agent,
     platform = excluded.platform,
     last_seen_at = now(),
+    permission_state = 'granted',
+    subscription_present = true,
+    permission_checked_at = now(),
     revoked_at = case
       when public.expedient_push_subscriptions.user_id = auth.uid()
         then public.expedient_push_subscriptions.revoked_at
+      else null
+    end,
+    revoked_reason = case
+      when public.expedient_push_subscriptions.user_id = auth.uid()
+        then public.expedient_push_subscriptions.revoked_reason
       else null
     end,
     updated_at = now()
@@ -171,6 +206,76 @@ $$;
 
 revoke all on function public.register_expedient_push_subscription(text, text, text, text, text) from public;
 grant execute on function public.register_expedient_push_subscription(text, text, text, text, text) to authenticated;
+
+-- Recibe el pulso del terminal al abrir KIZUNA. client_key es un identificador
+-- técnico aleatorio de la instalación; no contiene datos del expediente.
+create or replace function public.sync_expedient_push_terminal_state(
+  push_endpoint text default null,
+  push_client_key text default null,
+  push_permission text default 'unknown',
+  push_has_subscription boolean default false
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  subscription_id uuid;
+  normalized_endpoint text := nullif(trim(push_endpoint), '');
+  normalized_client_key text := nullif(trim(push_client_key), '');
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+  if push_permission not in ('granted', 'denied', 'unknown') then
+    raise exception 'Invalid permission state';
+  end if;
+  if normalized_client_key is not null and char_length(normalized_client_key) > 100 then
+    raise exception 'Invalid client key';
+  end if;
+
+  select id into subscription_id
+  from public.expedient_push_subscriptions
+  where user_id = auth.uid()
+    and (
+      (normalized_endpoint is not null and endpoint = normalized_endpoint)
+      or (normalized_endpoint is null and normalized_client_key is not null and client_key = normalized_client_key)
+    )
+  order by (endpoint = normalized_endpoint) desc, updated_at desc
+  limit 1;
+
+  if subscription_id is null then
+    return null;
+  end if;
+
+  if normalized_client_key is not null then
+    update public.expedient_push_subscriptions
+    set revoked_at = coalesce(revoked_at, now()),
+        revoked_reason = coalesce(revoked_reason, 'replaced'),
+        updated_at = now()
+    where user_id = auth.uid()
+      and client_key = normalized_client_key
+      and id <> subscription_id
+      and revoked_at is null;
+  end if;
+
+  update public.expedient_push_subscriptions
+  set client_key = coalesce(normalized_client_key, client_key),
+      permission_state = push_permission,
+      subscription_present = push_has_subscription,
+      permission_checked_at = now(),
+      last_seen_at = now(),
+      updated_at = now()
+  where id = subscription_id
+    and user_id = auth.uid();
+
+  return subscription_id;
+end;
+$$;
+
+revoke all on function public.sync_expedient_push_terminal_state(text, text, text, boolean) from public;
+grant execute on function public.sync_expedient_push_terminal_state(text, text, text, boolean) to authenticated;
 
 -- Conserva la respuesta narrativa del destinatario sin mezclarla con el
 -- progreso documental. La presencia de dispositivos activos se consulta aparte.

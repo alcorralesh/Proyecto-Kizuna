@@ -121,11 +121,15 @@ Deno.serve(async request => {
   if (!message) return json({ error: 'Mensaje no localizado.', messageId }, 404)
   if (!message.send_push) return json({ sent: 0, ignored: true })
 
+  const signalCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const { data: subscriptions, error: subscriptionsError } = await adminClient
     .from('expedient_push_subscriptions')
     .select('id,endpoint,p256dh,auth')
     .eq('user_id', message.user_id)
     .is('revoked_at', null)
+    .eq('permission_state', 'granted')
+    .eq('subscription_present', true)
+    .gte('permission_checked_at', signalCutoff)
   if (subscriptionsError) return json({ error: subscriptionsError.message }, 400)
   if (!subscriptions?.length) return json({ sent: 0, noSubscription: true })
 
@@ -184,7 +188,7 @@ Deno.serve(async request => {
       }).eq('id', delivery.id)
       if ([404, 410].includes(statusCode)) {
         await adminClient.from('expedient_push_subscriptions')
-          .update({ revoked_at: now, updated_at: now })
+          .update({ revoked_at: now, revoked_reason: 'provider', subscription_present: false, updated_at: now })
           .eq('id', subscription.id)
       }
       failed += 1

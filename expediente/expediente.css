@@ -3753,3 +3753,14 @@ html.viewer-open body{position:fixed;left:0;right:0}
 .admin-summary-channel.is-authorized{border-left:4px solid #526f55}.admin-summary-channel.is-authorized .admin-summary-channel-mark{border-color:#526f55;color:#526f55}.admin-summary-channel.is-declined,.admin-summary-channel.is-inactive{border-left:4px solid #8f1d1b}.admin-summary-channel.is-declined .admin-summary-channel-mark,.admin-summary-channel.is-inactive .admin-summary-channel-mark{border-color:#8f1d1b;color:#8f1d1b}
 @media(max-width:900px){.admin-summary-channel ul{grid-template-columns:1fr}.admin-summary-channel li{border-right:0;border-bottom:1px solid #d3c7b3}.admin-summary-channel li:last-child{border-bottom:0}}
 @media(max-width:600px){.admin-dashboard .admin-summary-channel>header{grid-template-columns:44px minmax(0,1fr);gap:12px;padding:17px}.admin-summary-channel-mark{width:40px;height:40px}.admin-dashboard .admin-summary-channel>header>button{grid-column:1/-1;width:100%;min-width:0}.admin-summary-channel li{grid-template-columns:8px minmax(0,1fr);padding:14px 17px}.admin-summary-channel li>b{grid-column:2;justify-self:start}.admin-summary-channel h4{font-size:22px}}
+
+/* Estado real y última señal de cada terminal del Canal Seguro. */
+.admin-user-notification-state.blocked,.admin-push-devices>header>strong.blocked,.admin-direct-message-recipient-state.blocked{color:#8f1d1b;border-color:#8f1d1b}
+.admin-user-notification-state.no-signal,.admin-push-devices>header>strong.no-signal,.admin-direct-message-recipient-state.no-signal{color:#8b7655;border-color:#8b7655}
+.admin-push-preference-state.blocked{border-color:#8f1d1b}.admin-push-preference-state.no-signal{border-color:#8b7655}
+.admin-push-state-legend .blocked dt,.admin-push-state-legend .revoked dt{color:#8f1d1b}.admin-push-state-legend .no-signal dt{color:#8b7655}
+.admin-push-devices li.is-blocked>b{border-color:#8f1d1b;color:#8f1d1b}.admin-push-devices li.is-no-signal>b{border-color:#8b7655;color:#8b7655}.admin-push-devices li.is-revoked>b{border-color:#8f1d1b;color:#8f1d1b}
+.admin-push-devices li>b,.admin-summary-channel li>b{max-width:145px;white-space:normal;text-align:center;line-height:1.35}
+.admin-summary-channel li.is-blocked>i,.admin-summary-channel li.is-revoked>i{border-color:#8f1d1b;background:#8f1d1b}.admin-summary-channel li.is-blocked>b,.admin-summary-channel li.is-revoked>b{border-color:#8f1d1b;color:#8f1d1b}
+.admin-summary-channel li.is-no-signal>i{border-color:#8b7655;background:transparent}.admin-summary-channel li.is-no-signal>b{border-color:#8b7655;color:#8b7655}
+.admin-summary-channel.is-blocked{border-left:4px solid #8f1d1b}.admin-summary-channel.is-no-signal{border-left:4px solid #8b7655}

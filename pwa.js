@@ -1,5 +1,5 @@
 /* KIZUNA PWA · instalación, conexión y actualizaciones controladas.
-   No usa localStorage ni conserva datos del expediente. */
+   Conserva sólo una clave técnica del terminal; nunca datos del expediente. */
 (()=>{
   'use strict';
 
@@ -50,6 +50,22 @@
   let pushClient=null;
   let pushUserId=null;
   let pushActivityRecorder=null;
+  let pushClientKey=null;
+
+  const pushTerminalClientKey=()=>{
+    if(pushClientKey)return pushClientKey;
+    try{
+      const storageKey='kizuna.push-terminal-key.v1';
+      pushClientKey=localStorage.getItem(storageKey);
+      if(!pushClientKey){
+        pushClientKey=crypto.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        localStorage.setItem(storageKey,pushClientKey);
+      }
+    }catch(_error){
+      pushClientKey=crypto.randomUUID?.()||null;
+    }
+    return pushClientKey;
+  };
 
   const removeElement=selector=>document.querySelector(selector)?.remove();
 
@@ -150,6 +166,19 @@
     return Uint8Array.from(binary,character=>character.charCodeAt(0));
   };
 
+  const syncPushTerminalState=async subscription=>{
+    if(!pushClient||!pushUserId)return null;
+    const permission=Notification.permission==='granted'?'granted':Notification.permission==='denied'?'denied':'unknown';
+    const {data,error}=await pushClient.rpc('sync_expedient_push_terminal_state',{
+      push_endpoint:subscription?.endpoint||null,
+      push_client_key:pushTerminalClientKey(),
+      push_permission:permission,
+      push_has_subscription:Boolean(subscription)
+    });
+    if(error)throw error;
+    return data;
+  };
+
   const savePushSubscription=async subscription=>{
     if(!pushClient||!pushUserId||!subscription)return;
     const serialized=subscription.toJSON();
@@ -161,6 +190,7 @@
       push_platform:isIos()?'ios':/android/i.test(navigator.userAgent)?'android':'web'
     });
     if(error)throw error;
+    await syncPushTerminalState(subscription);
   };
 
   const savePushPreference=async preference=>{
@@ -384,6 +414,10 @@
     pushActivityRecorder=options?.recordActivity||null;
     if(!pushClient||!pushUserId||!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))return null;
     if(isIos()&&!standalone())return null;
+    if(!registration)await register();
+    const currentRegistration=registration||await navigator.serviceWorker.ready;
+    const subscription=await currentRegistration.pushManager.getSubscription();
+    await syncPushTerminalState(subscription).catch(error=>console.warn('No se pudo registrar la señal del terminal.',error));
     const {data:preference,error:preferenceError}=await pushClient
       .from('expedient_push_preferences')
       .select('status')
@@ -391,9 +425,6 @@
       .maybeSingle();
     if(preferenceError)console.warn('No se pudo consultar la preferencia de notificaciones.',preferenceError);
     if(preference?.status==='declined'&&Notification.permission==='default')return null;
-    if(!registration)await register();
-    const currentRegistration=registration||await navigator.serviceWorker.ready;
-    const subscription=await currentRegistration.pushManager.getSubscription();
     if(Notification.permission==='granted'){
       if(subscription){
         await Promise.all([
@@ -408,7 +439,6 @@
       });
     }
     if(Notification.permission==='denied'){
-      await savePushPreference('declined').catch(error=>console.warn('No se pudo sincronizar la preferencia de notificaciones.',error));
       return null;
     }
     await new Promise(resolve=>setTimeout(resolve,1400));
@@ -425,6 +455,21 @@
       options?.onSettled?.(result);
       document.dispatchEvent(new CustomEvent('kizuna:push-flow-settled',{detail:result||{status:'unavailable'}}));
       void announcePushState();
+    }
+  };
+
+  const refreshPushTerminalState=async()=>{
+    if(!pushClient||!pushUserId||!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))return;
+    if(isIos()&&!standalone())return;
+    try{
+      if(!registration)await register();
+      const currentRegistration=registration||await navigator.serviceWorker.ready;
+      const subscription=await currentRegistration.pushManager.getSubscription();
+      if(Notification.permission==='granted'&&subscription)await savePushSubscription(subscription);
+      else await syncPushTerminalState(subscription);
+      void announcePushState();
+    }catch(error){
+      console.warn('No se pudo actualizar el estado del terminal.',error);
     }
   };
 
@@ -509,7 +554,11 @@
   });
   window.addEventListener('online',showConnectionState);
   window.addEventListener('offline',showConnectionState);
-  document.addEventListener('visibilitychange',checkForUpdates);
+  document.addEventListener('visibilitychange',()=>{
+    checkForUpdates();
+    if(document.visibilityState==='visible')void refreshPushTerminalState();
+  });
+  window.addEventListener('pageshow',()=>void refreshPushTerminalState());
   navigator.serviceWorker?.addEventListener('controllerchange',()=>{
     if(refreshing)location.reload();
   });
