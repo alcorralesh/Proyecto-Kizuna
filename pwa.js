@@ -30,7 +30,7 @@
 
   const stylesheet=document.createElement('link');
   stylesheet.rel='stylesheet';
-  stylesheet.href=new URL('pwa.css?v=20260804-public-header01',baseUrl).href;
+  stylesheet.href=new URL('pwa.css?v=20260808-push-channel01',baseUrl).href;
   document.head.appendChild(stylesheet);
 
   let installEvent=null;
@@ -221,6 +221,94 @@
     },240);
   };
 
+  const pushState=async()=>{
+    if(!('Notification'in window)||!('PushManager'in window)||!('serviceWorker'in navigator)){
+      return{state:'unavailable',label:'Canal no disponible'};
+    }
+    if(isIos()&&!standalone())return{state:'installation_required',label:'Instala KIZUNA para autorizarlo'};
+    if(Notification.permission==='denied')return{state:'blocked',label:'Autorización bloqueada'};
+    if(Notification.permission!=='granted')return{state:'pending',label:'Terminal no registrado'};
+    try{
+      if(!registration)await register();
+      const currentRegistration=registration||await navigator.serviceWorker.ready;
+      const subscription=await currentRegistration.pushManager.getSubscription();
+      return subscription
+        ?{state:'authorized',label:'Terminal autorizado'}
+        :{state:'pending',label:'Canal pendiente de sincronización'};
+    }catch(_error){
+      return{state:'unavailable',label:'Canal no disponible'};
+    }
+  };
+
+  const announcePushState=async()=>{
+    const state=await pushState();
+    document.dispatchEvent(new CustomEvent('kizuna:push-state',{detail:state}));
+    return state;
+  };
+
+  const showBlockedPushProtocol=()=>{
+    document.querySelector('.kizuna-push-consent')?.remove();
+    const notice=document.createElement('aside');
+    notice.className='kizuna-push-consent is-result is-unavailable';
+    notice.setAttribute('role','dialog');
+    notice.setAttribute('aria-modal','true');
+    notice.setAttribute('aria-labelledby','kizuna-push-consent-title');
+    notice.innerHTML=`<div class="kizuna-push-consent-card">
+      <header><span>DIVISIÓN DE ARCHIVOS TEMPORALES</span><b>AUTORIZACIÓN · AT-03</b></header>
+      <div class="kizuna-push-consent-result">
+        <p>CANAL DE COMUNICACIONES</p>
+        <h2 id="kizuna-push-consent-title"><i aria-hidden="true">○</i> Autorización bloqueada</h2>
+        <strong>No se puede establecer el Canal Seguro.</strong>
+        <p>Abre Ajustes de iOS → Notificaciones → KIZUNA y permite las notificaciones. Después vuelve aquí para registrar de nuevo este terminal.</p>
+      </div>
+      <button type="button" data-push-close>Volver al expediente</button>
+    </div>`;
+    notice.querySelector('[data-push-close]').onclick=()=>closePushConsent(notice,null,'blocked');
+    document.body.appendChild(notice);
+    document.documentElement.classList.add('kizuna-push-modal-open');
+    requestAnimationFrame(()=>notice.classList.add('is-visible'));
+  };
+
+  const openPushProtocol=async()=>{
+    if(document.querySelector('.kizuna-push-consent'))return null;
+    if(!('Notification'in window)||!('PushManager'in window)||!('serviceWorker'in navigator)){
+      showBlockedPushProtocol();
+      return announcePushState();
+    }
+    if(isIos()&&!standalone()){
+      showIosInstructions();
+      return announcePushState();
+    }
+    if(Notification.permission==='denied'){
+      showBlockedPushProtocol();
+      return announcePushState();
+    }
+    if(Notification.permission==='default'){
+      const result=await showPushConsent();
+      await announcePushState();
+      return result;
+    }
+    const notice=document.createElement('aside');
+    notice.className='kizuna-push-consent';
+    notice.setAttribute('role','dialog');
+    notice.setAttribute('aria-modal','true');
+    document.body.appendChild(notice);
+    document.documentElement.classList.add('kizuna-push-modal-open');
+    requestAnimationFrame(()=>notice.classList.add('is-visible'));
+    try{
+      await enablePush();
+      await recordPushActivity('push_channel_authorized',{permission:Notification.permission,source:'manual_protocol'});
+      showPushConsentResult(notice,true,()=>announcePushState());
+    }catch(error){
+      notice.remove();
+      document.documentElement.classList.remove('kizuna-push-modal-open');
+      showBlockedPushProtocol();
+      await announcePushState();
+      console.warn('No se pudo restablecer el Canal Seguro.',error);
+    }
+    return pushState();
+  };
+
   const showPushConsent=()=>new Promise(resolve=>{
     if(document.querySelector('.kizuna-push-consent,.kizuna-pwa-install')||standalone()===false&&isIos()){
       resolve({status:'not_shown'});
@@ -330,6 +418,7 @@
     }finally{
       options?.onSettled?.(result);
       document.dispatchEvent(new CustomEvent('kizuna:push-flow-settled',{detail:result||{status:'unavailable'}}));
+      void announcePushState();
     }
   };
 
@@ -432,6 +521,8 @@
     install,
     connectPush,
     enablePush,
+    getPushStatus:pushState,
+    openPushProtocol,
     checkForUpdates,
     cachePolicy:'static-public-only'
   };

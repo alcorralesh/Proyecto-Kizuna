@@ -2,7 +2,7 @@
    Nunca almacena progreso, respuestas autenticadas ni archivos del expediente. */
 'use strict';
 
-const VERSION='20260808-admin-messages-push01';
+const VERSION='20260808-push-channel01';
 const STATIC_CACHE=`kizuna-static-${VERSION}`;
 const PAGE_CACHE=`kizuna-pages-${VERSION}`;
 const KIZUNA_CACHE_PREFIXES=['kizuna-static-','kizuna-pages-'];
@@ -11,14 +11,15 @@ const CORE_ASSETS=[
   './index.html',
   './offline.html',
   './manifest.webmanifest',
-  './pwa.js?v=20260806-admin-update01',
-  './pwa.css',
+  './pwa.js?v=20260808-push-channel01',
+  './pwa.css?v=20260808-push-channel01',
+  './assets/header-icons/channel.svg',
   './styles.css',
   './public-subpage-header.css?v=20260807-subpage-header01',
   './public-subpage-header.js?v=20260807-subpage-header01',
   './recipient-messages.css',
   './recipient-messages.js',
-  './script.js?v=20260805-activity-log01',
+  './script.js?v=20260808-push-channel01',
   './events.js?v=20260804-lore-copy01',
   './public-form-security.js?v=20260802-public-forms06',
   './hero-carousel.js',
