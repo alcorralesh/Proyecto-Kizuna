@@ -22,6 +22,12 @@
   window.matchMedia?.('(display-mode: standalone)').addEventListener?.('change',syncStandaloneClass);
   window.addEventListener('pageshow',syncStandaloneClass);
   const isIos=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const isAndroid=()=>/android/i.test(navigator.userAgent);
+  const blockedPushInstructions=()=>{
+    if(isIos())return 'Abre Ajustes de iOS → Notificaciones → KIZUNA y permite las notificaciones. Después vuelve aquí para registrar de nuevo este terminal.';
+    if(isAndroid())return 'Abre Ajustes de Android → Aplicaciones → KIZUNA → Notificaciones y permite los avisos. Después vuelve aquí para registrar de nuevo este terminal.';
+    return 'Abre la configuración de este sitio en el navegador, permite las notificaciones y vuelve aquí para registrar de nuevo este terminal.';
+  };
   const isBusy=()=>Boolean(
     document.querySelector('dialog[open],#alt00-viewer,.kizuna-cinematic-finale,.kizuna-early-access')||
     document.body.classList.contains('alberto-overlay-open')||
@@ -259,7 +265,7 @@
         <p>CANAL DE COMUNICACIONES</p>
         <h2 id="kizuna-push-consent-title"><i aria-hidden="true">○</i> Autorización bloqueada</h2>
         <strong>No se puede establecer el Canal Seguro.</strong>
-        <p>Abre Ajustes de iOS → Notificaciones → KIZUNA y permite las notificaciones. Después vuelve aquí para registrar de nuevo este terminal.</p>
+        <p>${blockedPushInstructions()}</p>
       </div>
       <button type="button" data-push-close>Volver al expediente</button>
     </div>`;

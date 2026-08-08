@@ -2921,7 +2921,7 @@ const renderAdminPushDevices=async userId=>{
   if(preferenceError)console.warn('No se pudo consultar la autorización narrativa de notificaciones.',preferenceError);
   const preferenceStatus=preference?.status||null;
   const notificationState=active.length
-    ?{label:'TERMINAL AUTORIZADO',className:'authorized',description:`Canal Seguro establecido · ${active.length} dispositivo${active.length===1?'':'s'} activo${active.length===1?'':'s'}`}
+    ?{label:`${active.length} TERMINAL${active.length===1?'':'ES'} ACTIVO${active.length===1?'':'S'}`,className:'authorized',description:`Canal Seguro establecido · ${active.length} dispositivo${active.length===1?'':'s'} activo${active.length===1?'':'s'}`}
     :preferenceStatus==='declined'
       ?{label:'CANAL NO DISPONIBLE',className:'declined',description:'El destinatario continuó sin autorizar este dispositivo.'}
       :preferenceStatus==='granted'
@@ -2936,8 +2936,21 @@ const renderAdminPushDevices=async userId=>{
   const dashboardNotification=document.querySelector('[data-admin-summary-notification-state]');
   if(dashboardNotification){
     dashboardNotification.className=`is-${notificationState.className}`;
-    dashboardNotification.textContent=`NOTIFICACIONES · ${notificationState.label}`;
+    dashboardNotification.textContent=`CANAL SEGURO · ${notificationState.label}`;
     dashboardNotification.title=notificationState.description;
+  }
+  const summaryChannel=document.querySelector('[data-admin-summary-channel]');
+  if(summaryChannel){
+    const newest=active[0]||null;
+    summaryChannel.className=`admin-summary-channel is-${notificationState.className}`;
+    summaryChannel.innerHTML=`<header>
+      <span class="admin-summary-channel-mark" aria-hidden="true"><i class="kizuna-header-icon kizuna-header-icon-channel"></i></span>
+      <div><p class="system-line">CANAL SEGURO · AT-03</p><h4>${active.length?`${active.length} terminal${active.length===1?'':'es'} enlazado${active.length===1?'':'s'}`:notificationState.label}</h4><small>${newest?`Última señal recibida ${directMessageDate(newest.last_seen_at)}`:notificationState.description}</small></div>
+      <button type="button" data-summary-manage-terminals>Gestionar terminales <span>→</span></button>
+    </header>
+    <ul>${active.slice(0,3).map(subscription=>{const device=directMessageDeviceInfo(subscription);return `<li><i aria-hidden="true"></i><span><strong>${adminEditorEscape(device.title)}</strong><small>${adminEditorEscape(device.detail)}</small></span><b>ACTIVO</b></li>`}).join('')||'<li class="is-empty"><span><strong>Sin terminales activos</strong><small>El Canal Seguro todavía no tiene un dispositivo enlazado.</small></span></li>'}</ul>
+    ${active.length>3?`<p class="admin-summary-channel-more">Y ${active.length-3} terminal${active.length-3===1?'':'es'} más.</p>`:''}`;
+    summaryChannel.querySelector('[data-summary-manage-terminals]').onclick=()=>document.querySelector('[data-editor-tab="settings"]')?.click();
   }
   target.innerHTML=`<header><div><p class="system-line">DISPOSITIVOS Y NOTIFICACIONES</p><h4>Dispositivos autorizados</h4></div><strong class="${notificationState.className}">${notificationState.label}</strong></header>
     <p class="admin-push-preference-state ${notificationState.className}"><b>${notificationState.description}</b>${preference?.responded_at?`<span>Respuesta registrada ${directMessageDate(preference.responded_at)}</span>`:''}</p>
@@ -4207,6 +4220,7 @@ const renderAdminEditor=(profile,state,initialTab='summary')=>{
       <article class="admin-summary-stage ${deviceUnlocked?'is-active':'is-locked'}" data-admin-summary-device><header><span>02</span><div><p>DISPOSITIVO CLONADO</p><h4 data-admin-summary-device-title>${deviceUnlocked?'Consultando progreso…':'Acceso bloqueado'}</h4></div><b data-admin-summary-device-count>${deviceUnlocked?'—/7':'0/7'}</b></header><p data-admin-summary-device-detail>${deviceUnlocked?'Recuperando las evidencias examinadas.':'Se habilitará después de confirmar KTB-012.'}</p><div class="admin-summary-stage-bar"><i data-admin-summary-device-bar style="width:0%"></i></div><button type="button" data-summary-tab="device">${deviceUnlocked?'Gestionar dispositivo':'Ver requisitos'} <span>→</span></button></article>
       <article class="admin-summary-stage ${summaryAlbertoResponded?'is-complete':closureComplete?'is-active':'is-locked'}"><header><span>03</span><div><p>CARTA DE ALBERTO</p><h4>${albertoStatus}</h4></div><b>${summaryAlbertoResponded?'✓':closureComplete?'!':'—'}</b></header><p>${albertoDetail}</p><div class="admin-summary-stage-bar"><i style="width:${summaryAlbertoResponded?'100':summaryAlbertoPhysicalRead?'72':summaryAlbertoAuthorized?'38':closureComplete?'15':'0'}%"></i></div><button type="button" data-summary-tab="settings">Gestionar carta <span>→</span></button></article>
     </section>
+    <section class="admin-summary-channel is-pending" data-admin-summary-channel><p class="system-line">CANAL SEGURO · AT-03</p><h4>Consultando terminales…</h4></section>
     <div class="admin-summary-lower">
       <section class="admin-summary-attention"><header><div><p class="system-line">ATENCIÓN ADMINISTRATIVA</p><h4>${summaryAlerts.length} ${summaryAlerts.length===1?'situación':'situaciones'}</h4></div><span data-admin-summary-notification-state>NOTIFICACIONES · CONSULTANDO…</span></header><ul>${summaryAlerts.map(([kind,title,detail,tab])=>`<li class="is-${kind}"><i aria-hidden="true"></i><div><strong>${title}</strong><span>${detail}</span></div><button type="button" data-summary-tab="${tab}" aria-label="Abrir ${title}">→</button></li>`).join('')}</ul></section>
       <section class="admin-summary-recent"><header><div><p class="system-line">ACTIVIDAD RECIENTE</p><h4>Últimos movimientos</h4></div><time id="admin-summary-last-activity">Consultando…</time></header><div id="admin-activity-preview"><p>Cargando actividad…</p></div><button type="button" data-summary-tab="activity">Ver registro completo <span>→</span></button></section>
